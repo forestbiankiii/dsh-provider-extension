@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../src/index.ts"],
+  "sourcesContent": ["/** Host loader entry for the model-panel browser implementation exported from `./client`. */\n\n/** Host plugin body \u2014 this package owns browser behavior only. */\nexport function apply(): void {}\n"],
+  "mappings": ";AAGO,SAAS,QAAc;AAAC;",
+  "names": []
+}

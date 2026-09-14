@@ -1,0 +1,4 @@
+# Standalone DSH model and reasoning-effort panel.
+- insert:
+    - id: model-panel
+      name: 'dsh-model-panel'
