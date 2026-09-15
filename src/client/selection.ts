@@ -4,9 +4,9 @@ import type { ModelSelection } from '@deepseek-ai/dsh-api-session-controller/typ
 import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selection/client'
 
 /** One catalog provider group of the current session directory. */
-export type ModelPanelGroup = ModelDirectoryState['groups'][number]
+export type ProviderPanelGroup = ModelDirectoryState['groups'][number]
 /** One catalog model inside a provider group. */
-export type ModelPanelModel = ModelPanelGroup['models'][number]
+export type ProviderPanelModel = ProviderPanelGroup['models'][number]
 
 const FAMILY_ACCENTS: readonly (readonly [string, string])[] = [
   ['sol', '#E3A552'], ['terra', '#CBD3E0'], ['luna', '#8F7BF2'],
@@ -21,27 +21,27 @@ export function accentFor(modelId: string, index: number): string {
 }
 
 /** Find a declared effort; missing and unknown values have no slider position. */
-export function effortIndex(model: ModelPanelModel, effortId: string | undefined): number {
+export function effortIndex(model: ProviderPanelModel, effortId: string | undefined): number {
   if (effortId === undefined) return -1
   return model.reasoning?.efforts.findIndex(effort => effort.id === effortId) ?? -1
 }
 
 /** Only a valid declared default is a known resting effort; never infer Max. */
-export function restingEffort(model: ModelPanelModel): string | undefined {
+export function restingEffort(model: ProviderPanelModel): string | undefined {
   const effort = model.reasoning?.defaultEffort
   return effortIndex(model, effort) >= 0 ? effort : undefined
 }
 
 /** Match the complete route, not a model id that another provider may also own. */
 export function isCurrentModel(
-  current: ModelDirectoryState['current'], provider: string, model: ModelPanelModel,
+  current: ModelDirectoryState['current'], provider: string, model: ProviderPanelModel,
 ): boolean {
   return current?.provider === provider && current.model === model.id
 }
 
 /** Submit only installed ModelSelection fields. Metadata cannot enable context forwarding. */
 export function selectionForRow(
-  model: ModelPanelModel,
+  model: ProviderPanelModel,
   provider: string,
   effortId: string | undefined,
 ): ModelSelection {
@@ -54,6 +54,6 @@ export function selectionForRow(
 }
 
 /** Render the current provider, or the first loaded group as an explicit fallback. */
-export function activeGroup(state: ModelDirectoryState): ModelPanelGroup | undefined {
+export function activeGroup(state: ModelDirectoryState): ProviderPanelGroup | undefined {
   return state.groups.find(group => group.id === state.current?.provider) ?? state.groups[0]
 }

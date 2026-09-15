@@ -8,11 +8,11 @@ const clientSource = readFileSync(new URL('../src/client/index.ts', import.meta.
 
 describe('published artifact contract', () => {
   it('advertises one installable bundle and client entry', () => {
-    expect(manifest.name).toBe('dsh-model-panel')
+    expect(manifest.name).toBe('dsh-provider-extension')
     expect(manifest.dsh.bundle.patch).toBe('./cordis.patch.yml')
     expect(manifest.dsh.client.platform).toBe('web')
     expect(manifest.exports['./client'].default).toBe('./lib/client.js')
-    expect(patch).toContain("name: 'dsh-model-panel'")
+    expect(patch).toContain("name: 'dsh-provider-extension'")
   })
 
   it('replaces the shipped model seat instead of adding a duplicate right-side control', () => {
@@ -22,7 +22,7 @@ describe('published artifact contract', () => {
   })
 
   it('ships the expected DSH module-loader wrapper without dshx internals', () => {
-    expect(client.startsWith('window.__ModuleLoader__.load({id:"dsh-model-panel"')).toBe(true)
+    expect(client.startsWith('window.__ModuleLoader__.load({id:"dsh-provider-extension"')).toBe(true)
     expect(client).not.toContain('@dshx/')
     const requires = [...client.matchAll(/require\("([^"]+)"\)/g)].map(match => match[1]).sort()
     expect(requires).toEqual(['@deepseek-ai/dsh-client-ui-primitives', 'react', 'react/jsx-runtime'])

@@ -2,9 +2,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selection/client'
-import { ModelPanel, type ModelPanelProps } from '../src/client/ModelPanel.tsx'
+import { ProviderPanel, type ProviderPanelProps } from '../src/client/ProviderPanel.tsx'
 import { en } from '../src/client/locales.ts'
-import type { CodexAccountsState } from '../src/client/codexAccounts.ts'
+import type { CodexAccountsState } from '../src/client/providers/codex.ts'
 afterEach(cleanup)
 function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean } = {}) {
   const state: ModelDirectoryState = { current: { provider: 'a', model: 'sol', reasoningEffort: 'high' }, routable: true,
@@ -19,19 +19,20 @@ function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean } = {
   const accountState: CodexAccountsState = { status: 'ready', error: null, accounts: options.codex ? [
     { id: 'work', label: 'Work', email: 'work@example.com', active: true },
     { id: 'personal', label: 'Personal', email: 'personal@example.com', active: false },
-  ] : [] }
+  ] : [], usage: options.codex ? { work: { status: 'ready', value: { weeklyPercent: 76 } } } : {} }
   const select = vi.fn(async () => { if (options.fail) throw new Error('rejected') })
   const selectAccount = vi.fn(async () => { if (options.fail) throw new Error('account rejected') })
+  const readQuota = vi.fn(async () => { if (options.fail) throw new Error('quota rejected') })
   const loadDirectory = vi.fn(async () => {})
   const loadAccounts = vi.fn(async () => {})
   const props = { locked: false, available: true,
     useDirectory: (selector: (s: ModelDirectoryState) => unknown) => selector(state),
     useAccounts: (selector: (s: CodexAccountsState) => unknown) => selector(accountState),
-    select, selectAccount, loadDirectory, loadAccounts,
-    t: (key: keyof typeof en, args?: Record<string, unknown>) => en[key].replace(/\{(\w+)\}/g, (_, k: string) => String(args?.[k] ?? '')) } as unknown as ModelPanelProps
-  const view = render(<ModelPanel {...props} />)
+    select, selectAccount, readQuota, loadDirectory, loadAccounts,
+    t: (key: keyof typeof en, args?: Record<string, unknown>) => en[key].replace(/\{(\w+)\}/g, (_, k: string) => String(args?.[k] ?? '')) } as unknown as ProviderPanelProps
+  const view = render(<ProviderPanel {...props} />)
   fireEvent.click(screen.getByRole('button', { name: en.title }))
-  return { select, selectAccount, loadDirectory, loadAccounts, view }
+  return { select, selectAccount, readQuota, loadDirectory, loadAccounts, view }
 }
 describe('model panel component', () => {
   it('renders separate provider and model triggers, then scopes models to the chosen provider', async () => {
@@ -61,13 +62,23 @@ describe('model panel component', () => {
     expect(b.select).not.toHaveBeenCalled()
   })
 
+  it('shows the read weekly quota and reads another account on demand', async () => {
+    const b = bench({ codex: true })
+    fireEvent.click(screen.getByRole('button', { name: en.providerTitle }))
+    await waitFor(() => expect(screen.getByRole('group', { name: 'ChatGPT subscription' })).toBeTruthy())
+    expect(screen.getByRole('option', { name: /Work/ }).textContent).toContain('wk 76%')
+    fireEvent.click(screen.getByRole('button', { name: en.readQuota }))
+    await waitFor(() => expect(b.readQuota).toHaveBeenCalledWith('personal'))
+    expect(b.selectAccount).not.toHaveBeenCalled()
+  })
+
   it('opens, loads and shows an honest unsupported-context notice', async () => {
     const b = bench()
     await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
     expect(screen.getByRole('dialog', { name: en.title })).toBeTruthy()
     expect(screen.getByText(en.contextUnsupported)).toBeTruthy()
     expect(screen.queryByRole('button', { name: '1M' })).toBeNull()
-    fireEvent.keyDown(screen.getByTestId('dsh-model-panel'), { key: 'Escape' })
+    fireEvent.keyDown(screen.getByTestId('dsh-provider-extension'), { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
   })
   it('selects models without reasoning and submits no unknown fields', async () => {

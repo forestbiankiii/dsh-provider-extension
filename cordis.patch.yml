@@ -1,4 +1,4 @@
-# Standalone DSH model and reasoning-effort panel.
+# Provider Extension — composer provider seat with per-provider integrations.
 - insert:
-    - id: model-panel
-      name: 'dsh-model-panel'
+    - id: provider-extension
+      name: 'dsh-provider-extension'

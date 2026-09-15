@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented here.
 
+This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
+
+## 0.4.0 — 2026-09-16
+
+- Rename the project to **Provider Extension / 提供商拓展插件** (`dsh-provider-extension`, row id `provider-extension`) so later provider integrations share one plugin.
+- Move the ChatGPT/Codex subscription integration into `src/client/providers/codex.ts` as the first provider module.
+- Show each ChatGPT account's weekly remaining quota: the active account is read automatically when the list opens, other accounts on demand through a temporary switch that is reverted immediately (upstream `usage` only reports the active account).
+- Report quota read failures and a failed switch-back explicitly instead of leaving them silent.
+- Extend the installer migration so every earlier package name is removed from dependencies, bundles, patch rows, and runtime copies.
+- Document the provider roadmap: GPT, Gemini, and OpenCode integrations only after real-window acceptance.
+
 ## 0.3.0 — 2026-09-15
 
 - List the saved ChatGPT accounts of `dsh-codex-subscription` 2.x under their provider instead of one summary row.
@@ -21,7 +32,7 @@ All notable changes to this project will be documented here.
 
 ## 0.1.0 — 2026-09-13
 
-- Initial standalone community release.
+- Initial standalone community release as `dsh-model-panel`.
 - Add per-model reasoning-effort sliders and an active-model effort selector.
 - Reuse the authoritative DSH session model directory.
 - Support models without reasoning controls.

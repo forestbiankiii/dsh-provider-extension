@@ -1,4 +1,4 @@
-/** Model-panel copy; both locales describe the actual installed capability. */
+/** provider-extension copy; both locales describe the actual installed capability. */
 export declare const en: {
     readonly title: "Model and reasoning effort";
     readonly trigger: "Select model";
@@ -14,6 +14,12 @@ export declare const en: {
     readonly accountSwitching: "Switching…";
     readonly accountActive: "Active";
     readonly accountUse: "Use";
+    readonly weeklyQuota: "wk {value}%";
+    readonly quotaNoWeekly: "no weekly quota";
+    readonly readQuota: "Read quota";
+    readonly quotaReading: "Reading…";
+    readonly quotaFailedShort: "Quota read failed";
+    readonly quotaRestoreFailed: "Could not restore the previous account; the active account may have changed.";
     readonly contextWindow: "Context window";
     readonly reload: "Reload";
     readonly loading: "Loading models…";
@@ -30,7 +36,7 @@ export declare const en: {
     readonly providerFailed: "{provider}: {message}";
     readonly contextUnsupported: "Context-window selection is not supported by this runtime.";
 };
-export type ModelPanelKey = keyof typeof en;
+export type ProviderPanelKey = keyof typeof en;
 export declare const zh: {
-    [Key in ModelPanelKey]: string;
+    [Key in ProviderPanelKey]: string;
 };

@@ -18,7 +18,11 @@ For every UI or runtime-behavior change, the maintainer must follow this order:
 
 Do not push, tag, or publish a candidate merely because automated tests pass. User acceptance in the real DSH window is a required release gate.
 
-The profile installer must choose exactly one registration path. This package is a DSH bundle, so installation adds it once to `dsh.profile.bundles` and removes any manual `model-panel` row from the user patch. Never combine both paths: a full restart would fail with `duplicate loader entry id "model-panel"`.
+The profile installer must choose exactly one registration path. This package is a DSH bundle, so installation adds it once to `dsh.profile.bundles` and removes any manual `provider-extension` or legacy `model-panel` row from the user patch. Never combine both paths: a full restart would fail with `duplicate loader entry id "provider-extension"`.
+
+## Provider modules
+
+Each provider integration lives in its own file under `src/client/providers/` and owns only that provider's account and quota behavior. Add a provider in a separate change with its own tests, and state it as planned — not integrated — until it passes the real-window acceptance gate.
 
 Please do not include credentials, private session data, unpublished model metadata, screenshots containing personal information, or generated dependency directories.
 

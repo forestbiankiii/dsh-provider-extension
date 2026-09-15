@@ -1,7 +1,7 @@
 {
-  "name": "dsh-model-panel",
-  "version": "0.3.0",
-  "description": "An unofficial model and reasoning-effort slider panel for DSH Desktop",
+  "name": "dsh-provider-extension",
+  "version": "0.4.0",
+  "description": "An unofficial DSH Desktop provider extension: composer provider/account/model controls and per-account subscription quota",
   "license": "MIT",
   "author": "forestbiankiii",
   "type": "module",
@@ -135,18 +135,24 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/forestbiankiii/dsh-model-panel.git"
+    "url": "git+https://github.com/forestbiankiii/dsh-provider-extension.git"
   },
   "bugs": {
-    "url": "https://github.com/forestbiankiii/dsh-model-panel/issues"
+    "url": "https://github.com/forestbiankiii/dsh-provider-extension/issues"
   },
-  "homepage": "https://github.com/forestbiankiii/dsh-model-panel#readme",
+  "homepage": "https://github.com/forestbiankiii/dsh-provider-extension#readme",
   "keywords": [
     "deepseek-harness",
     "dsh",
     "cordis",
+    "provider",
+    "provider-extension",
     "model-selector",
     "reasoning-effort",
+    "chatgpt",
+    "codex",
+    "gemini",
+    "opencode",
     "desktop-plugin"
   ],
   "publishConfig": {

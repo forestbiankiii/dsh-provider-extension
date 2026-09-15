@@ -18,17 +18,17 @@ const cssModules = {
   name: 'standalone-css-modules',
   setup(buildApi) {
     buildApi.onResolve({ filter: /\.module\.css$/ }, args => ({
-      path: 'ModelPanel.module.css',
-      namespace: 'dsh-model-panel-css',
+      path: 'ProviderPanel.module.css',
+      namespace: 'dsh-provider-extension-css',
       pluginData: { absolutePath: resolve(args.resolveDir, args.path) },
     }))
-    buildApi.onLoad({ filter: /.*/, namespace: 'dsh-model-panel-css' }, async args => {
+    buildApi.onLoad({ filter: /.*/, namespace: 'dsh-provider-extension-css' }, async args => {
       const source = await readFile(args.pluginData.absolutePath)
       const result = transform({
-        filename: 'ModelPanel.module.css',
+        filename: 'ProviderPanel.module.css',
         code: source,
         minify: true,
-        cssModules: { pattern: 'dmp_[local]_[hash]' },
+        cssModules: { pattern: 'dpe_[local]_[hash]' },
       })
       const classes = Object.fromEntries(
         Object.entries(result.exports ?? {})
@@ -55,7 +55,7 @@ await build({
   logLevel: 'info',
 })
 
-const id = 'dsh-model-panel'
+const id = 'dsh-provider-extension'
 await build({
   absWorkingDir: root,
   entryPoints: ['src/client/index.ts'],
@@ -84,4 +84,4 @@ await build({
   logLevel: 'info',
 })
 
-console.log('Built dsh-model-panel host, client, CSS, source maps, and declarations.')
+console.log('Built dsh-provider-extension host, client, CSS, source maps, and declarations.')

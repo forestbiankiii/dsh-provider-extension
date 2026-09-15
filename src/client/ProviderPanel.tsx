@@ -6,15 +6,15 @@ import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
-import { isCodexProvider, maskedEmail, type CodexAccountsState } from './codexAccounts.ts'
+import { isCodexProvider, maskedEmail, type CodexAccountsState } from './providers/codex.ts'
 import {
   accentFor, activeGroup, effortIndex, isCurrentModel, restingEffort,
-  selectionForRow, type ModelPanelModel,
+  selectionForRow, type ProviderPanelModel,
 } from './selection.ts'
-import css from './ModelPanel.module.css'
+import css from './ProviderPanel.module.css'
 
 /** Per-session injected seat dependencies. */
-export interface ModelPanelInjected {
+export interface ProviderPanelInjected {
   /** Addressed subagent sessions cannot use Agent-bound model selection. */
   available: boolean
   hooks: {
@@ -29,22 +29,24 @@ export interface ModelPanelInjected {
   loadAccounts: () => Promise<void>
   /** Select the real active Codex account used for subsequent quota and requests. */
   selectAccount: (id: string) => Promise<void>
+  /** Read one account's quota, reverting the temporary switch when it is not active. */
+  readQuota: (id: string) => Promise<void>
   /** Submit one complete selection through the shared directory. */
   select: (selection: ModelSelection) => Promise<void>
 }
 
 /** Complete replacement-seat props, including the composer's lock state. */
-export type ModelPanelProps =
+export type ProviderPanelProps =
   PropsRuntime<'conversation.input.model'>
-  & PropsLocale<'modelPanel'>
-  & InjectFace<ModelPanelInjected>
+  & PropsLocale<'providerExtension'>
+  & InjectFace<ProviderPanelInjected>
 
 type OpenPane = 'provider' | 'model' | null
 
 /** Render separate provider and model controls inside the official model seat. */
-export function ModelPanel({
-  locked, available, useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, select, t,
-}: ModelPanelProps): ReactNode {
+export function ProviderPanel({
+  locked, available, useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, readQuota, select, t,
+}: ProviderPanelProps): ReactNode {
   const directory = useDirectory(snapshot => snapshot)
   const accounts = useAccounts(snapshot => snapshot)
   const [open, setOpen] = useState<OpenPane>(null)
@@ -53,7 +55,7 @@ export function ModelPanel({
   const [loading, setLoading] = useState(false)
   const [accountError, setAccountError] = useState<string | null>(null)
   const [error, setError] = useState<{ kind: 'loadFailed' | 'selectFailed'; message: string } | null>(null)
-  const [dragging, setDragging] = useState<{ model: ModelPanelModel; provider: string; index: number } | null>(null)
+  const [dragging, setDragging] = useState<{ model: ProviderPanelModel; provider: string; index: number } | null>(null)
   const root = useRef<HTMLDivElement | null>(null)
   const providerTrigger = useRef<HTMLButtonElement | null>(null)
   const modelTrigger = useRef<HTMLButtonElement | null>(null)
@@ -74,7 +76,7 @@ export function ModelPanel({
     setError(null)
     setDragging(null)
     return () => { mounted.current = false; generation.current++ }
-  }, [useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, select])
+  }, [useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, readQuota, select])
 
   // Follow authoritative provider changes, but preserve a provider the user is browsing
   // until a model selection changes the authoritative route.
@@ -149,12 +151,12 @@ export function ModelPanel({
     }
   }
 
-  const submit = (model: ModelPanelModel | undefined, effortId: string | undefined): void => {
+  const submit = (model: ProviderPanelModel | undefined, effortId: string | undefined): void => {
     if (group === undefined || model === undefined || selecting.current || pending) return
     run('selectFailed', () => select(selectionForRow(model, group.id, effortId)))
   }
 
-  const renderRow = (model: ModelPanelModel, index: number): ReactNode => {
+  const renderRow = (model: ProviderPanelModel, index: number): ReactNode => {
     const ladder = model.reasoning?.efforts ?? []
     const count = ladder.length
     const provider = group!.id
@@ -173,9 +175,9 @@ export function ModelPanel({
         data-model-accent={model.id}
         data-current={isCurrent}
         style={{
-          '--dshx-accent': accent,
-          '--dshx-accent-soft': `${accent}1f`,
-          '--dshx-accent-edge': `${accent}66`,
+          '--dpe-accent': accent,
+          '--dpe-accent-soft': `${accent}1f`,
+          '--dpe-accent-edge': `${accent}66`,
         } as CSSProperties}
       >
         <div className={css.rowHead}>
@@ -251,6 +253,15 @@ export function ModelPanel({
     })
   }
 
+  const requestQuota = (id: string): void => {
+    if (pending) return
+    setAccountError(null)
+    void readQuota(id).catch((cause: unknown) => {
+      if (!mounted.current) return
+      setAccountError(cause instanceof Error ? cause.message : String(cause))
+    })
+  }
+
   if (!available) return null
 
   const activeAccount = accounts.accounts.find(account => account.active)
@@ -263,7 +274,7 @@ export function ModelPanel({
   return (
     <div
       className={css.root}
-      data-testid="dsh-model-panel"
+      data-testid="dsh-provider-extension"
       onKeyDown={(event) => {
         if (event.key !== 'Escape' || open === null) return
         event.preventDefault()
@@ -352,28 +363,49 @@ export function ModelPanel({
                     <span className={css.providerCount}>{t('accountCount', { count: accounts.accounts.length })}</span>
                   </div>
                   {accountError === null ? null : <p className={css.accountError} role="alert">{t('accountSwitchFailed', { message: accountError })}</p>}
+                  {accounts.restoreFailed === true ? <p className={css.accountError} role="alert">{t('quotaRestoreFailed')}</p> : null}
                   {accounts.accounts.map(account => {
                     const email = maskedEmail(account.email)
+                    const usage = accounts.usage[account.id]
+                    const weekly = usage?.status === 'ready' ? usage.value.weeklyPercent : undefined
+                    const quotaText = usage?.status === 'loading' ? t('quotaReading')
+                      : usage?.status === 'error' ? t('quotaFailedShort')
+                        : usage?.status === 'ready'
+                          ? weekly === undefined ? t('quotaNoWeekly') : t('weeklyQuota', { value: weekly })
+                          : undefined
+                    const canRead = !account.active && (usage === undefined || usage.status === 'error')
                     return (
-                      <button
-                        key={account.id}
-                        type="button"
-                        role="option"
-                        aria-selected={selected && account.active}
-                        className={selected && account.active
-                          ? `${css.accountOption} ${css.providerCurrent}` : css.accountOption}
-                        disabled={pending}
-                        onClick={() => { chooseAccount(candidate.id, account.id, account.active) }}
-                      >
-                        <span className={css.accountIdentity}>
-                          <span className={css.accountLabel}>{account.label}</span>
-                          {email === undefined ? null : <span className={css.accountEmail}>{email}</span>}
-                        </span>
-                        <span className={css.accountState}>
-                          {accounts.switchingId === account.id ? t('accountSwitching')
-                            : account.active ? t('accountActive') : t('accountUse')}
-                        </span>
-                      </button>
+                      <div key={account.id} className={css.accountRow}>
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={selected && account.active}
+                          className={selected && account.active
+                            ? `${css.accountOption} ${css.providerCurrent}` : css.accountOption}
+                          disabled={pending}
+                          onClick={() => { chooseAccount(candidate.id, account.id, account.active) }}
+                        >
+                          <span className={css.accountIdentity}>
+                            <span className={css.accountLabel}>{account.label}</span>
+                            {email === undefined ? null : <span className={css.accountEmail}>{email}</span>}
+                          </span>
+                          <span className={css.accountMeta}>
+                            <span className={css.accountState}>
+                              {accounts.switchingId === account.id ? t('accountSwitching')
+                                : account.active ? t('accountActive') : t('accountUse')}
+                            </span>
+                            {quotaText === undefined ? null : <span className={css.accountQuota}>{quotaText}</span>}
+                          </span>
+                        </button>
+                        {canRead ? (
+                          <button
+                            type="button"
+                            className={css.accountRead}
+                            disabled={pending}
+                            onClick={() => { requestQuota(account.id) }}
+                          >{t('readQuota')}</button>
+                        ) : null}
+                      </div>
                     )
                   })}
                 </div>

@@ -4,9 +4,9 @@ import type { ModelSelection } from '@deepseek-ai/dsh-api-session-controller/typ
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store';
 import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selection/client';
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
-import { type CodexAccountsState } from './codexAccounts.ts';
+import { type CodexAccountsState } from './providers/codex.ts';
 /** Per-session injected seat dependencies. */
-export interface ModelPanelInjected {
+export interface ProviderPanelInjected {
     /** Addressed subagent sessions cannot use Agent-bound model selection. */
     available: boolean;
     hooks: {
@@ -21,10 +21,12 @@ export interface ModelPanelInjected {
     loadAccounts: () => Promise<void>;
     /** Select the real active Codex account used for subsequent quota and requests. */
     selectAccount: (id: string) => Promise<void>;
+    /** Read one account's quota, reverting the temporary switch when it is not active. */
+    readQuota: (id: string) => Promise<void>;
     /** Submit one complete selection through the shared directory. */
     select: (selection: ModelSelection) => Promise<void>;
 }
 /** Complete replacement-seat props, including the composer's lock state. */
-export type ModelPanelProps = PropsRuntime<'conversation.input.model'> & PropsLocale<'modelPanel'> & InjectFace<ModelPanelInjected>;
+export type ProviderPanelProps = PropsRuntime<'conversation.input.model'> & PropsLocale<'providerExtension'> & InjectFace<ProviderPanelInjected>;
 /** Render separate provider and model controls inside the official model seat. */
-export declare function ModelPanel({ locked, available, useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, select, t, }: ModelPanelProps): ReactNode;
+export declare function ProviderPanel({ locked, available, useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, readQuota, select, t, }: ProviderPanelProps): ReactNode;
