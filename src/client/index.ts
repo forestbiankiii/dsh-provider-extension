@@ -47,14 +47,17 @@ export function apply(ctx: ClientContext): void {
     return () => { tag.remove() }
   }, 'dsh-model-panel: styles')
 
-  ctx.slots.inject('conversation.input.right', () => ctx.slots.register({
-    name: 'conversation.input.right',
-    id: 'dsh-model-panel',
-    order: 20,
+  // The shipped selector currently occupies this single seat at priority -10.
+  // A lower priority wins, so -20 deliberately replaces only its visual seat;
+  // the official modelDirectories service and /model command remain mounted.
+  ctx.slots.inject('conversation.input.model', () => ctx.slots.register({
+    name: 'conversation.input.model',
+    priority: -20,
     locale: NS,
     inject: (sessionId: string): ModelPanelInjected => {
       const directory = ctx.modelDirectories.directoryFor(sessionId as SessionId)
       return {
+        available: ctx.sessions.subagentAddress(sessionId as SessionId) === undefined,
         hooks: { directory: directory.store },
         loadDirectory: async () => { await directory.load() },
         select: async (selection) => { await directory.select(selection) },

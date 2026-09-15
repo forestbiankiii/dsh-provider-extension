@@ -1,6 +1,10 @@
 .root {
   position: relative;
-  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .trigger {
@@ -45,11 +49,25 @@
   border-radius: 50%;
 }
 
+.providerTrigger {
+  max-width: 150px;
+}
+
+.modelTrigger {
+  max-width: 220px;
+}
+
+.providerLabel,
 .triggerLabel {
   flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.providerLabel {
+  color: var(--dsw-alias-label-primary);
 }
 
 .triggerEffort {
@@ -79,6 +97,55 @@
   border-radius: 16px;
   background: var(--dsw-specific-menu);
   box-shadow: var(--dsw-shadow-lv3);
+}
+
+.providerMenu {
+  width: min(280px, calc(100vw - 32px));
+}
+
+.providerList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.providerOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 9px;
+  border: none;
+  border-radius: 9px;
+  outline: none;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.providerOption:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.providerCurrent {
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
+}
+
+.providerCount {
+  flex: none;
+  min-width: 20px;
+  color: var(--dsw-alias-label-caption);
+  font-size: 12px;
+  text-align: right;
 }
 
 .head {

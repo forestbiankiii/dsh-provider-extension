@@ -3,6 +3,9 @@ export declare const en: {
     readonly title: "Model and reasoning effort";
     readonly trigger: "Select model";
     readonly effort: "Reasoning effort";
+    readonly providerTitle: "Select provider";
+    readonly providerTrigger: "Provider";
+    readonly providerEmpty: "No provider is available.";
     readonly contextWindow: "Context window";
     readonly reload: "Reload";
     readonly loading: "Loading models…";

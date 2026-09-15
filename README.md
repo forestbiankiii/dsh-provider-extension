@@ -6,18 +6,18 @@ An **unofficial community plugin** for [DeepSeek Harness](https://github.com/dee
 
 > This project is not affiliated with or endorsed by DeepSeek. DeepSeek Harness and related names are trademarks of their respective owners.
 
-![Model panel running in DSH Desktop](docs/screenshot.png)
-
 ## Features
 
 - Uses DSH's authoritative per-session `ModelDirectory`; it does not create a second model catalog.
-- Shows the active provider's models as accent-colored effort sliders.
+- Replaces the shipped `conversation.input.model` visual seat while keeping its authoritative service and `/model` command.
+- Renders exactly two model-related controls: a provider picker followed by a model/reasoning picker.
+- Shows the chosen provider's models as accent-colored effort sliders.
 - Provides the active model's declared reasoning-effort buttons.
 - Keeps models without reasoning controls selectable.
-- Synchronizes with the shipped model selector and survives page reloads.
+- Uses the shipped model directory and survives page reloads.
 - Opens upward from the composer and supports Escape/outside-click dismissal.
 - Reports unsupported context-window selection honestly instead of showing fake 256K/512K/1M controls.
-- Adds a second composer control; it does not remove the shipped selector.
+- Choosing a provider changes the browsed catalog group; the active session model changes only after the user chooses a model.
 
 ## Compatibility
 
@@ -88,6 +88,8 @@ npm run check
 ```
 
 `npm run check` performs strict TypeScript checking, component/policy/installer tests, rebuilds the DSH client-module artifact, and verifies the publishable package. The dedicated builder uses esbuild plus Lightning CSS, externalizes DSH-provided runtime modules, and wraps browser output in `window.__ModuleLoader__.load(...)`.
+
+UI and runtime changes must pass the real-window acceptance gate documented in [CONTRIBUTING.md](CONTRIBUTING.md): install the candidate locally, let the requester try it in the current DSH Desktop window, and wait for explicit approval before any push, tag, or release.
 
 ## Architecture
 

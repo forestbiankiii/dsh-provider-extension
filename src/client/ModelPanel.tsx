@@ -1,4 +1,4 @@
-/** Model and reasoning-effort seat; context selection is explicitly unsupported. */
+/** Provider and model/reasoning controls that replace the shipped model seat. */
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { ModelSelection } from '@deepseek-ai/dsh-api-session-controller/types'
@@ -14,6 +14,8 @@ import css from './ModelPanel.module.css'
 
 /** Per-session injected seat dependencies. */
 export interface ModelPanelInjected {
+  /** Addressed subagent sessions cannot use Agent-bound model selection. */
+  available: boolean
   hooks: {
     /** Session model directory bound by the renderer as useDirectory. */
     directory: SnapshotStore<ModelDirectoryState>
@@ -24,31 +26,37 @@ export interface ModelPanelInjected {
   select: (selection: ModelSelection) => Promise<void>
 }
 
-/** Complete conversation-seat props. */
+/** Complete replacement-seat props, including the composer's lock state. */
 export type ModelPanelProps =
-  PropsRuntime<'conversation.input.right'>
+  PropsRuntime<'conversation.input.model'>
   & PropsLocale<'modelPanel'>
   & InjectFace<ModelPanelInjected>
 
-/** Render the model seat and its combined panel. */
-export function ModelPanel({ useDirectory, loadDirectory, select, t }: ModelPanelProps): ReactNode {
+type OpenPane = 'provider' | 'model' | null
+
+/** Render separate provider and model controls inside the official model seat. */
+export function ModelPanel({ locked, available, useDirectory, loadDirectory, select, t }: ModelPanelProps): ReactNode {
   const directory = useDirectory(snapshot => snapshot)
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState<OpenPane>(null)
+  const [providerDraft, setProviderDraft] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<{ kind: 'loadFailed' | 'selectFailed'; message: string } | null>(null)
   const [dragging, setDragging] = useState<{ model: ModelPanelModel; provider: string; index: number } | null>(null)
   const root = useRef<HTMLDivElement | null>(null)
-  const trigger = useRef<HTMLButtonElement | null>(null)
+  const providerTrigger = useRef<HTMLButtonElement | null>(null)
+  const modelTrigger = useRef<HTMLButtonElement | null>(null)
   const generation = useRef(0)
   const mounted = useRef(false)
   const selecting = useRef(false)
 
-  // Invalidate late completions on teardown or a new injected session directory.
+  // Invalidate late completions and local navigation when the injected Session changes.
   useEffect(() => {
     mounted.current = true
     generation.current++
     selecting.current = false
+    setOpen(null)
+    setProviderDraft(undefined)
     setBusy(false)
     setLoading(false)
     setError(null)
@@ -56,26 +64,34 @@ export function ModelPanel({ useDirectory, loadDirectory, select, t }: ModelPane
     return () => { mounted.current = false; generation.current++ }
   }, [useDirectory, loadDirectory, select])
 
-  const group = activeGroup(directory)
+  // Follow authoritative provider changes, but preserve a provider the user is browsing
+  // until a model selection changes the authoritative route.
+  useEffect(() => {
+    if (directory.current?.provider !== undefined) setProviderDraft(directory.current.provider)
+  }, [directory.current?.provider])
+
+  const authoritativeGroup = activeGroup(directory)
+  const group = directory.groups.find(candidate => candidate.id === providerDraft) ?? authoritativeGroup
   const models = group?.models ?? []
-  const currentModel = group === undefined ? undefined
+  const currentModel = group === undefined || group.id !== directory.current?.provider ? undefined
     : models.find(model => isCurrentModel(directory.current, group.id, model))
   const efforts = currentModel?.reasoning?.efforts ?? []
-  const currentEffort = directory.current?.reasoningEffort
+  const currentEffort = currentModel === undefined ? undefined : directory.current?.reasoningEffort
   const currentEffortName = efforts.find(effort => effort.id === currentEffort)?.name
-  const pending = busy || directory.status === 'selecting'
+  const pending = locked || busy || directory.status === 'selecting'
   const fetching = loading || directory.status === 'loading'
 
   useEffect(() => {
-    if (!open) return
+    if (open === null) return
     const close = (event: MouseEvent): void => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false)
+      if (!root.current?.contains(event.target as Node)) setOpen(null)
     }
     const escape = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
       event.preventDefault()
-      setOpen(false)
-      trigger.current?.focus()
+      const focus = open === 'provider' ? providerTrigger.current : modelTrigger.current
+      setOpen(null)
+      focus?.focus()
     }
     document.addEventListener('mousedown', close)
     document.addEventListener('keydown', escape)
@@ -92,7 +108,6 @@ export function ModelPanel({ useDirectory, loadDirectory, select, t }: ModelPane
     setBusy(isSelection)
     setLoading(!isSelection)
     setError(null)
-    // Promise.resolve also turns a synchronous adapter throw into the same error path.
     void Promise.resolve().then(operation)
       .catch((cause: unknown) => {
         if (!mounted.current || request !== generation.current) return
@@ -110,6 +125,13 @@ export function ModelPanel({ useDirectory, loadDirectory, select, t }: ModelPane
   const reload = (): void => {
     if (selecting.current || pending) return
     run('loadFailed', loadDirectory)
+  }
+
+  const toggle = (pane: Exclude<OpenPane, null>): void => {
+    if (pending) return
+    const next = open === pane ? null : pane
+    setOpen(next)
+    if (next !== null) reload()
   }
 
   const submit = (model: ModelPanelModel | undefined, effortId: string | undefined): void => {
@@ -195,39 +217,90 @@ export function ModelPanel({ useDirectory, loadDirectory, select, t }: ModelPane
     )
   }
 
-  const triggerLabel = currentModel?.name ?? directory.current?.model ?? t('trigger')
+  if (!available) return null
+
+  const providerLabel = group?.name ?? directory.current?.provider ?? t('providerTrigger')
+  const modelLabel = currentModel?.name ?? (group?.id === directory.current?.provider
+    ? directory.current?.model ?? t('trigger') : t('trigger'))
 
   return (
     <div
       className={css.root}
-      data-testid="dshx-model-panel"
-      ref={root}
+      data-testid="dsh-model-panel"
       onKeyDown={(event) => {
-        if (event.key !== 'Escape' || !open) return
+        if (event.key !== 'Escape' || open === null) return
         event.preventDefault()
-        setOpen(false)
-        trigger.current?.focus()
+        const focus = open === 'provider' ? providerTrigger.current : modelTrigger.current
+        setOpen(null)
+        focus?.focus()
       }}
+      ref={root}
     >
       <button
-        ref={trigger}
+        ref={providerTrigger}
         type="button"
-        className={css.trigger}
+        className={`${css.trigger} ${css.providerTrigger}`}
+        aria-label={t('providerTitle')}
+        aria-haspopup="dialog"
+        aria-expanded={open === 'provider'}
+        disabled={pending}
+        title={providerLabel}
+        onClick={() => { toggle('provider') }}
+      >
+        <span className={css.providerLabel}>{providerLabel}</span>
+        <span aria-hidden="true"><IconChevronDownOutline14 className={css.chevron} /></span>
+      </button>
+
+      <button
+        ref={modelTrigger}
+        type="button"
+        className={`${css.trigger} ${css.modelTrigger}`}
         aria-label={t('title')}
         aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => {
-          const next = !open
-          setOpen(next)
-          if (next) reload()
-        }}
+        aria-expanded={open === 'model'}
+        disabled={pending}
+        title={currentEffortName === undefined ? modelLabel : `${modelLabel} · ${currentEffortName}`}
+        onClick={() => { toggle('model') }}
       >
-        <span className={css.dot} aria-hidden="true" style={{ background: accentFor(currentModel?.id ?? '', 0) }} />
-        <span className={css.triggerLabel}>{triggerLabel}</span>
+        <span className={css.dot} aria-hidden="true" style={{ background: accentFor(currentModel?.id ?? modelLabel, 0) }} />
+        <span className={css.triggerLabel}>{modelLabel}</span>
         {currentEffortName === undefined ? null : <span className={css.triggerEffort}>{currentEffortName}</span>}
         <span aria-hidden="true"><IconChevronDownOutline14 className={css.chevron} /></span>
       </button>
-      {open && (
+
+      {open === 'provider' && (
+        <div className={`${css.menu} ${css.providerMenu}`} role="dialog" aria-label={t('providerTitle')} aria-busy={fetching}>
+          <div className={css.head}>
+            <span className={css.headTitle}>{t('providerTitle')}</span>
+            <button type="button" className={css.reload} disabled={pending || fetching} onClick={reload}>{t('reload')}</button>
+          </div>
+          {error?.kind === 'loadFailed' ? <p className={css.error} role="alert">{t('loadFailed', { message: error.message })}</p> : null}
+          {fetching ? <p className={css.note} role="status">{t('loading')}</p> : null}
+          {directory.groups.length === 0 && !fetching ? <p className={css.note}>{t('providerEmpty')}</p> : null}
+          <div className={css.providerList} role="listbox" aria-label={t('providerTitle')}>
+            {directory.groups.map(candidate => (
+              <button
+                key={candidate.id}
+                type="button"
+                role="option"
+                aria-selected={candidate.id === group?.id}
+                className={candidate.id === group?.id ? `${css.providerOption} ${css.providerCurrent}` : css.providerOption}
+                disabled={pending}
+                onClick={() => {
+                  setProviderDraft(candidate.id)
+                  setOpen(null)
+                  queueMicrotask(() => { providerTrigger.current?.focus() })
+                }}
+              >
+                <span>{candidate.name}</span>
+                <span className={css.providerCount}>{candidate.models.length}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {open === 'model' && (
         <div className={css.menu} role="dialog" aria-label={t('title')} aria-busy={pending || fetching}>
           <div className={css.head}>
             <span className={css.headTitle}>{group?.name ?? t('title')}</span>
@@ -240,7 +313,7 @@ export function ModelPanel({ useDirectory, loadDirectory, select, t }: ModelPane
             <p key={failure.id} className={css.error} role="alert">{t('providerFailed', { provider: failure.name, message: failure.message })}</p>
           ))}
           {fetching ? <p className={css.note} role="status">{t('loading')}</p> : null}
-          {directory.current !== null && currentModel === undefined && !fetching
+          {directory.current !== null && group?.id === directory.current.provider && currentModel === undefined && !fetching
             ? <p className={css.note}>{t('missing', { provider: directory.current.provider, model: directory.current.model })}</p> : null}
           {models.length === 0 && !fetching ? <p className={css.note}>{t('empty')}</p> : null}
           {models.length === 0 ? null : <>

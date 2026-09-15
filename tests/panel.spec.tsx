@@ -7,26 +7,44 @@ import { en } from '../src/client/locales.ts'
 afterEach(cleanup)
 function bench(options: { fail?: boolean; empty?: boolean } = {}) {
   const state: ModelDirectoryState = { current: { provider: 'a', model: 'sol', reasoningEffort: 'high' }, routable: true,
-    groups: options.empty ? [] : [{ id: 'a', name: 'Fixture', models: [
-      { id: 'sol', name: 'Sol', reasoning: { efforts: [{ id: 'low', name: 'Low' }, { id: 'high', name: 'High' }] } },
-      { id: 'plain', name: 'Plain' },
-    ] }], status: 'ready', error: null, failures: [] }
+    groups: options.empty ? [] : [
+      { id: 'a', name: 'Provider A', models: [
+        { id: 'sol', name: 'Sol', reasoning: { efforts: [{ id: 'low', name: 'Low' }, { id: 'high', name: 'High' }] } },
+        { id: 'plain', name: 'Plain' },
+      ] },
+      { id: 'b', name: 'Provider B', models: [{ id: 'beta', name: 'Beta' }] },
+    ], status: 'ready', error: null, failures: [] }
   const select = vi.fn(async () => { if (options.fail) throw new Error('rejected') })
   const loadDirectory = vi.fn(async () => {})
-  const props = { useDirectory: (selector: (s: ModelDirectoryState) => unknown) => selector(state), select, loadDirectory,
+  const props = { locked: false, available: true,
+    useDirectory: (selector: (s: ModelDirectoryState) => unknown) => selector(state), select, loadDirectory,
     t: (key: keyof typeof en, args?: Record<string, unknown>) => en[key].replace(/\{(\w+)\}/g, (_, k: string) => String(args?.[k] ?? '')) } as unknown as ModelPanelProps
   const view = render(<ModelPanel {...props} />)
   fireEvent.click(screen.getByRole('button', { name: en.title }))
   return { select, loadDirectory, view }
 }
 describe('model panel component', () => {
+  it('renders separate provider and model triggers, then scopes models to the chosen provider', async () => {
+    const b = bench()
+    expect(screen.getByRole('button', { name: en.providerTitle })).toBeTruthy()
+    expect(screen.getByRole('button', { name: en.title })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.title }))
+    fireEvent.click(screen.getByRole('button', { name: en.providerTitle }))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: en.providerTitle })).toBeTruthy())
+    fireEvent.click(screen.getByRole('option', { name: /Provider B/ }))
+    fireEvent.click(screen.getByRole('button', { name: en.title }))
+    expect(screen.getByRole('dialog', { name: en.title }).textContent).toContain('Provider B')
+    fireEvent.click(screen.getByRole('button', { name: 'Select Beta' }))
+    await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: 'b', model: 'beta' }))
+  })
+
   it('opens, loads and shows an honest unsupported-context notice', async () => {
     const b = bench()
     await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
     expect(screen.getByRole('dialog', { name: en.title })).toBeTruthy()
     expect(screen.getByText(en.contextUnsupported)).toBeTruthy()
     expect(screen.queryByRole('button', { name: '1M' })).toBeNull()
-    fireEvent.keyDown(screen.getByTestId('dshx-model-panel'), { key: 'Escape' })
+    fireEvent.keyDown(screen.getByTestId('dsh-model-panel'), { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
   })
   it('selects models without reasoning and submits no unknown fields', async () => {

@@ -6,18 +6,18 @@
 
 > 本项目不隶属于 DeepSeek，也未获得 DeepSeek 官方背书。DeepSeek Harness 及相关名称归各自权利人所有。
 
-![在 DSH Desktop 中运行的模型面板](docs/screenshot.png)
-
 ## 功能
 
 - 使用 DSH 每个会话的权威 `ModelDirectory`，不复制模型目录。
-- 把当前提供方的模型显示为带独立强调色的推理等级滑杆。
+- 覆盖自带的 `conversation.input.model` 视觉座位，同时保留其权威服务和 `/model` 命令。
+- 只呈现两个模型相关控件：先选择提供方，再选择模型与推理等级。
+- 把所选提供方的模型显示为带独立强调色的推理等级滑杆。
 - 显示当前模型实际声明的推理等级按钮。
 - 没有推理档位的模型仍然可以选择。
-- 与自带模型选择器同步，页面刷新后仍恢复会话选择。
+- 继续使用自带模型目录，页面刷新后仍恢复会话选择。
 - 从 composer 向上展开，支持 Escape 和点击外部关闭。
 - 后端不支持上下文窗口选择时明确说明，不提供虚假的 256K/512K/1M 按钮。
-- 以附加控件安装，不移除自带选择器。
+- 选择提供方只改变正在浏览的目录分组；只有继续选择模型后，才会改变会话的实际模型。
 
 ## 兼容性
 
@@ -88,6 +88,8 @@ npm run check
 ```
 
 `npm run check` 会进行严格 TypeScript 检查，运行组件、策略和安装器测试，重新构建 DSH client-module，并检查可发布包。独立构建器使用 esbuild 与 Lightning CSS，外置由 DSH 提供的运行模块，并用 `window.__ModuleLoader__.load(...)` 包装浏览器产物。
+
+UI 与运行行为修改必须遵守 [CONTRIBUTING.md](CONTRIBUTING.md) 中的真实窗口验收门禁：先在本地安装候选版本，让需求方在当前 DSH Desktop 窗口试用，收到明确确认后才允许 push、打 tag 或发布 Release。
 
 ## 结构
 
