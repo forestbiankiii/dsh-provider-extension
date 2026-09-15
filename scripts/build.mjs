@@ -30,7 +30,11 @@ const cssModules = {
         minify: true,
         cssModules: { pattern: 'dmp_[local]_[hash]' },
       })
-      const classes = Object.fromEntries(Object.entries(result.exports ?? {}).map(([local, value]) => [local, value.name]))
+      const classes = Object.fromEntries(
+        Object.entries(result.exports ?? {})
+          .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+          .map(([local, value]) => [local, value.name]),
+      )
       return {
         loader: 'js',
         contents: `export const cssText=${JSON.stringify(result.code.toString())};export default ${JSON.stringify(classes)};`,
