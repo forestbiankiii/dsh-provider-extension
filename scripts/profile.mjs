@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url'
 
 const PACKAGE = 'dsh-model-panel'
 const LEGACY_PACKAGE = '@dshx/client-ui-model-panel'
-const MARKED_BLOCK = `# >>> dsh-model-panel >>>\n# Added by dsh-model-panel/scripts/profile.mjs.\n- insert:\n    - id: model-panel\n      name: 'dsh-model-panel'\n# <<< dsh-model-panel <<<\n`
 const ROW_PATTERN = /(?:^|\r?\n)- insert:\r?\n {4}- id: (?:ui-model-panel|model-panel)\r?\n {6}name: ['"](?:@dshx\/client-ui-model-panel|dsh-model-panel)['"]\r?\n?/g
 const MARKER_PATTERN = /(?:^|\r?\n)# >>> dsh-model-panel >>>[\s\S]*?# <<< dsh-model-panel <<<\r?\n?/g
 
@@ -71,10 +70,21 @@ export async function installProfile({ dshHome, profile = 'desktop', sourceRoot 
   delete manifest.dependencies[LEGACY_PACKAGE]
   manifest.dependencies[PACKAGE] = 'file:../../local-plugins/dsh-model-panel'
   manifest.dependencies = Object.fromEntries(Object.entries(manifest.dependencies).sort(([a], [b]) => a.localeCompare(b)))
+  manifest.dsh ??= {}
+  manifest.dsh.profile ??= {}
+  if (manifest.dsh.profile.bundles !== undefined && !Array.isArray(manifest.dsh.profile.bundles)) {
+    throw new Error('DSH profile bundles must be an array.')
+  }
+  manifest.dsh.profile.bundles = [
+    ...(manifest.dsh.profile.bundles ?? []).filter(bundle => bundle !== PACKAGE && bundle !== LEGACY_PACKAGE),
+    PACKAGE,
+  ]
   await atomicWrite(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
 
+  // The package is a bundle whose own cordis.patch.yml registers model-panel.
+  // Remove legacy/manual rows so a full restart never composes the same id twice.
   const patch = removeRows(await readFile(patchPath, 'utf8'))
-  await atomicWrite(patchPath, `${patch}\n\n${MARKED_BLOCK}`)
+  await atomicWrite(patchPath, `${patch}\n`)
   await rm(join(profileDir, 'node_modules', '@dshx', 'client-ui-model-panel'), { recursive: true, force: true })
 
   return { profileDir, localTarget, installedTarget, backupDir }
@@ -99,6 +109,11 @@ export async function uninstallProfile({ dshHome, profile = 'desktop' }) {
   if (manifest.dependencies) {
     delete manifest.dependencies[PACKAGE]
     manifest.dependencies = Object.fromEntries(Object.entries(manifest.dependencies).sort(([a], [b]) => a.localeCompare(b)))
+  }
+  if (Array.isArray(manifest.dsh?.profile?.bundles)) {
+    manifest.dsh.profile.bundles = manifest.dsh.profile.bundles.filter(
+      bundle => bundle !== PACKAGE && bundle !== LEGACY_PACKAGE,
+    )
   }
   await atomicWrite(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
   await atomicWrite(patchPath, `${removeRows(await readFile(patchPath, 'utf8'))}\n`)

@@ -6,6 +6,7 @@ import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { isCodexProvider, maskedEmail, type CodexAccountsState } from './codexAccounts.ts'
 import {
   accentFor, activeGroup, effortIndex, isCurrentModel, restingEffort,
   selectionForRow, type ModelPanelModel,
@@ -19,9 +20,15 @@ export interface ModelPanelInjected {
   hooks: {
     /** Session model directory bound by the renderer as useDirectory. */
     directory: SnapshotStore<ModelDirectoryState>
+    /** Secret-free Codex account roster from the installed subscription plugin. */
+    accounts: SnapshotStore<CodexAccountsState>
   }
   /** Load the session's shared model directory. */
   loadDirectory: () => Promise<void>
+  /** Load the optional Codex subscription account roster. */
+  loadAccounts: () => Promise<void>
+  /** Select the real active Codex account used for subsequent quota and requests. */
+  selectAccount: (id: string) => Promise<void>
   /** Submit one complete selection through the shared directory. */
   select: (selection: ModelSelection) => Promise<void>
 }
@@ -35,12 +42,16 @@ export type ModelPanelProps =
 type OpenPane = 'provider' | 'model' | null
 
 /** Render separate provider and model controls inside the official model seat. */
-export function ModelPanel({ locked, available, useDirectory, loadDirectory, select, t }: ModelPanelProps): ReactNode {
+export function ModelPanel({
+  locked, available, useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, select, t,
+}: ModelPanelProps): ReactNode {
   const directory = useDirectory(snapshot => snapshot)
+  const accounts = useAccounts(snapshot => snapshot)
   const [open, setOpen] = useState<OpenPane>(null)
   const [providerDraft, setProviderDraft] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [accountError, setAccountError] = useState<string | null>(null)
   const [error, setError] = useState<{ kind: 'loadFailed' | 'selectFailed'; message: string } | null>(null)
   const [dragging, setDragging] = useState<{ model: ModelPanelModel; provider: string; index: number } | null>(null)
   const root = useRef<HTMLDivElement | null>(null)
@@ -59,10 +70,11 @@ export function ModelPanel({ locked, available, useDirectory, loadDirectory, sel
     setProviderDraft(undefined)
     setBusy(false)
     setLoading(false)
+    setAccountError(null)
     setError(null)
     setDragging(null)
     return () => { mounted.current = false; generation.current++ }
-  }, [useDirectory, loadDirectory, select])
+  }, [useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, select])
 
   // Follow authoritative provider changes, but preserve a provider the user is browsing
   // until a model selection changes the authoritative route.
@@ -78,7 +90,7 @@ export function ModelPanel({ locked, available, useDirectory, loadDirectory, sel
   const efforts = currentModel?.reasoning?.efforts ?? []
   const currentEffort = currentModel === undefined ? undefined : directory.current?.reasoningEffort
   const currentEffortName = efforts.find(effort => effort.id === currentEffort)?.name
-  const pending = locked || busy || directory.status === 'selecting'
+  const pending = locked || busy || accounts.switchingId !== undefined || directory.status === 'selecting'
   const fetching = loading || directory.status === 'loading'
 
   useEffect(() => {
@@ -132,6 +144,9 @@ export function ModelPanel({ locked, available, useDirectory, loadDirectory, sel
     const next = open === pane ? null : pane
     setOpen(next)
     if (next !== null) reload()
+    if (next === 'provider' && directory.groups.some(candidate => isCodexProvider(candidate.id))) {
+      void loadAccounts()
+    }
   }
 
   const submit = (model: ModelPanelModel | undefined, effortId: string | undefined): void => {
@@ -217,9 +232,31 @@ export function ModelPanel({ locked, available, useDirectory, loadDirectory, sel
     )
   }
 
+  const chooseAccount = (provider: string, id: string, active: boolean): void => {
+    if (pending) return
+    setProviderDraft(provider)
+    setAccountError(null)
+    if (active) {
+      setOpen(null)
+      queueMicrotask(() => { providerTrigger.current?.focus() })
+      return
+    }
+    void selectAccount(id).then(() => {
+      if (!mounted.current) return
+      setOpen(null)
+      queueMicrotask(() => { providerTrigger.current?.focus() })
+    }).catch((cause: unknown) => {
+      if (!mounted.current) return
+      setAccountError(cause instanceof Error ? cause.message : String(cause))
+    })
+  }
+
   if (!available) return null
 
-  const providerLabel = group?.name ?? directory.current?.provider ?? t('providerTrigger')
+  const activeAccount = accounts.accounts.find(account => account.active)
+  const baseProviderLabel = group?.name ?? directory.current?.provider ?? t('providerTrigger')
+  const providerLabel = isCodexProvider(group?.id) && activeAccount !== undefined
+    ? `${baseProviderLabel} · ${activeAccount.label}` : baseProviderLabel
   const modelLabel = currentModel?.name ?? (group?.id === directory.current?.provider
     ? directory.current?.model ?? t('trigger') : t('trigger'))
 
@@ -272,30 +309,76 @@ export function ModelPanel({ locked, available, useDirectory, loadDirectory, sel
         <div className={`${css.menu} ${css.providerMenu}`} role="dialog" aria-label={t('providerTitle')} aria-busy={fetching}>
           <div className={css.head}>
             <span className={css.headTitle}>{t('providerTitle')}</span>
-            <button type="button" className={css.reload} disabled={pending || fetching} onClick={reload}>{t('reload')}</button>
+            <button type="button" className={css.reload} disabled={pending || fetching} onClick={() => {
+              reload()
+              void loadAccounts()
+            }}>{t('reload')}</button>
           </div>
           {error?.kind === 'loadFailed' ? <p className={css.error} role="alert">{t('loadFailed', { message: error.message })}</p> : null}
           {fetching ? <p className={css.note} role="status">{t('loading')}</p> : null}
           {directory.groups.length === 0 && !fetching ? <p className={css.note}>{t('providerEmpty')}</p> : null}
           <div className={css.providerList} role="listbox" aria-label={t('providerTitle')}>
-            {directory.groups.map(candidate => (
-              <button
-                key={candidate.id}
-                type="button"
-                role="option"
-                aria-selected={candidate.id === group?.id}
-                className={candidate.id === group?.id ? `${css.providerOption} ${css.providerCurrent}` : css.providerOption}
-                disabled={pending}
-                onClick={() => {
-                  setProviderDraft(candidate.id)
-                  setOpen(null)
-                  queueMicrotask(() => { providerTrigger.current?.focus() })
-                }}
-              >
-                <span>{candidate.name}</span>
-                <span className={css.providerCount}>{candidate.models.length}</span>
-              </button>
-            ))}
+            {directory.groups.map(candidate => {
+              const selected = candidate.id === group?.id
+              if (!isCodexProvider(candidate.id) || accounts.status === 'error' || accounts.accounts.length === 0) {
+                return (
+                  <div key={candidate.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
+                      className={selected ? `${css.providerOption} ${css.providerCurrent}` : css.providerOption}
+                      disabled={pending}
+                      onClick={() => {
+                        setProviderDraft(candidate.id)
+                        setOpen(null)
+                        queueMicrotask(() => { providerTrigger.current?.focus() })
+                      }}
+                    >
+                      <span>{candidate.name}</span>
+                      <span className={css.providerCount}>{candidate.models.length}</span>
+                    </button>
+                    {isCodexProvider(candidate.id) && accounts.status === 'error'
+                      ? <p className={css.accountNote}>{t('accountLoadFailed', { message: accounts.error ?? t('accountUnavailable') })}</p>
+                      : isCodexProvider(candidate.id) && (accounts.status === 'idle' || accounts.status === 'loading')
+                        ? <p className={css.accountNote}>{t('accountsLoading')}</p> : null}
+                  </div>
+                )
+              }
+              return (
+                <div key={candidate.id} className={css.providerFamily} role="group" aria-label={candidate.name}>
+                  <div className={css.providerFamilyHead}>
+                    <span>{candidate.name}</span>
+                    <span className={css.providerCount}>{t('accountCount', { count: accounts.accounts.length })}</span>
+                  </div>
+                  {accountError === null ? null : <p className={css.accountError} role="alert">{t('accountSwitchFailed', { message: accountError })}</p>}
+                  {accounts.accounts.map(account => {
+                    const email = maskedEmail(account.email)
+                    return (
+                      <button
+                        key={account.id}
+                        type="button"
+                        role="option"
+                        aria-selected={selected && account.active}
+                        className={selected && account.active
+                          ? `${css.accountOption} ${css.providerCurrent}` : css.accountOption}
+                        disabled={pending}
+                        onClick={() => { chooseAccount(candidate.id, account.id, account.active) }}
+                      >
+                        <span className={css.accountIdentity}>
+                          <span className={css.accountLabel}>{account.label}</span>
+                          {email === undefined ? null : <span className={css.accountEmail}>{email}</span>}
+                        </span>
+                        <span className={css.accountState}>
+                          {accounts.switchingId === account.id ? t('accountSwitching')
+                            : account.active ? t('accountActive') : t('accountUse')}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

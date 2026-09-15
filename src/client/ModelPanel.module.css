@@ -148,6 +148,95 @@
   text-align: right;
 }
 
+.providerFamily {
+  padding: 4px 0 2px;
+}
+
+.providerFamilyHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 28px;
+  padding: 2px 9px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.accountOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 42px;
+  padding: 5px 9px 5px 18px;
+  border: none;
+  border-radius: 9px;
+  outline: none;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.accountOption:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.accountOption:disabled {
+  cursor: default;
+}
+
+.accountIdentity {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.accountLabel,
+.accountEmail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accountLabel {
+  color: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.accountEmail {
+  color: var(--dsw-alias-label-caption);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.accountState {
+  flex: none;
+  color: var(--dsw-alias-label-caption);
+  font-size: 11px;
+}
+
+.accountNote,
+.accountError {
+  margin: 2px 9px 5px;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.accountNote {
+  color: var(--dsw-alias-label-caption);
+}
+
+.accountError {
+  color: var(--dsw-alias-state-error-primary);
+}
+
 .head {
   display: flex;
   align-items: center;

@@ -10,14 +10,16 @@
 
 - 使用 DSH 每个会话的权威 `ModelDirectory`，不复制模型目录。
 - 覆盖自带的 `conversation.input.model` 视觉座位，同时保留其权威服务和 `/model` 命令。
-- 只呈现两个模型相关控件：先选择提供方，再选择模型与推理等级。
+- 只呈现两个模型相关控件：先选择提供方/账号，再选择模型与推理等级。
+- 安装 `dsh-codex-subscription` 2.x 时，分别列出其中保存的 ChatGPT 账号，并切换 Codex 请求和额度实际使用的活动账号。
 - 把所选提供方的模型显示为带独立强调色的推理等级滑杆。
 - 显示当前模型实际声明的推理等级按钮。
 - 没有推理档位的模型仍然可以选择。
 - 继续使用自带模型目录，页面刷新后仍恢复会话选择。
 - 从 composer 向上展开，支持 Escape 和点击外部关闭。
 - 后端不支持上下文窗口选择时明确说明，不提供虚假的 256K/512K/1M 按钮。
-- 选择提供方只改变正在浏览的目录分组；只有继续选择模型后，才会改变会话的实际模型。
+- 选择普通提供方只改变正在浏览的目录分组；只有继续选择模型后，才会改变会话的实际模型。
+- 选择 ChatGPT 账号会调用订阅插件经过认证的 `account/select` RPC、刷新额度控件并重新加载模型目录。界面只显示账号标签和脱敏邮箱；OAuth 凭据不会进入本插件。
 
 ## 兼容性
 
@@ -48,8 +50,9 @@ node scripts/profile.mjs install
 1. 把白名单内的运行文件复制到 `~/.dsh/local-plugins/dsh-model-panel`；
 2. 在 `~/.dsh/profiles/desktop/package.json` 声明本地 file 依赖；
 3. 把运行副本放入该 profile 的 `node_modules`，确保能够解析；
-4. 在用户自己的 `cordis.patch.yml` 中幂等加入一行插件；
-5. 修改前备份以上两个 profile 文件。
+4. 在 `dsh.profile.bundles` 中只加入一次 `dsh-model-panel`；
+5. 清理用户 patch 中遗留或手工添加的 `model-panel` row，避免 bundle 被注册两次；
+6. 修改前备份以上两个 profile 文件。
 
 它不会修改应用安装目录或 `app.asar`。若数据目录或 profile 不同：
 
@@ -78,7 +81,7 @@ node scripts/profile.mjs install
 node scripts/profile.mjs uninstall
 ```
 
-然后重启 DSH Desktop。卸载器只删除本插件的精确依赖、带标记的 patch、运行副本，并保留修改前备份。
+然后重启 DSH Desktop。卸载器只删除本插件的精确依赖、bundle 条目、遗留或手工 patch row 和运行副本，并保留修改前备份。
 
 ## 开发
 

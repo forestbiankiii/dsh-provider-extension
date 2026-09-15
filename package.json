@@ -1,6 +1,6 @@
 {
   "name": "dsh-model-panel",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "An unofficial model and reasoning-effort slider panel for DSH Desktop",
   "license": "MIT",
   "author": "forestbiankiii",
@@ -38,6 +38,7 @@
       "platform": "web",
       "inject": [
         "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-conversation",
         "@deepseek-ai/dsh-client-ui-model-selection",
@@ -58,6 +59,7 @@
     "@deepseek-ai/cordis": ">=4.0.2",
     "@deepseek-ai/dsh-api-remotes": ">=0.1.2-rc.1",
     "@deepseek-ai/dsh-api-session-controller": ">=0.1.2-rc.1",
+    "@deepseek-ai/dsh-client-connection": ">=0.1.2-rc.1",
     "@deepseek-ai/dsh-client-locale": ">=0.1.2-rc.1",
     "@deepseek-ai/dsh-client-store": ">=0.1.2-rc.1",
     "@deepseek-ai/dsh-client-ui-conversation": ">=0.1.2-rc.1",
@@ -75,6 +77,9 @@
       "optional": true
     },
     "@deepseek-ai/dsh-api-session-controller": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-connection": {
       "optional": true
     },
     "@deepseek-ai/dsh-client-locale": {
@@ -106,6 +111,7 @@
     "@deepseek-ai/cordis": "4.0.2",
     "@deepseek-ai/dsh-api-remotes": "0.1.2-rc.1",
     "@deepseek-ai/dsh-api-session-controller": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-client-connection": "0.1.2-rc.1",
     "@deepseek-ai/dsh-client-locale": "0.1.2-rc.1",
     "@deepseek-ai/dsh-client-store": "0.1.2-rc.1",
     "@deepseek-ai/dsh-client-ui-conversation": "0.1.2-rc.1",

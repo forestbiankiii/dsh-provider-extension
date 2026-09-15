@@ -2,6 +2,9 @@
 export const en = {
   title: 'Model and reasoning effort', trigger: 'Select model', effort: 'Reasoning effort',
   providerTitle: 'Select provider', providerTrigger: 'Provider', providerEmpty: 'No provider is available.',
+  accountsLoading: 'Loading subscription accounts…', accountUnavailable: 'Account switching is unavailable.',
+  accountLoadFailed: 'Accounts unavailable: {message}', accountSwitchFailed: 'Account switch failed: {message}',
+  accountCount: '{count} accounts', accountSwitching: 'Switching…', accountActive: 'Active', accountUse: 'Use',
   contextWindow: 'Context window', reload: 'Reload', loading: 'Loading models…',
   empty: 'No model is available.', noEffort: 'This model offers no reasoning effort.',
   noEffortShort: 'No effort control', defaultEffort: 'Provider default',
@@ -16,6 +19,9 @@ export type ModelPanelKey = keyof typeof en
 export const zh: { [Key in ModelPanelKey]: string } = {
   title: '模型与推理等级', trigger: '选择模型', effort: '推理等级',
   providerTitle: '选择提供方', providerTrigger: '提供方', providerEmpty: '没有可用的提供方。',
+  accountsLoading: '正在加载订阅账号…', accountUnavailable: '账号切换不可用。',
+  accountLoadFailed: '无法读取账号：{message}', accountSwitchFailed: '账号切换失败：{message}',
+  accountCount: '{count} 个账号', accountSwitching: '正在切换…', accountActive: '使用中', accountUse: '使用',
   contextWindow: '上下文窗口', reload: '重新加载', loading: '正在加载模型…',
   empty: '没有可用的模型。', noEffort: '当前模型未提供推理等级。',
   noEffortShort: '无推理档位', defaultEffort: '提供方默认',

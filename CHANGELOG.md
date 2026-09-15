@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented here.
 
+## 0.3.0 — 2026-09-15
+
+- List the saved ChatGPT accounts of `dsh-codex-subscription` 2.x under their provider instead of one summary row.
+- Show each account's label and masked email, marking the active account.
+- Switch the real active Codex account through the subscription plugin's authenticated `account/select` RPC, refresh its quota indicator, and reload the model directory.
+- Show the account count for the Codex family instead of the model count.
+- Fix the profile installer to register the bundle exactly once and to remove legacy or manual `model-panel` rows, which previously caused `duplicate loader entry id "model-panel"` on a full restart.
+- Document the single-registration rule and the recovery steps for a duplicated row.
+
 ## 0.2.0 — 2026-09-15
 
 - Replace the shipped `conversation.input.model` visual seat instead of adding a duplicate control.

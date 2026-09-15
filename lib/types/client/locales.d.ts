@@ -6,6 +6,14 @@ export declare const en: {
     readonly providerTitle: "Select provider";
     readonly providerTrigger: "Provider";
     readonly providerEmpty: "No provider is available.";
+    readonly accountsLoading: "Loading subscription accounts…";
+    readonly accountUnavailable: "Account switching is unavailable.";
+    readonly accountLoadFailed: "Accounts unavailable: {message}";
+    readonly accountSwitchFailed: "Account switch failed: {message}";
+    readonly accountCount: "{count} accounts";
+    readonly accountSwitching: "Switching…";
+    readonly accountActive: "Active";
+    readonly accountUse: "Use";
     readonly contextWindow: "Context window";
     readonly reload: "Reload";
     readonly loading: "Loading models…";

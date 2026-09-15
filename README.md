@@ -10,14 +10,16 @@ An **unofficial community plugin** for [DeepSeek Harness](https://github.com/dee
 
 - Uses DSH's authoritative per-session `ModelDirectory`; it does not create a second model catalog.
 - Replaces the shipped `conversation.input.model` visual seat while keeping its authoritative service and `/model` command.
-- Renders exactly two model-related controls: a provider picker followed by a model/reasoning picker.
+- Renders exactly two model-related controls: a provider/account picker followed by a model/reasoning picker.
+- When `dsh-codex-subscription` 2.x is installed, lists its saved ChatGPT accounts separately and switches the real active account used by Codex requests and quota.
 - Shows the chosen provider's models as accent-colored effort sliders.
 - Provides the active model's declared reasoning-effort buttons.
 - Keeps models without reasoning controls selectable.
 - Uses the shipped model directory and survives page reloads.
 - Opens upward from the composer and supports Escape/outside-click dismissal.
 - Reports unsupported context-window selection honestly instead of showing fake 256K/512K/1M controls.
-- Choosing a provider changes the browsed catalog group; the active session model changes only after the user chooses a model.
+- Choosing an ordinary provider changes the browsed catalog group; the active session model changes only after the user chooses a model.
+- Choosing a ChatGPT account calls the subscription plugin's authenticated `account/select` RPC, refreshes its quota indicator, and reloads the model directory. Account labels and masked emails are displayed; OAuth credentials never reach this plugin.
 
 ## Compatibility
 
@@ -48,8 +50,9 @@ The installer:
 1. copies an allow-listed runtime package to `~/.dsh/local-plugins/dsh-model-panel`;
 2. declares a local file dependency in `~/.dsh/profiles/desktop/package.json`;
 3. copies the runtime into the profile's `node_modules` for immediate resolution;
-4. adds one idempotent row to the user-owned `cordis.patch.yml`;
-5. backs up both edited profile files first.
+4. adds `dsh-model-panel` exactly once to `dsh.profile.bundles`;
+5. removes legacy/manual `model-panel` rows from the user patch so the bundle cannot be registered twice;
+6. backs up both edited profile files first.
 
 It never edits the installed application or `app.asar`. If your home or profile differs:
 
@@ -78,7 +81,7 @@ From the cloned repository:
 node scripts/profile.mjs uninstall
 ```
 
-Restart DSH Desktop afterward. The uninstaller removes only this plugin's exact dependency, marked patch block, runtime copies, and preserves a backup of the edited profile files.
+Restart DSH Desktop afterward. The uninstaller removes only this plugin's exact dependency, bundle entry, legacy/manual patch row, and runtime copies, while preserving a backup of the edited profile files.
 
 ## Develop
 

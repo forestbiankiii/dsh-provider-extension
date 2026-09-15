@@ -26,5 +26,6 @@ describe('published artifact contract', () => {
     expect(client).not.toContain('@dshx/')
     const requires = [...client.matchAll(/require\("([^"]+)"\)/g)].map(match => match[1]).sort()
     expect(requires).toEqual(['@deepseek-ai/dsh-client-ui-primitives', 'react', 'react/jsx-runtime'])
+    expect(manifest.dsh.client.inject).toContain('@deepseek-ai/dsh-client-connection')
   })
 })
