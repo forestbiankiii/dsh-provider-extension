@@ -4,6 +4,17 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.5.2 — 2026-09-16
+
+- Allow clicking anywhere inside a model card box (not just the model title text) to immediately select and switch to that model.
+- Dynamically transfer active highlight and accent styling to the hovered model during vertical drag, turning off the initial model's glow.
+- Sync top reasoning effort pills to the hovered model in real time during drag.
+- Added `cursor: pointer` to model row cards for clearer interactive feedback.
+
+## 0.5.1 — 2026-09-16
+
+- Fix slider thumb and track endpoints curvature: explicitly declare `corner-shape: round` to opt out of the host's global superellipse squircle and render a true Euclidean circle.
+
 ## 0.5.0 — 2026-09-16
 
 - Add Provider Settings section (`settings.section`, id `provider-extension`) with a "Create provider" catalog and real-time status.

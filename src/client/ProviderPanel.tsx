@@ -118,6 +118,14 @@ export function ProviderPanel({
   const efforts = currentModel?.reasoning?.efforts ?? []
   const currentEffort = currentModel === undefined ? undefined : directory.current?.reasoningEffort
   const currentEffortName = efforts.find(effort => effort.id === currentEffort)?.name
+
+  const previewModel = dragging !== null && group !== undefined && dragging.provider === group.id
+    ? dragging.model
+    : currentModel
+  const previewEfforts = previewModel?.reasoning?.efforts ?? []
+  const previewEffortId = dragging !== null && group !== undefined && dragging.provider === group.id
+    ? (dragging.index >= 0 ? previewEfforts[dragging.index]?.id : undefined)
+    : currentEffort
   const pending = locked || busy || accounts.switchingId !== undefined || directory.status === 'selecting'
   const fetching = loading || directory.status === 'loading'
 
@@ -223,7 +231,7 @@ export function ProviderPanel({
   }
 
   const startPointerDrag = (event: ReactPointerEvent<HTMLDivElement>, model: ProviderPanelModel): void => {
-    if (pending || event.button !== 0) return
+    if (pending || (event.button !== undefined && event.button !== 0)) return
     event.preventDefault()
     if (typeof event.currentTarget.setPointerCapture === 'function') {
       event.currentTarget.setPointerCapture(event.pointerId)
@@ -234,13 +242,13 @@ export function ProviderPanel({
 
   const movePointerDrag = (event: ReactPointerEvent<HTMLDivElement>): void => {
     const drag = dragRef.current
-    if (drag?.source !== 'pointer' || drag.pointerId !== event.pointerId) return
+    if (drag?.source !== 'pointer' || (drag.pointerId !== undefined && event.pointerId !== undefined && drag.pointerId !== event.pointerId)) return
     setDrag(dragAtPointer(event, drag.model))
   }
 
   const finishPointerDrag = (event: ReactPointerEvent<HTMLDivElement>, shouldCommit: boolean): void => {
     const drag = dragRef.current
-    if (drag?.source !== 'pointer' || drag.pointerId !== event.pointerId) return
+    if (drag?.source !== 'pointer' || (drag.pointerId !== undefined && event.pointerId !== undefined && drag.pointerId !== event.pointerId)) return
     if (typeof event.currentTarget.hasPointerCapture === 'function' && event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
@@ -260,9 +268,10 @@ export function ProviderPanel({
     const count = ladder.length
     const provider = group!.id
     const isCurrent = isCurrentModel(directory.current, provider, model)
+    const isDragTarget = dragging !== null && dragging.model.id === model.id && dragging.provider === provider
+    const isRowActive = dragging !== null ? isDragTarget : isCurrent
     const restingId = isCurrent ? currentEffort : restingEffort(model)
     const resting = effortIndex(model, restingId)
-    const isDragTarget = dragging?.model === model && dragging.provider === provider
     const position = isDragTarget ? dragging.index : resting
     const ratio = count > 1 && position >= 0 ? position / (count - 1) : 0
     const effortName = ladder[position]?.name ?? (restingId === undefined
@@ -271,9 +280,9 @@ export function ProviderPanel({
     return (
       <div
         key={`${provider}/${model.id}`}
-        className={isCurrent ? `${css.row} ${css.rowCurrent}` : css.row}
+        className={isRowActive ? `${css.row} ${css.rowCurrent}` : css.row}
         data-model-accent={model.id}
-        data-current={isCurrent}
+        data-current={isRowActive}
         data-drag-target={isDragTarget}
         data-provider-panel-model={model.id}
         style={{
@@ -281,15 +290,22 @@ export function ProviderPanel({
           '--dpe-accent-soft': `${accent}1f`,
           '--dpe-accent-edge': `${accent}66`,
         } as CSSProperties}
+        onClick={(event) => {
+          if ((event.target as HTMLElement).closest('[data-provider-panel-track]')) return
+          submit(model, restingId)
+        }}
       >
         <div className={css.rowHead}>
           <button
             type="button"
             className={css.rowName}
             aria-label={t('selectModel', { model: model.name })}
-            aria-pressed={isCurrent}
+            aria-pressed={isRowActive}
             disabled={pending}
-            onClick={() => { submit(model, restingId) }}
+            onClick={(event) => {
+              event.stopPropagation()
+              submit(model, restingId)
+            }}
           >{model.name}</button>
         </div>
         {count === 0 ? null : (
@@ -541,18 +557,18 @@ export function ProviderPanel({
             ? <p className={css.note}>{t('missing', { provider: directory.current.provider, model: directory.current.model })}</p> : null}
           {models.length === 0 && !fetching ? <p className={css.note}>{t('empty')}</p> : null}
           {models.length === 0 ? null : <>
-            {currentModel === undefined ? null : efforts.length === 0
+            {previewModel === undefined ? null : previewEfforts.length === 0
               ? <p className={css.note}>{t('noEffort')}</p>
               : (
                 <div className={css.pills} role="group" aria-label={t('effort')}>
-                  {efforts.map(effort => (
+                  {previewEfforts.map(effort => (
                     <button
                       key={effort.id}
                       type="button"
                       className={css.pill}
-                      aria-pressed={effort.id === currentEffort}
+                      aria-pressed={effort.id === previewEffortId}
                       disabled={pending}
-                      onClick={() => { submit(currentModel, effort.id) }}
+                      onClick={() => { submit(previewModel, effort.id) }}
                     >{effort.name}</button>
                   ))}
                 </div>

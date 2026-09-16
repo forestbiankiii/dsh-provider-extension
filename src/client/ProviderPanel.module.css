@@ -58,6 +58,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  corner-shape: round;
   box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent);
   transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -478,6 +479,7 @@
   padding: 6px 10px 4px;
   border: 1px solid transparent;
   border-radius: 14px;
+  cursor: pointer;
   animation: dpe-row-in 180ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   transition: background-color 160ms ease, border-color 160ms ease;
 }
@@ -506,32 +508,12 @@
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
-.rowCurrent,
-.row[data-drag-target='true'] {
+.rowCurrent {
   border-color: var(--dpe-accent-edge, var(--dsw-alias-border-l3));
   background: var(--dpe-accent-soft, var(--dsw-alias-interactive-bg-hover));
 }
 
-/* Accent rail that fades in only for the model in use. */
-.row::before {
-  content: '';
-  position: absolute;
-  left: 5px;
-  top: 12px;
-  bottom: 12px;
-  width: 3px;
-  border-radius: 999px;
-  background: var(--dpe-accent, var(--dsw-alias-label-secondary));
-  opacity: 0;
-  transform: scaleY(0.4);
-  transition: opacity 200ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
 
-.rowCurrent::before,
-.row[data-drag-target='true']::before {
-  opacity: 1;
-  transform: none;
-}
 
 .rowHead {
   display: flex;
@@ -595,6 +577,7 @@
   box-sizing: border-box;
   border: 2px solid var(--dsw-alias-border-l2);
   border-radius: 50%;
+  corner-shape: round;
   background: var(--dsw-alias-bg-layer-2);
   transform: translateY(-50%);
   transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
@@ -609,9 +592,7 @@
 }
 
 .rowCurrent .track::before,
-.rowCurrent .track::after,
-.row[data-drag-target='true'] .track::before,
-.row[data-drag-target='true'] .track::after {
+.rowCurrent .track::after {
   border-color: var(--dpe-accent, var(--dsw-alias-label-primary));
 }
 
@@ -628,6 +609,7 @@
   z-index: 0;
   height: 8px;
   border-radius: 999px;
+  corner-shape: round;
   background: var(--dsw-alias-interactive-bg-hover);
   transform: translateY(-50%);
   transition: opacity 160ms ease, transform 160ms ease;
@@ -645,6 +627,7 @@
   z-index: 1;
   height: 8px;
   border-radius: 999px;
+  corner-shape: round;
   background: linear-gradient(
     90deg,
     var(--dpe-accent-soft, var(--dsw-alias-interactive-bg-hover)) 0%,
@@ -656,8 +639,7 @@
   transition: width 200ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease, transform 160ms ease;
 }
 
-.rowCurrent .fill,
-.row[data-drag-target='true'] .fill {
+.rowCurrent .fill {
   opacity: 1;
 }
 
@@ -674,6 +656,7 @@
   box-sizing: border-box;
   border: 2px solid var(--dsw-alias-border-l2);
   border-radius: 50%;
+  corner-shape: round;
   background: var(--dsw-alias-bg-layer-2);
   transform: translate(-50%, -50%);
   transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
@@ -717,11 +700,14 @@
   position: absolute;
   top: 18px;
   z-index: 4;
-  width: 22px;
-  height: 22px;
+  display: block;
+  width: 20px;
+  height: 20px;
+  aspect-ratio: 1 / 1;
   box-sizing: border-box;
   border: 2px solid var(--dsw-alias-label-tertiary);
   border-radius: 50%;
+  corner-shape: round;
   background: var(--dsw-alias-bg-layer-2);
   box-shadow: var(--dsw-shadow-lv3);
   transform: translate(-50%, -50%);
@@ -729,15 +715,14 @@
     border-color 200ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 160ms ease;
 }
 
-.rowCurrent .thumb,
-.row[data-drag-target='true'] .thumb {
+.rowCurrent .thumb {
   border-color: var(--dpe-accent, var(--dsw-alias-label-primary));
   background: var(--dpe-accent, var(--dsw-alias-label-primary));
 }
 
 .track:hover .thumb {
-  transform: translate(-50%, -50%) scale(1.16);
-  box-shadow: var(--dsw-shadow-lv3), 0 0 0 5px var(--dpe-accent-soft, var(--dsw-alias-border-l2));
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: var(--dsw-shadow-lv3), 0 0 0 4px var(--dpe-accent-soft, var(--dsw-alias-border-l2));
 }
 
 .track:has(.input:active) .thumb {
@@ -820,7 +805,6 @@
   .reload,
   .accountRead,
   .row,
-  .row::before,
   .rail,
   .fill,
   .stop,

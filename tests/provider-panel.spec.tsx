@@ -87,6 +87,14 @@ describe('model panel component', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select Plain' }))
     await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: 'a', model: 'plain' }))
   })
+  it('selects model when clicking anywhere on the row card outside the track', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    const row = document.querySelector('[data-provider-panel-model="plain"]')
+    expect(row).toBeTruthy()
+    fireEvent.click(row!)
+    await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: 'a', model: 'plain' }))
+  })
   it('reports rejection and restores the slider to authoritative state', async () => {
     const b = bench({ fail: true })
     await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
@@ -126,6 +134,34 @@ describe('model panel component', () => {
     expect(sliderIndexFromPoint(900, rect, 4)).toBe(3)
     expect(sliderIndexFromPoint(150, rect, 1)).toBe(0)
     expect(sliderIndexFromPoint(150, rect, 0)).toBe(-1)
+  })
+  it('transfers the active highlight to the hovered model during vertical drag and dims the initial model', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    const initialRow = document.querySelector('[data-provider-panel-model="sol"]')!
+    const otherRow = document.querySelector('[data-provider-panel-model="plain"]')!
+    expect(initialRow.getAttribute('data-current')).toBe('true')
+    expect(otherRow.getAttribute('data-current')).toBe('false')
+
+    const track = initialRow.querySelector('[data-provider-panel-track]')!
+    fireEvent(track, new MouseEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 50, button: 0 }))
+    expect(initialRow.getAttribute('data-current')).toBe('true')
+
+    const originalElementFromPoint = document.elementFromPoint
+    const origGetBounding = otherRow.getBoundingClientRect
+    otherRow.getBoundingClientRect = () => ({ top: 100, bottom: 140, left: 0, right: 300, width: 300, height: 40, x: 0, y: 100, toJSON: () => {} })
+    document.elementFromPoint = () => otherRow
+    try {
+      fireEvent(track, new MouseEvent('pointermove', { bubbles: true, clientX: 100, clientY: 120 }))
+      expect(otherRow.getAttribute('data-current')).toBe('true')
+      expect(initialRow.getAttribute('data-current')).toBe('false')
+
+      fireEvent(track, new MouseEvent('pointerup', { bubbles: true, clientX: 100, clientY: 120 }))
+      await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: 'a', model: 'plain' }))
+    } finally {
+      document.elementFromPoint = originalElementFromPoint
+      otherRow.getBoundingClientRect = origGetBounding
+    }
   })
   it('labels every effort step inside the track and keeps no effort text on the row', async () => {
     const b = bench()
