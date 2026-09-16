@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.5.1 — 2026-09-16
+
+- Fix slider thumb and track endpoints curvature: explicitly declare `corner-shape: round` to opt out of the host's global superellipse squircle and render a true Euclidean circle.
+
 ## 0.5.0 — 2026-09-16
 
 - Add Provider Settings section (`settings.section`, id `provider-extension`) with a "Create provider" catalog and real-time status.

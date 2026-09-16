@@ -1,6 +1,6 @@
 {
   "name": "dsh-provider-extension",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "An unofficial DSH Desktop provider extension: composer provider/account/model controls and per-account subscription quota",
   "license": "MIT",
   "author": "forestbiankiii",
