@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selection/client'
-import { ProviderPanel, type ProviderPanelProps } from '../src/client/ProviderPanel.tsx'
+import { ProviderPanel, sliderIndexFromPoint, type ProviderPanelProps } from '../src/client/ProviderPanel.tsx'
 import { en } from '../src/client/locales.ts'
 import type { CodexAccountsState } from '../src/client/providers/codex.ts'
 afterEach(cleanup)
@@ -90,9 +90,50 @@ describe('model panel component', () => {
   it('reports rejection and restores the slider to authoritative state', async () => {
     const b = bench({ fail: true })
     await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
-    fireEvent.change(screen.getByRole('slider'), { target: { value: '0' } })
+    const slider = screen.getByRole('slider')
+    fireEvent.change(slider, { target: { value: '0' } })
+    fireEvent.keyUp(slider, { key: 'ArrowLeft' })
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('rejected'))
     expect((screen.getByRole('slider') as HTMLInputElement).value).toBe('1')
+  })
+  it('previews every step of a drag and submits only once when it ends', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    const slider = screen.getByRole('slider')
+    fireEvent.change(slider, { target: { value: '0' } })
+    fireEvent.change(slider, { target: { value: '1' } })
+    fireEvent.change(slider, { target: { value: '0' } })
+    expect(b.select).not.toHaveBeenCalled()
+    fireEvent.keyUp(slider, { key: 'ArrowLeft' })
+    await waitFor(() => expect(b.select).toHaveBeenCalledTimes(1))
+    expect(b.select).toHaveBeenCalledWith({ provider: 'a', model: 'sol', reasoningEffort: 'low' })
+  })
+  it('skips the request when a drag ends on the effort already in use', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    const slider = screen.getByRole('slider')
+    fireEvent.change(slider, { target: { value: '0' } })
+    fireEvent.change(slider, { target: { value: '1' } })
+    fireEvent.keyUp(slider, { key: 'ArrowRight' })
+    expect(b.select).not.toHaveBeenCalled()
+  })
+  it('maps a pointer position to any effort step, not just the next one', () => {
+    const rect = { left: 100, width: 220 }
+    expect(sliderIndexFromPoint(100, rect, 4)).toBe(0)
+    expect(sliderIndexFromPoint(170, rect, 4)).toBe(1)
+    expect(sliderIndexFromPoint(320, rect, 4)).toBe(3)
+    expect(sliderIndexFromPoint(-50, rect, 4)).toBe(0)
+    expect(sliderIndexFromPoint(900, rect, 4)).toBe(3)
+    expect(sliderIndexFromPoint(150, rect, 1)).toBe(0)
+    expect(sliderIndexFromPoint(150, rect, 0)).toBe(-1)
+  })
+  it('labels every effort step inside the track and keeps no effort text on the row', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    const dialog = screen.getByRole('dialog', { name: en.title })
+    expect(dialog.querySelectorAll('[data-provider-panel-track] [data-edge]')).toHaveLength(2)
+    expect(dialog.textContent).toContain('Low')
+    expect(dialog.textContent).toContain('High')
   })
   it('shows an empty catalog rather than permanent loading', async () => {
     const b = bench({ empty: true })

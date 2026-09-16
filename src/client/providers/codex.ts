@@ -1,7 +1,7 @@
 /** Optional, secret-free integration with dsh-codex-subscription 2.x account and quota RPC. */
 
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { createLocalStore, failureMessage, record } from '../store.ts'
 
 export interface CodexAccountView {
   readonly id: string
@@ -37,10 +37,6 @@ export interface CodexAccountsState {
   readonly restoreFailed: boolean
 }
 
-interface WritableSnapshotStore<T> extends SnapshotStore<T> {
-  set(next: T): void
-}
-
 interface RpcResult {
   readonly ok?: boolean
   readonly value?: unknown
@@ -56,37 +52,6 @@ const initialState: CodexAccountsState = Object.freeze({
 
 /** Shared loading marker, typed so object spreads keep the discriminated union. */
 const LOADING: CodexUsageState = Object.freeze({ status: 'loading' })
-
-function createStore<T>(initial: T): WritableSnapshotStore<T> {
-  let value = initial
-  const listeners = new Set<() => void>()
-  return {
-    getSnapshot: () => value,
-    subscribe: (listener) => {
-      listeners.add(listener)
-      return () => { listeners.delete(listener) }
-    },
-    update: (mutator) => {
-      const draft = { ...(value as object) } as T
-      mutator(draft)
-      value = draft
-      for (const listener of [...listeners]) listener()
-    },
-    set: (next) => {
-      value = next
-      for (const listener of [...listeners]) listener()
-    },
-  }
-}
-
-function failureMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
-function record(value: unknown): Record<string, unknown> | undefined {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
-  return value as Record<string, unknown>
-}
 
 function decodeAccount(value: unknown): CodexAccountView | undefined {
   const candidate = record(value)
@@ -189,7 +154,7 @@ export function maskedEmail(email: string | undefined): string | undefined {
  * non-active account's quota needs a temporary switch that is reverted immediately.
  */
 export class CodexAccountsController {
-  readonly store = createStore<CodexAccountsState>(initialState)
+  readonly store = createLocalStore<CodexAccountsState>(initialState)
   private generation = 0
   private disposed = false
 

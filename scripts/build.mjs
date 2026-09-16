@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { mkdir, readFile, rm } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { basename, relative, resolve } from 'node:path'
 import { build } from 'esbuild'
 import { transform } from 'lightningcss'
 
@@ -17,15 +17,22 @@ execFileSync(process.execPath, [resolve(root, 'node_modules/typescript/bin/tsc')
 const cssModules = {
   name: 'standalone-css-modules',
   setup(buildApi) {
-    buildApi.onResolve({ filter: /\.module\.css$/ }, args => ({
-      path: 'ProviderPanel.module.css',
-      namespace: 'dsh-provider-extension-css',
-      pluginData: { absolutePath: resolve(args.resolveDir, args.path) },
-    }))
+    // Resolve every CSS module to a normalized relative path from the project
+    // root so each file keeps a distinct class-name hash without baking host
+    // absolute paths into the committed bundle and source maps.
+    buildApi.onResolve({ filter: /\.module\.css$/ }, args => {
+      const absolutePath = resolve(args.resolveDir, args.path)
+      const relativePath = relative(root, absolutePath).replaceAll('\\', '/')
+      return {
+        path: relativePath,
+        namespace: 'dsh-provider-extension-css',
+        pluginData: { absolutePath },
+      }
+    })
     buildApi.onLoad({ filter: /.*/, namespace: 'dsh-provider-extension-css' }, async args => {
       const source = await readFile(args.pluginData.absolutePath)
       const result = transform({
-        filename: 'ProviderPanel.module.css',
+        filename: basename(args.path),
         code: source,
         minify: true,
         cssModules: { pattern: 'dpe_[local]_[hash]' },

@@ -13,11 +13,14 @@ This project was previously published as `dsh-model-panel`. The installer migrat
 | Provider | State | What the plugin adds |
 | --- | --- | --- |
 | ChatGPT / Codex subscription (`dsh-codex-subscription` 2.x) | **Implemented** | Lists every saved account, switches the real active account, and shows each account's weekly remaining quota |
+| Antigravity (`dsh-antigravity-auth` 0.1.4-rc.1) | **Implemented** | The provider settings page acknowledges the companion's risk notice, signs in a Google account, and lists the models that account reports |
 | OpenAI GPT (API) | Planned | — |
 | Google Gemini | Planned | — |
 | OpenCode | Planned | — |
 
 Each provider gets its own module under `src/client/providers/`. Nothing is claimed as integrated until it is implemented and accepted in a real DSH window.
+
+Integrations stay in their upstream projects. **`dsh-antigravity-auth` (MIT, © suntianc) owns the Antigravity OAuth flow, its wire identity, and the LLM adapter that publishes Antigravity model routes**; this plugin only drives that bundle's loopback-guarded account RPC from its provider settings page and never handles tokens. Install it with `dsh plugin --profile desktop add dsh-antigravity-auth@0.1.4-rc.1`.
 
 ## Features
 

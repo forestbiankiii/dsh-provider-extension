@@ -5,18 +5,27 @@ import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import type { SlotCore, SlotMap } from '@deepseek-ai/dsh-client-ui-slots'
 import { ProviderPanel } from './ProviderPanel.tsx'
 import type { ProviderPanelInjected } from './ProviderPanel.tsx'
+import { ProviderSettings } from './ProviderSettings.tsx'
+import type { ProviderSettingsInjected } from './ProviderSettings.tsx'
 import { cssText } from './ProviderPanel.module.css'
+import { cssText as settingsCssText } from './ProviderSettings.module.css'
 import { CodexAccountsController } from './providers/codex.ts'
+import { AntigravityController, isAntigravityProvider } from './providers/antigravity.ts'
 import { en, zh, type ProviderPanelKey } from './locales.ts'
 
 export { ProviderPanel } from './ProviderPanel.tsx'
 export type { ProviderPanelInjected, ProviderPanelProps } from './ProviderPanel.tsx'
+export { ProviderSettings } from './ProviderSettings.tsx'
+export type { ProviderSettingsInjected, ProviderSettingsProps } from './ProviderSettings.tsx'
 export { CodexAccountsController, decodeQuota, isCodexProvider, maskedEmail } from './providers/codex.ts'
 export type { CodexAccountView, CodexAccountsState, CodexQuotaView, CodexUsageState } from './providers/codex.ts'
+export { AntigravityController, decodeModels, decodeStatus, isAntigravityProvider } from './providers/antigravity.ts'
+export type { AntigravityModelCatalog, AntigravityState, AntigravityStatus } from './providers/antigravity.ts'
 export { accentFor, activeGroup, effortIndex, isCurrentModel, restingEffort, selectionForRow } from './selection.ts'
 export type { ProviderPanelGroup, ProviderPanelModel } from './selection.ts'
 export type { ProviderPanelKey } from './locales.ts'
@@ -46,15 +55,42 @@ export function apply(ctx: ClientContext): void {
 
   const connection = ctx.get('connection') as ConnectionHandle
   const codexAccounts = new CodexAccountsController(connection.rpc)
+  const antigravity = new AntigravityController(connection.rpc)
   ctx.effect(() => () => { codexAccounts.dispose() }, 'dsh-provider-extension: Codex account controller')
-  ctx.effect(() => ctx.on('connection/reset', () => { codexAccounts.invalidate() }), 'dsh-provider-extension: Codex account reset')
+  ctx.effect(() => () => { antigravity.dispose() }, 'dsh-provider-extension: Antigravity controller')
+  ctx.effect(() => ctx.on('connection/reset', () => {
+    codexAccounts.invalidate()
+    antigravity.invalidate()
+  }), 'dsh-provider-extension: account resets')
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = 'dsh-provider-extension'
-    tag.textContent = cssText
+    tag.textContent = `${cssText}\n${settingsCssText}`
     document.head.appendChild(tag)
     return () => { tag.remove() }
   }, 'dsh-provider-extension: styles')
+
+  const readCodexQuota = async (id: string): Promise<void> => {
+    await codexAccounts.readQuota(id)
+    window.dispatchEvent(new Event('dsh-codex-subscription:refresh-quick-quota'))
+  }
+
+  // Settings surface: create providers, sign in, and inspect their state.
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'provider-extension',
+    order: 16,
+    label: () => ctx.locale.bind(NS)('settingsNav'),
+    locale: NS,
+    inject: (): ProviderSettingsInjected => ({
+      hooks: { accounts: codexAccounts.store, antigravity: antigravity.store },
+      loadAccounts: async () => { await codexAccounts.load() },
+      readQuota: readCodexQuota,
+      loadAntigravity: async () => { await antigravity.load() },
+      loginAntigravity: async () => { await antigravity.login() },
+      logoutAntigravity: async () => { await antigravity.logout() },
+    }),
+  }, ProviderSettings))
 
   // The shipped selector currently occupies this single seat at priority -10.
   // A lower priority wins, so -20 deliberately replaces only its visual seat;

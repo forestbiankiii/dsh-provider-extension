@@ -24,7 +24,7 @@ describe('published artifact contract', () => {
   it('ships the expected DSH module-loader wrapper without dshx internals', () => {
     expect(client.startsWith('window.__ModuleLoader__.load({id:"dsh-provider-extension"')).toBe(true)
     expect(client).not.toContain('@dshx/')
-    const requires = [...client.matchAll(/require\("([^"]+)"\)/g)].map(match => match[1]).sort()
+    const requires = [...new Set([...client.matchAll(/require\("([^"]+)"\)/g)].map(match => match[1]))].sort()
     expect(requires).toEqual(['@deepseek-ai/dsh-client-ui-primitives', 'react', 'react/jsx-runtime'])
     expect(manifest.dsh.client.inject).toContain('@deepseek-ai/dsh-client-connection')
   })

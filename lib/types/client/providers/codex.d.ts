@@ -1,6 +1,5 @@
 /** Optional, secret-free integration with dsh-codex-subscription 2.x account and quota RPC. */
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client';
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store';
 export interface CodexAccountView {
     readonly id: string;
     readonly label: string;
@@ -36,9 +35,6 @@ export interface CodexAccountsState {
     /** True when a temporary switch could not be reverted to the previous account. */
     readonly restoreFailed: boolean;
 }
-interface WritableSnapshotStore<T> extends SnapshotStore<T> {
-    set(next: T): void;
-}
 /**
  * Read the reported quota windows out of one `usage` response.
  * Only provider-reported values are returned; nothing is inferred.
@@ -58,7 +54,7 @@ export declare function maskedEmail(email: string | undefined): string | undefin
  */
 export declare class CodexAccountsController {
     private readonly rpc;
-    readonly store: WritableSnapshotStore<CodexAccountsState>;
+    readonly store: import("../store.ts").WritableSnapshotStore<CodexAccountsState>;
     private generation;
     private disposed;
     constructor(rpc: ClientConnectionRpc);
@@ -84,4 +80,3 @@ export declare class CodexAccountsController {
     private switchTo;
     private setUsage;
 }
-export {};

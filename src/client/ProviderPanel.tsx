@@ -1,6 +1,9 @@
 /** Provider and model/reasoning controls that replace the shipped model seat. */
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import {
+  useEffect, useRef, useState,
+  type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode,
+} from 'react'
 import type { ModelSelection } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selection/client'
@@ -43,6 +46,23 @@ export type ProviderPanelProps =
 
 type OpenPane = 'provider' | 'model' | null
 
+type SliderDrag = {
+  model: ProviderPanelModel
+  provider: string
+  index: number
+  source: 'pointer' | 'keyboard'
+  pointerId?: number
+}
+
+/** Convert one horizontal pointer coordinate into a discrete effort index. */
+export function sliderIndexFromPoint(clientX: number, rect: { left: number; width: number }, count: number): number {
+  if (count <= 0) return -1
+  if (count === 1) return 0
+  const usable = Math.max(1, rect.width - 20)
+  const ratio = Math.min(1, Math.max(0, (clientX - (rect.left + 10)) / usable))
+  return Math.round(ratio * (count - 1))
+}
+
 /** Render separate provider and model controls inside the official model seat. */
 export function ProviderPanel({
   locked, available, useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, readQuota, select, t,
@@ -55,13 +75,19 @@ export function ProviderPanel({
   const [loading, setLoading] = useState(false)
   const [accountError, setAccountError] = useState<string | null>(null)
   const [error, setError] = useState<{ kind: 'loadFailed' | 'selectFailed'; message: string } | null>(null)
-  const [dragging, setDragging] = useState<{ model: ProviderPanelModel; provider: string; index: number } | null>(null)
+  const [dragging, setDragging] = useState<SliderDrag | null>(null)
+  const dragRef = useRef<SliderDrag | null>(null)
   const root = useRef<HTMLDivElement | null>(null)
   const providerTrigger = useRef<HTMLButtonElement | null>(null)
   const modelTrigger = useRef<HTMLButtonElement | null>(null)
   const generation = useRef(0)
   const mounted = useRef(false)
   const selecting = useRef(false)
+
+  const setDrag = (next: SliderDrag | null): void => {
+    dragRef.current = next
+    setDragging(next)
+  }
 
   // Invalidate late completions and local navigation when the injected Session changes.
   useEffect(() => {
@@ -74,7 +100,7 @@ export function ProviderPanel({
     setLoading(false)
     setAccountError(null)
     setError(null)
-    setDragging(null)
+    setDrag(null)
     return () => { mounted.current = false; generation.current++ }
   }, [useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, readQuota, select])
 
@@ -132,7 +158,7 @@ export function ProviderPanel({
         selecting.current = false
         setBusy(false)
         setLoading(false)
-        setDragging(null)
+        setDrag(null)
       })
   }
 
@@ -156,6 +182,79 @@ export function ProviderPanel({
     run('selectFailed', () => select(selectionForRow(model, group.id, effortId)))
   }
 
+  const commitDrag = (drag: SliderDrag | null): void => {
+    if (drag === null || group === undefined || drag.provider !== group.id || selecting.current || pending) return
+    const ladder = drag.model.reasoning?.efforts ?? []
+    const effortId = drag.index < 0 ? undefined : ladder[drag.index]?.id
+    if (
+      directory.current?.provider === drag.provider
+      && directory.current.model === drag.model.id
+      && directory.current.reasoningEffort === effortId
+    ) return
+    submit(drag.model, effortId)
+  }
+
+  const dragAtPointer = (
+    event: ReactPointerEvent<HTMLDivElement>,
+    fallback: ProviderPanelModel,
+  ): SliderDrag => {
+    const locate = document.elementFromPoint
+    const element = typeof locate === 'function' ? locate.call(document, event.clientX, event.clientY) : null
+    const originTrack = event.currentTarget
+    const row = element?.closest<HTMLElement>('[data-provider-panel-model]')
+    const candidateTrack = row?.querySelector<HTMLElement>('[data-provider-panel-track]') ?? null
+    const band = candidateTrack?.getBoundingClientRect() ?? row?.getBoundingClientRect()
+    // Require the pointer to actually enter the neighbour's own band; a small
+    // vertical drift inside the current row must never switch models.
+    const insideBand = band !== undefined && event.clientY >= band.top - 16 && event.clientY <= band.bottom + 16
+    const candidate = row !== null && row !== undefined && insideBand
+      ? models.find(entry => entry.id === row.dataset.providerPanelModel)
+      : undefined
+    const target = candidate ?? fallback
+    const track = candidate === undefined ? originTrack : candidateTrack ?? originTrack
+    const count = target.reasoning?.efforts.length ?? 0
+    return {
+      model: target,
+      provider: group!.id,
+      index: sliderIndexFromPoint(event.clientX, track.getBoundingClientRect(), count),
+      source: 'pointer',
+      pointerId: event.pointerId,
+    }
+  }
+
+  const startPointerDrag = (event: ReactPointerEvent<HTMLDivElement>, model: ProviderPanelModel): void => {
+    if (pending || event.button !== 0) return
+    event.preventDefault()
+    if (typeof event.currentTarget.setPointerCapture === 'function') {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    }
+    event.currentTarget.querySelector<HTMLInputElement>('input')?.focus()
+    setDrag(dragAtPointer(event, model))
+  }
+
+  const movePointerDrag = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    const drag = dragRef.current
+    if (drag?.source !== 'pointer' || drag.pointerId !== event.pointerId) return
+    setDrag(dragAtPointer(event, drag.model))
+  }
+
+  const finishPointerDrag = (event: ReactPointerEvent<HTMLDivElement>, shouldCommit: boolean): void => {
+    const drag = dragRef.current
+    if (drag?.source !== 'pointer' || drag.pointerId !== event.pointerId) return
+    if (typeof event.currentTarget.hasPointerCapture === 'function' && event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    setDrag(null)
+    if (shouldCommit) commitDrag(drag)
+  }
+
+  const finishKeyboardDrag = (): void => {
+    const drag = dragRef.current
+    if (drag?.source !== 'keyboard') return
+    setDrag(null)
+    commitDrag(drag)
+  }
+
   const renderRow = (model: ProviderPanelModel, index: number): ReactNode => {
     const ladder = model.reasoning?.efforts ?? []
     const count = ladder.length
@@ -163,7 +262,8 @@ export function ProviderPanel({
     const isCurrent = isCurrentModel(directory.current, provider, model)
     const restingId = isCurrent ? currentEffort : restingEffort(model)
     const resting = effortIndex(model, restingId)
-    const position = dragging?.model === model && dragging.provider === provider ? dragging.index : resting
+    const isDragTarget = dragging?.model === model && dragging.provider === provider
+    const position = isDragTarget ? dragging.index : resting
     const ratio = count > 1 && position >= 0 ? position / (count - 1) : 0
     const effortName = ladder[position]?.name ?? (restingId === undefined
       ? t('defaultEffort') : t('unknownEffort', { effort: restingId }))
@@ -174,6 +274,8 @@ export function ProviderPanel({
         className={isCurrent ? `${css.row} ${css.rowCurrent}` : css.row}
         data-model-accent={model.id}
         data-current={isCurrent}
+        data-drag-target={isDragTarget}
+        data-provider-panel-model={model.id}
         style={{
           '--dpe-accent': accent,
           '--dpe-accent-soft': `${accent}1f`,
@@ -189,18 +291,26 @@ export function ProviderPanel({
             disabled={pending}
             onClick={() => { submit(model, restingId) }}
           >{model.name}</button>
-          <span className={css.rowValue}>{count === 0 ? t('noEffortShort') : effortName}</span>
         </div>
         {count === 0 ? null : (
-          <div className={css.track}>
+          <div
+            className={css.track}
+            data-provider-panel-track
+            onPointerDown={(event) => { startPointerDrag(event, model) }}
+            onPointerMove={movePointerDrag}
+            onPointerUp={(event) => { finishPointerDrag(event, true) }}
+            onPointerCancel={(event) => { finishPointerDrag(event, false) }}
+          >
             <span className={css.rail} aria-hidden="true" />
             {ladder.map((effort, stop) => (
               <span
                 key={effort.id}
                 className={css.stop}
                 aria-hidden="true"
+                data-active={stop === position}
+                data-edge={stop === 0 ? 'start' : stop === count - 1 ? 'end' : 'middle'}
                 style={{ left: `calc(10px + (100% - 20px) * ${count > 1 ? stop / (count - 1) : 0})` }}
-              />
+              ><span className={css.stopLabel}>{effort.name}</span></span>
             ))}
             {position < 0 ? null : <>
               <span className={css.fill} aria-hidden="true" style={{ width: `calc((100% - 20px) * ${ratio})` }} />
@@ -218,15 +328,14 @@ export function ProviderPanel({
               aria-valuetext={effortName}
               onChange={(event) => {
                 if (selecting.current || pending) return
-                const next = Number(event.target.value)
-                const effort = ladder[next]
-                if (effort === undefined) return
-                setDragging({ model, provider, index: next })
-                submit(model, effort.id)
+                setDrag({ model, provider, index: Number(event.target.value), source: 'keyboard' })
               }}
-              onPointerUp={() => { setDragging(null) }}
-              onKeyUp={() => { setDragging(null) }}
-              onBlur={() => { setDragging(null) }}
+              onKeyUp={(event: ReactKeyboardEvent<HTMLInputElement>) => {
+                if (['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp'].includes(event.key)) {
+                  finishKeyboardDrag()
+                }
+              }}
+              onBlur={finishKeyboardDrag}
             />
           </div>
         )}

@@ -4,6 +4,14 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.5.0 — 2026-09-16
+
+- Add Provider Settings section (`settings.section`, id `provider-extension`) with a "Create provider" catalog and real-time status.
+- Integrate Antigravity (`dsh-antigravity-auth` 0.1.4-rc.1): automate risk acknowledgement, trigger Google OAuth sign-in flow, and display live reported models.
+- Redesign model sliders: circular endpoints, circular thumb with hover emphasis, prominent track labels for each effort level, and removed right-side text.
+- Rework slider interaction: multi-step drag with single commit on release, no-op commit when unchanged, and vertical drag across model rows to switch models directly.
+- Separate CSS module bundling per source file to prevent class-name hash collisions across components.
+
 ## 0.4.0 — 2026-09-16
 
 - Rename the project to **Provider Extension / 提供商拓展插件** (`dsh-provider-extension`, row id `provider-extension`) so later provider integrations share one plugin.

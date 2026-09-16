@@ -28,5 +28,10 @@ export interface ProviderPanelInjected {
 }
 /** Complete replacement-seat props, including the composer's lock state. */
 export type ProviderPanelProps = PropsRuntime<'conversation.input.model'> & PropsLocale<'providerExtension'> & InjectFace<ProviderPanelInjected>;
+/** Convert one horizontal pointer coordinate into a discrete effort index. */
+export declare function sliderIndexFromPoint(clientX: number, rect: {
+    left: number;
+    width: number;
+}, count: number): number;
 /** Render separate provider and model controls inside the official model seat. */
 export declare function ProviderPanel({ locked, available, useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, readQuota, select, t, }: ProviderPanelProps): ReactNode;

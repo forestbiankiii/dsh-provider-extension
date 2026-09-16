@@ -13,11 +13,14 @@
 | 提供方 | 状态 | 插件提供的能力 |
 | --- | --- | --- |
 | ChatGPT / Codex 订阅（`dsh-codex-subscription` 2.x） | **已实现** | 列出全部已保存账号、切换真实活动账号、显示每个账号的周余额 |
+| Antigravity（`dsh-antigravity-auth` 0.1.4-rc.1） | **已实现** | 提供商设置页确认该能力包的风险提示、登录 Google 账号，并列出该账号上报的模型 |
 | OpenAI GPT（API） | 计划中 | — |
 | Google Gemini | 计划中 | — |
 | OpenCode | 计划中 | — |
 
 每个提供方在 `src/client/providers/` 下拥有独立模块。未实现并在真实 DSH 窗口验收之前，不会宣称已接入。
+
+接入逻辑保留在上游项目中：**`dsh-antigravity-auth`（MIT，© suntianc）负责 Antigravity 的 OAuth 流程、线路身份，以及把 Antigravity 模型路由发布进模型目录的 LLM adapter**；本插件只在自己的提供商设置页调用该能力包仅限 loopback 的账号 RPC，从不接触令牌。安装命令：`dsh plugin --profile desktop add dsh-antigravity-auth@0.1.4-rc.1`。
 
 ## 功能
 
