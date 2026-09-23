@@ -603,6 +603,12 @@ var DshOAuthAccountVault = class {
 	activeId() {
 		return this.#enqueue(async () => (await this.#ensurePayload())?.activeId);
 	}
+	readById(id) {
+		return this.#enqueue(async () => {
+			const payload = await this.#ensurePayload();
+			return clone$1(payload?.accounts.find((account) => account.id === id)?.credential);
+		});
+	}
 	add(label, credential) {
 		return this.#enqueue(async () => {
 			const normalizedLabel = normalizeLabel(label);
@@ -633,7 +639,8 @@ var DshOAuthAccountVault = class {
 				if (!current.accounts.some((account) => account.id === id)) throw new Error("Unknown Codex account");
 				return {
 					...current,
-					activeId: id
+					activeId: id,
+					legacyAccountId: id
 				};
 			});
 		});
@@ -3621,7 +3628,7 @@ const publicError = (code, message) => ({
 		details: { issues: [] }
 	}
 });
-function createSubscriptionRpcHandler({ authHandler, usageReader, resetCreditService, preferences, diagnosticsReader, modelCatalog, originalImages, resolveInheritedOriginal }) {
+function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, network, resetCreditService, preferences, diagnosticsReader, modelCatalog, originalImages, resolveInheritedOriginal }) {
 	return async (endpoint, payload, signal) => {
 		if (endpoint === "image/original/chunk") try {
 			signal.throwIfAborted();
@@ -3696,6 +3703,45 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, resetCreditSer
 		}
 		if (endpoint === "usage") try {
 			signal.throwIfAborted();
+			if (typeof payload?.id === "string" && accountVault) {
+				const cred = await accountVault.readById(payload.id);
+				if (cred?.access) {
+					const jwtPayload = decodeJwtPayload(cred.access);
+					const accountId = cred.accountId ?? jwtPayload?.["https://api.openai.com/auth"]?.account_id ?? jwtPayload?.["https://api.openai.com/auth"]?.user_id;
+					if (accountId) {
+						const response = await (network?.fetch ? network.fetch("quota", CODEX_USAGE_URL, {
+							method: "GET",
+							redirect: "error",
+							headers: {
+								authorization: `Bearer ${cred.access}`,
+								"chatgpt-account-id": accountId,
+								accept: "application/json",
+								"cache-control": "no-store",
+								"user-agent": USER_AGENT
+							},
+							signal: requestSignal$1(signal, DEFAULT_TIMEOUT_MS$1)
+						}) : fetch(CODEX_USAGE_URL, {
+							method: "GET",
+							redirect: "error",
+							headers: {
+								authorization: `Bearer ${cred.access}`,
+								"chatgpt-account-id": accountId,
+								accept: "application/json",
+								"cache-control": "no-store",
+								"user-agent": USER_AGENT
+							},
+							signal: requestSignal$1(signal, DEFAULT_TIMEOUT_MS$1)
+						}));
+						if (response.ok) {
+							const value = await response.json();
+							return {
+								ok: true,
+								value: parseCodexUsage(value)
+							};
+						}
+					}
+				}
+			}
 			return {
 				ok: true,
 				value: await usageReader.read({
@@ -4014,6 +4060,8 @@ function apply(ctx) {
 	const handler = createSubscriptionRpcHandler({
 		authHandler: createCodexRpcHandler(coordinator, { openExternal: openCodexAuthUrl }),
 		usageReader,
+		accountVault,
+		network,
 		resetCreditService,
 		preferences,
 		diagnosticsReader: () => createSubscriptionDiagnostics({

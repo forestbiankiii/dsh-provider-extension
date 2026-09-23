@@ -66,7 +66,7 @@ describe('provider settings surface', () => {
     })
     expect(screen.getAllByText(/fo\*\*\*@gmail\.com/).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Gemini 3.8 Flash')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: en.addAccount }))
+    fireEvent.click(screen.getAllByRole('button', { name: en.addAccount })[0]!)
     expect(b.loginAntigravity).toHaveBeenCalledOnce()
   })
 
@@ -75,7 +75,8 @@ describe('provider settings surface', () => {
     expect(screen.getByText('Work')).toBeTruthy()
     expect(screen.getByText('wk 76%')).toBeTruthy()
     expect(screen.getByText(en.accountActive)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: en.codexSignIn }))
+    const addButtons = screen.getAllByRole('button', { name: en.addAccount })
+    fireEvent.click(addButtons[addButtons.length - 1]!)
     expect(b.loginCodex).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: en.accountRemove }))
     expect(screen.getByText(en.confirmDelete)).toBeTruthy()

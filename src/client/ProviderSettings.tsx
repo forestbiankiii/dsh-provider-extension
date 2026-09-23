@@ -113,6 +113,16 @@ export function ProviderSettings({
     return () => { window.removeEventListener(MODELS_VISIBILITY_EVENT, handleVisibilityChange) }
   }, [])
 
+  useEffect(() => {
+    if (selectedProvider === 'codex' || expanded.codex) {
+      for (const acc of accounts.accounts) {
+        if (!acc.active && accounts.usage[acc.id] === undefined && accounts.switchingId === undefined) {
+          void readQuota(acc.id).catch(() => {})
+        }
+      }
+    }
+  }, [selectedProvider, expanded.codex, accounts.accounts, accounts.usage, accounts.switchingId, readQuota])
+
   const toggleAccountModel = (accountId: string, modelId: string) => {
     setAccountDisabledMap(prev => {
       const currentList = prev[accountId] ?? []
@@ -883,7 +893,7 @@ export function ProviderSettings({
                   className={`${css.action} ${css.primary}`}
                   disabled={accounts.loginPending === true}
                   onClick={() => { void loginCodex().catch(() => {}) }}
-                >{accounts.loginPending === true ? t('providerWorking') : t('codexSignIn')}</button>
+                >{accounts.loginPending === true ? t('providerWorking') : t('addAccount')}</button>
                 {typeof accounts.loginUrl === 'string' ? (
                   <a className={css.action} href={accounts.loginUrl} target="_blank" rel="noreferrer">
                     {t('codexOpenLink')}

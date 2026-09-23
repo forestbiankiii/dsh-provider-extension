@@ -329,7 +329,8 @@ export class CodexAccountsController {
     if (current.loginPending) return
     this.store.set(Object.freeze({ ...current, loginPending: true, error: null }))
     try {
-      const startResult = await call(this.rpc, 'login/start', { openExternal: true }) as { id?: string; authUrl?: string }
+      const nextIndex = current.accounts.length + 1
+      const startResult = await call(this.rpc, 'login/start', { openExternal: true, label: `Account ${nextIndex}` }) as { id?: string; authUrl?: string }
       const flowId = startResult?.id
       if (typeof flowId !== 'string') throw new Error('Could not start ChatGPT login')
       const latest = this.store.getSnapshot()
