@@ -25,6 +25,7 @@ export interface ProviderSettingsInjected {
   selectCodexAccount?: (id: string) => Promise<void>
   renameCodexAccount?: (id: string, label: string) => Promise<void>
   removeCodexAccount: (id: string) => Promise<void>
+  resetCodexQuota?: (id: string) => Promise<void>
   loadAntigravity: () => Promise<void>
   loginAntigravity: () => Promise<void>
   logoutAntigravity: () => Promise<void>
@@ -87,6 +88,51 @@ function resolveAccountTier(account: { tier?: string | undefined }): GeminiTier 
   return 'Pro'
 }
 
+function formatCockpitTime(epochSeconds?: number): string {
+  if (!epochSeconds) return '满额可用'
+  try {
+    const target = new Date(epochSeconds * 1000)
+    const diffMs = target.getTime() - Date.now()
+    if (diffMs <= 0) return '即将重置'
+    const totalMins = Math.floor(diffMs / 60_000)
+    const days = Math.floor(totalMins / (24 * 60))
+    const hours = Math.floor((totalMins % (24 * 60)) / 60)
+    const mins = totalMins % 60
+
+    let countdown = ''
+    if (days > 0) countdown = `${days}d ${hours}h ${mins}m`
+    else if (hours > 0) countdown = `${hours}h ${mins}m`
+    else countdown = `${Math.max(1, mins)}m`
+
+    const mm = String(target.getMonth() + 1).padStart(2, '0')
+    const dd = String(target.getDate()).padStart(2, '0')
+    const hh = String(target.getHours()).padStart(2, '0')
+    const min = String(target.getMinutes()).padStart(2, '0')
+    return `${countdown} (${mm}/${dd} ${hh}:${min})`
+  } catch {
+    return ''
+  }
+}
+
+function calcDaysRemaining(epochMs?: number): string {
+  if (!epochMs) return ''
+  const diffMs = epochMs - Date.now()
+  if (diffMs <= 0) return '已过期'
+  const days = Math.ceil(diffMs / (24 * 3600 * 1000))
+  return `${days}天`
+}
+
+function formatDateTime(epochMs?: number): string {
+  if (!epochMs) return ''
+  const d = new Date(epochMs)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}`
+}
+
 function formatResetSeconds(epochSeconds?: number): string {
   if (!epochSeconds) return ''
   try {
@@ -106,7 +152,7 @@ function formatResetSeconds(epochSeconds?: number): string {
 
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
 export function ProviderSettings({
-  useAccounts, useAntigravity, loadAccounts, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount,
+  useAccounts, useAntigravity, loadAccounts, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, resetCodexQuota,
   loadAntigravity, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, t,
 }: ProviderSettingsProps): ReactNode {
   const accounts = useAccounts(snapshot => snapshot)
@@ -298,7 +344,8 @@ export function ProviderSettings({
               <div className={css.accounts}>
                 {accounts.accounts.map(account => {
                   const usage = accounts.usage[account.id]
-                  const weekly = usage?.status === 'ready' ? usage.value.weeklyPercent : undefined
+                  const usageVal = usage?.status === 'ready' ? usage.value : undefined
+                  const weekly = usageVal?.weeklyPercent
                   const email = maskedEmail(account.email)
                   const isEditing = editingCodexAccountId === account.id
                   const isQuotaOpen = expandedCodexQuotaAccounts[account.id] === true
@@ -346,10 +393,13 @@ export function ProviderSettings({
                               </span>
                             )}
                             <span className={css.accountTierBadge} data-tier="Pro">
-                              {usage?.status === 'loading' ? t('quotaReading')
-                                : usage?.status === 'error' ? t('quotaFailedShort')
-                                : weekly === undefined ? t('quotaNoWeekly') : t('weeklyQuota', { value: weekly })}
+                              {account.planType ?? 'PLUS'}
                             </span>
+                            {weekly !== undefined ? (
+                              <span className={css.accountTierBadge} data-tier="Pro">
+                                {t('weeklyQuota', { value: weekly })}
+                              </span>
+                            ) : null}
                           </div>
                           {email === undefined ? null : <span className={css.note}>{email}</span>}
                         </div>
@@ -399,53 +449,91 @@ export function ProviderSettings({
                       </div>
 
                       {isQuotaOpen && (
-                        <div className={css.accountExpandQuota} onClick={e => e.stopPropagation()}>
-                          <div className={css.quotaBlockTitle}>{t('quotaBalance')}</div>
-                          {usage?.status === 'loading' ? (
-                            <p className={css.note}>{t('quotaReading')}</p>
-                          ) : usage?.status === 'ready' ? (
-                            <div className={css.quotaBars}>
-                              {usage.value.shortPercent !== undefined ? (
-                                <div className={css.quotaBarItem}>
-                                  <div className={css.quotaBarHeader}>
-                                    <span>5小时额度</span>
-                                    <span className={css.quotaBarPercent}>{usage.value.shortPercent}%</span>
-                                  </div>
-                                  <div className={css.quotaProgressTrack}>
-                                    <div
-                                      className={css.quotaProgressFill}
-                                      style={{
-                                        width: `${Math.min(100, Math.max(0, usage.value.shortPercent))}%`,
-                                        background: usage.value.shortPercent > 30 ? '#10b981' : usage.value.shortPercent > 10 ? '#f59e0b' : '#ef4444',
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              ) : null}
-                              <div className={css.quotaBarItem}>
-                                <div className={css.quotaBarHeader}>
-                                  <span>周额度</span>
-                                  <span className={css.quotaBarPercent}>{usage.value.weeklyPercent ?? 100}%</span>
-                                </div>
-                                <div className={css.quotaProgressTrack}>
-                                  <div
-                                    className={css.quotaProgressFill}
-                                    style={{
-                                      width: `${Math.min(100, Math.max(0, usage.value.weeklyPercent ?? 100))}%`,
-                                      background: (usage.value.weeklyPercent ?? 100) > 30 ? '#3b82f6' : (usage.value.weeklyPercent ?? 100) > 10 ? '#f59e0b' : '#ef4444',
-                                    }}
-                                  />
-                                </div>
-                                {usage.value.weeklyResetsAt ? (
-                                  <span className={css.quotaResetTime}>
-                                    {formatResetSeconds(usage.value.weeklyResetsAt)}
-                                  </span>
-                                ) : null}
+                        <div className={css.cockpitPanel} onClick={e => e.stopPropagation()}>
+                          {/* Sub-row 1: Team Name + 重置按钮 */}
+                          <div className={css.cockpitSubRow}>
+                            <div className={css.cockpitTeam}>
+                              <span className={css.cockpitMuted}>Team Name:</span>
+                              <span className={css.cockpitText}>个人账户</span>
+                            </div>
+                            {usage?.status === 'ready' && usage.value.resetCredits !== undefined ? (
+                              <button
+                                type="button"
+                                className={css.cockpitResetBtn}
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  if (resetCodexQuota) void resetCodexQuota(account.id)
+                                }}
+                                title="消耗重置额度重置 5h 额度"
+                              >
+                                ⟳ 重置 {usage.value.resetCredits}
+                              </button>
+                            ) : null}
+                          </div>
+
+                          {/* Sub-row 2: 登录方式与用户 ID */}
+                          <div className={css.cockpitUserRow}>
+                            <span>使用 Google / Password 登录</span>
+                            {account.accountId ? (
+                              <>
+                                <span className={css.cockpitDivider}>|</span>
+                                <span title={account.accountId}>
+                                  用户 ID: {account.accountId.slice(0, 18)}...
+                                </span>
+                              </>
+                            ) : null}
+                          </div>
+
+                          {/* 5h 额度条 */}
+                          <div className={css.cockpitQuotaSection}>
+                            <div className={css.cockpitQuotaHeader}>
+                              <span className={css.cockpitQuotaTitle}>5h</span>
+                              <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent ?? 100}%</span>
+                            </div>
+                            <div className={css.cockpitTrack}>
+                              <div
+                                className={css.cockpitFill5h}
+                                style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 100))}%` }}
+                              />
+                            </div>
+                            <div className={css.cockpitTimeSub}>
+                              {formatCockpitTime(usageVal?.shortResetsAt)}
+                            </div>
+                          </div>
+
+                          {/* Weekly 额度条 */}
+                          <div className={css.cockpitQuotaSection}>
+                            <div className={css.cockpitQuotaHeader}>
+                              <span className={css.cockpitQuotaTitle}>Weekly</span>
+                              <span className={css.cockpitQuotaValWeekly}>{usageVal?.weeklyPercent ?? 100}%</span>
+                            </div>
+                            <div className={css.cockpitTrack}>
+                              <div
+                                className={css.cockpitFillWeekly}
+                                style={{ width: `${Math.min(100, Math.max(0, usageVal?.weeklyPercent ?? 100))}%` }}
+                              />
+                            </div>
+                            <div className={css.cockpitTimeSub}>
+                              {formatCockpitTime(usageVal?.weeklyResetsAt)}
+                            </div>
+                          </div>
+
+                          {/* 订阅有效期 Banner */}
+                          {account.expiresAt ? (
+                            <div className={css.cockpitSubBanner}>
+                              <div className={css.cockpitSubLeft}>
+                                <span>📅</span>
+                                <span>订阅有效期 {calcDaysRemaining(account.expiresAt)}</span>
+                              </div>
+                              <div className={css.cockpitSubRight}>
+                                {formatDateTime(account.expiresAt)}
                               </div>
                             </div>
-                          ) : (
+                          ) : null}
+
+                          {usage?.status === 'error' && (
                             <div className={css.quotaErrorRow}>
-                              <span className={css.note}>{usage?.status === 'error' ? t('quotaFailedShort') : t('quotaNoData')}</span>
+                              <span className={css.note}>{t('quotaFailedShort')}</span>
                               <button
                                 type="button"
                                 className={css.action}
@@ -1001,7 +1089,8 @@ export function ProviderSettings({
                 <div className={css.accounts}>
                   {accounts.accounts.map(account => {
                     const usage = accounts.usage[account.id]
-                    const weekly = usage?.status === 'ready' ? usage.value.weeklyPercent : undefined
+                    const usageVal = usage?.status === 'ready' ? usage.value : undefined
+                    const weekly = usageVal?.weeklyPercent
                     const email = maskedEmail(account.email)
                     const isEditing = editingCodexAccountId === account.id
                     const isQuotaOpen = expandedCodexQuotaAccounts[account.id] === true
@@ -1049,10 +1138,13 @@ export function ProviderSettings({
                                 </span>
                               )}
                               <span className={css.accountTierBadge} data-tier="Pro">
-                                {usage?.status === 'loading' ? t('quotaReading')
-                                  : usage?.status === 'error' ? t('quotaFailedShort')
-                                  : weekly === undefined ? t('quotaNoWeekly') : t('weeklyQuota', { value: weekly })}
+                                {account.planType ?? 'PLUS'}
                               </span>
+                              {weekly !== undefined ? (
+                                <span className={css.accountTierBadge} data-tier="Pro">
+                                  {t('weeklyQuota', { value: weekly })}
+                                </span>
+                              ) : null}
                             </div>
                             {email === undefined ? null : <span className={css.note}>{email}</span>}
                           </div>
@@ -1102,53 +1194,91 @@ export function ProviderSettings({
                         </div>
 
                         {isQuotaOpen && (
-                          <div className={css.accountExpandQuota} onClick={e => e.stopPropagation()}>
-                            <div className={css.quotaBlockTitle}>{t('quotaBalance')}</div>
-                            {usage?.status === 'loading' ? (
-                              <p className={css.note}>{t('quotaReading')}</p>
-                            ) : usage?.status === 'ready' ? (
-                              <div className={css.quotaBars}>
-                                {usage.value.shortPercent !== undefined ? (
-                                  <div className={css.quotaBarItem}>
-                                    <div className={css.quotaBarHeader}>
-                                      <span>5小时额度</span>
-                                      <span className={css.quotaBarPercent}>{usage.value.shortPercent}%</span>
-                                    </div>
-                                    <div className={css.quotaProgressTrack}>
-                                      <div
-                                        className={css.quotaProgressFill}
-                                        style={{
-                                          width: `${Math.min(100, Math.max(0, usage.value.shortPercent))}%`,
-                                          background: usage.value.shortPercent > 30 ? '#10b981' : usage.value.shortPercent > 10 ? '#f59e0b' : '#ef4444',
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-                                ) : null}
-                                <div className={css.quotaBarItem}>
-                                  <div className={css.quotaBarHeader}>
-                                    <span>周额度</span>
-                                    <span className={css.quotaBarPercent}>{usage.value.weeklyPercent ?? 100}%</span>
-                                  </div>
-                                  <div className={css.quotaProgressTrack}>
-                                    <div
-                                      className={css.quotaProgressFill}
-                                      style={{
-                                        width: `${Math.min(100, Math.max(0, usage.value.weeklyPercent ?? 100))}%`,
-                                        background: (usage.value.weeklyPercent ?? 100) > 30 ? '#3b82f6' : (usage.value.weeklyPercent ?? 100) > 10 ? '#f59e0b' : '#ef4444',
-                                      }}
-                                    />
-                                  </div>
-                                  {usage.value.weeklyResetsAt ? (
-                                    <span className={css.quotaResetTime}>
-                                      {formatResetSeconds(usage.value.weeklyResetsAt)}
-                                    </span>
-                                  ) : null}
+                          <div className={css.cockpitPanel} onClick={e => e.stopPropagation()}>
+                            {/* Sub-row 1: Team Name + 重置按钮 */}
+                            <div className={css.cockpitSubRow}>
+                              <div className={css.cockpitTeam}>
+                                <span className={css.cockpitMuted}>Team Name:</span>
+                                <span className={css.cockpitText}>个人账户</span>
+                              </div>
+                              {usage?.status === 'ready' && usage.value.resetCredits !== undefined ? (
+                                <button
+                                  type="button"
+                                  className={css.cockpitResetBtn}
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    if (resetCodexQuota) void resetCodexQuota(account.id)
+                                  }}
+                                  title="消耗重置额度重置 5h 额度"
+                                >
+                                  ⟳ 重置 {usage.value.resetCredits}
+                                </button>
+                              ) : null}
+                            </div>
+
+                            {/* Sub-row 2: 登录方式与用户 ID */}
+                            <div className={css.cockpitUserRow}>
+                              <span>使用 Google / Password 登录</span>
+                              {account.accountId ? (
+                                <>
+                                  <span className={css.cockpitDivider}>|</span>
+                                  <span title={account.accountId}>
+                                    用户 ID: {account.accountId.slice(0, 18)}...
+                                  </span>
+                                </>
+                              ) : null}
+                            </div>
+
+                            {/* 5h 额度条 */}
+                            <div className={css.cockpitQuotaSection}>
+                              <div className={css.cockpitQuotaHeader}>
+                                <span className={css.cockpitQuotaTitle}>5h</span>
+                                <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent ?? 100}%</span>
+                              </div>
+                              <div className={css.cockpitTrack}>
+                                <div
+                                  className={css.cockpitFill5h}
+                                  style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 100))}%` }}
+                                />
+                              </div>
+                              <div className={css.cockpitTimeSub}>
+                                {formatCockpitTime(usageVal?.shortResetsAt)}
+                              </div>
+                            </div>
+
+                            {/* Weekly 额度条 */}
+                            <div className={css.cockpitQuotaSection}>
+                              <div className={css.cockpitQuotaHeader}>
+                                <span className={css.cockpitQuotaTitle}>Weekly</span>
+                                <span className={css.cockpitQuotaValWeekly}>{usageVal?.weeklyPercent ?? 100}%</span>
+                              </div>
+                              <div className={css.cockpitTrack}>
+                                <div
+                                  className={css.cockpitFillWeekly}
+                                  style={{ width: `${Math.min(100, Math.max(0, usageVal?.weeklyPercent ?? 100))}%` }}
+                                />
+                              </div>
+                              <div className={css.cockpitTimeSub}>
+                                {formatCockpitTime(usageVal?.weeklyResetsAt)}
+                              </div>
+                            </div>
+
+                            {/* 订阅有效期 Banner */}
+                            {account.expiresAt ? (
+                              <div className={css.cockpitSubBanner}>
+                                <div className={css.cockpitSubLeft}>
+                                  <span>📅</span>
+                                  <span>订阅有效期 {calcDaysRemaining(account.expiresAt)}</span>
+                                </div>
+                                <div className={css.cockpitSubRight}>
+                                  {formatDateTime(account.expiresAt)}
                                 </div>
                               </div>
-                            ) : (
+                            ) : null}
+
+                            {usage?.status === 'error' && (
                               <div className={css.quotaErrorRow}>
-                                <span className={css.note}>{usage?.status === 'error' ? t('quotaFailedShort') : t('quotaNoData')}</span>
+                                <span className={css.note}>{t('quotaFailedShort')}</span>
                                 <button
                                   type="button"
                                   className={css.action}

@@ -27,7 +27,7 @@ describe('Codex subscription account integration', () => {
   })
 
   it('reads the weekly window from the codex limit only', () => {
-    expect(decodeQuota(usage)).toEqual({ weeklyPercent: 76, weeklyResetsAt: 1_700_500_000, shortPercent: 43 })
+    expect(decodeQuota(usage)).toEqual({ weeklyPercent: 76, weeklyResetsAt: 1_700_500_000, shortPercent: 43, shortResetsAt: 1_700_000_000 })
     expect(decodeQuota({ rateLimits: [] })).toEqual({})
     expect(decodeQuota({ rateLimits: [{ id: 'codex', windows: [{ windowSeconds: 604_800, remainingPercent: 150 }] }] })).toEqual({})
     expect(decodeQuota(null)).toEqual({})
@@ -44,7 +44,7 @@ describe('Codex subscription account integration', () => {
     await controller.load()
     expect(controller.store.getSnapshot().accounts.map(account => account.label)).toEqual(['Work', 'Personal'])
     await waitForUsage(controller)
-    expect(controller.store.getSnapshot().usage.work).toEqual({ status: 'ready', value: { weeklyPercent: 76, weeklyResetsAt: 1_700_500_000, shortPercent: 43 } })
+    expect(controller.store.getSnapshot().usage.work).toEqual({ status: 'ready', value: { weeklyPercent: 76, weeklyResetsAt: 1_700_500_000, shortPercent: 43, shortResetsAt: 1_700_000_000 } })
     await controller.select('personal')
     expect(call).toHaveBeenCalledWith('/api', 'codex-subscription/account/select', { id: 'personal' })
     expect(controller.store.getSnapshot().accounts.find(account => account.active)?.id).toBe('personal')

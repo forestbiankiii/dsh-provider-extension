@@ -8,6 +8,10 @@ export interface CodexAccountView {
   readonly label: string
   readonly active: boolean
   readonly email?: string
+  readonly expiresAt?: number
+  readonly planType?: string
+  readonly accountId?: string
+  readonly userId?: string
 }
 
 /** Quota windows the subscription plugin reported for one account. */
@@ -18,6 +22,10 @@ export interface CodexQuotaView {
   readonly weeklyResetsAt?: number
   /** Remaining percent of the 5-hour (18000s) window, when reported. */
   readonly shortPercent?: number
+  /** Unix seconds when that 5-hour window resets, when reported. */
+  readonly shortResetsAt?: number
+  /** Number of quota reset credits available. */
+  readonly resetCredits?: number
 }
 
 export type CodexUsageState =
@@ -102,6 +110,10 @@ function decodeAccount(value: unknown): CodexAccountView | undefined {
     label: candidate.label,
     active: candidate.active,
     ...typeof candidate.email === 'string' && candidate.email.length > 0 ? { email: candidate.email } : {},
+    ...typeof candidate.expiresAt === 'number' ? { expiresAt: candidate.expiresAt } : {},
+    ...typeof candidate.planType === 'string' ? { planType: candidate.planType } : { planType: 'PLUS' },
+    ...typeof candidate.accountId === 'string' ? { accountId: candidate.accountId } : {},
+    ...typeof candidate.userId === 'string' ? { userId: candidate.userId } : {},
   })
 }
 
@@ -132,6 +144,7 @@ export function decodeQuota(value: unknown): CodexQuotaView {
   let weeklyPercent: number | undefined
   let weeklyResetsAt: number | undefined
   let shortPercent: number | undefined
+  let shortResetsAt: number | undefined
   for (const raw of windows) {
     const window = record(raw)
     if (window === undefined) continue
@@ -144,12 +157,19 @@ export function decodeQuota(value: unknown): CodexQuotaView {
       if (Number.isSafeInteger(window.resetsAt)) weeklyResetsAt = window.resetsAt as number
       continue
     }
-    if (Math.abs(seconds - SHORT_WINDOW_SECONDS) < 60 && shortPercent === undefined) shortPercent = Math.round(percent)
+    if (Math.abs(seconds - SHORT_WINDOW_SECONDS) < 60 && shortPercent === undefined) {
+      shortPercent = Math.round(percent)
+      if (Number.isSafeInteger(window.resetsAt)) shortResetsAt = window.resetsAt as number
+    }
   }
+  const resetCreditsCount = Number(record(root?.resetCredits)?.availableCount)
+  const resetCredits = Number.isSafeInteger(resetCreditsCount) ? resetCreditsCount : undefined
   return Object.freeze({
     ...weeklyPercent === undefined ? {} : { weeklyPercent },
     ...weeklyResetsAt === undefined ? {} : { weeklyResetsAt },
     ...shortPercent === undefined ? {} : { shortPercent },
+    ...shortResetsAt === undefined ? {} : { shortResetsAt },
+    ...resetCredits === undefined ? {} : { resetCredits },
   })
 }
 
@@ -394,6 +414,23 @@ export class CodexAccountsController {
       }
     } catch {
       // Keep optimistic rename
+    }
+  }
+
+  /** Consume one quota reset credit for an account. */
+  async consumeResetCredit(id: string): Promise<void> {
+    try {
+      const prepare = await call(this.rpc, 'reset-credit/prepare' as any, {}) as { challengeId?: string }
+      if (prepare?.challengeId) {
+        await call(this.rpc, 'reset-credit/consume' as any, {
+          challengeId: prepare.challengeId,
+          acknowledged: true,
+        })
+        await this.readQuota(id)
+      }
+    } catch (error) {
+      this.setUsage(id, { status: 'error', message: failureMessage(error) })
+      throw error
     }
   }
 

@@ -962,3 +962,158 @@
   height: 14px;
   margin-left: 5px;
 }
+
+/* Cockpit-style Account Information Panel */
+.cockpitPanel {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cockpitSubRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.cockpitTeam {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cockpitMuted {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.cockpitText {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.cockpitResetBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.cockpitResetBtn:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+.cockpitResetBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cockpitUserRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cockpitDivider {
+  color: var(--dsw-alias-border-l2);
+}
+
+.cockpitQuotaSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cockpitQuotaHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cockpitQuotaTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dsw-alias-label-primary);
+}
+
+.cockpitQuotaVal5h {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.cockpitQuotaValWeekly {
+  font-size: 13px;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.cockpitTrack {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  overflow: hidden;
+}
+
+.cockpitFill5h {
+  height: 100%;
+  border-radius: 999px;
+  background: #f59e0b;
+  transition: width 240ms ease;
+}
+
+.cockpitFillWeekly {
+  height: 100%;
+  border-radius: 999px;
+  background: #10b981;
+  transition: width 240ms ease;
+}
+
+.cockpitTimeSub {
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+  margin-top: 1px;
+}
+
+.cockpitSubBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  font-size: 12px;
+}
+
+.cockpitSubLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #10b981;
+  font-weight: 600;
+}
+
+.cockpitSubRight {
+  color: var(--dsw-alias-label-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}

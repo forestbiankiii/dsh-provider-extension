@@ -5,6 +5,10 @@ export interface CodexAccountView {
     readonly label: string;
     readonly active: boolean;
     readonly email?: string;
+    readonly expiresAt?: number;
+    readonly planType?: string;
+    readonly accountId?: string;
+    readonly userId?: string;
 }
 /** Quota windows the subscription plugin reported for one account. */
 export interface CodexQuotaView {
@@ -14,6 +18,10 @@ export interface CodexQuotaView {
     readonly weeklyResetsAt?: number;
     /** Remaining percent of the 5-hour (18000s) window, when reported. */
     readonly shortPercent?: number;
+    /** Unix seconds when that 5-hour window resets, when reported. */
+    readonly shortResetsAt?: number;
+    /** Number of quota reset credits available. */
+    readonly resetCredits?: number;
 }
 export type CodexUsageState = {
     readonly status: 'loading';
@@ -80,6 +88,8 @@ export declare class CodexAccountsController {
     login(): Promise<void>;
     /** Rename one saved ChatGPT account. */
     renameAccount(id: string, label: string): Promise<void>;
+    /** Consume one quota reset credit for an account. */
+    consumeResetCredit(id: string): Promise<void>;
     /** Remove one saved ChatGPT account. */
     removeAccount(id: string): Promise<void>;
     /** Reload the roster only when a surface already asked for it. */

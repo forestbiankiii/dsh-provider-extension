@@ -99,13 +99,13 @@ describe('provider settings surface', () => {
 
   it('expands Codex account card on click to reveal detailed quota balance', () => {
     bench({ status: 'ready' }, codexAccounts)
-    expect(screen.queryByText('周额度')).toBeNull()
+    expect(screen.queryByText('Weekly')).toBeNull()
     const card = screen.getByRole('button', { name: en.quotaView })
     fireEvent.click(card)
-    expect(screen.getByText('周额度')).toBeTruthy()
-    expect(screen.getByText(en.quotaBalance)).toBeTruthy()
+    expect(screen.getByText('Weekly')).toBeTruthy()
+    expect(screen.getByText('5h')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: en.quotaHide }))
-    expect(screen.queryByText('周额度')).toBeNull()
+    expect(screen.queryByText('Weekly')).toBeNull()
   })
 
   it('supports two-level navigation: level 1 provider overview and level 2 single-provider detail', () => {

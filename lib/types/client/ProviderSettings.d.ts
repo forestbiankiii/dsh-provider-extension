@@ -18,6 +18,7 @@ export interface ProviderSettingsInjected {
     selectCodexAccount?: (id: string) => Promise<void>;
     renameCodexAccount?: (id: string, label: string) => Promise<void>;
     removeCodexAccount: (id: string) => Promise<void>;
+    resetCodexQuota?: (id: string) => Promise<void>;
     loadAntigravity: () => Promise<void>;
     loginAntigravity: () => Promise<void>;
     logoutAntigravity: () => Promise<void>;
@@ -35,4 +36,4 @@ export type ProviderSettingsProps = PropsRuntime<'settings.section'> & PropsLoca
 export declare const GEMINI_TIERS: readonly ["Free", "Pro", "Ultra"];
 export type GeminiTier = typeof GEMINI_TIERS[number];
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
-export declare function ProviderSettings({ useAccounts, useAntigravity, loadAccounts, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, loadAntigravity, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, t, }: ProviderSettingsProps): ReactNode;
+export declare function ProviderSettings({ useAccounts, useAntigravity, loadAccounts, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, resetCodexQuota, loadAntigravity, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, t, }: ProviderSettingsProps): ReactNode;
