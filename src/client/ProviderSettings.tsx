@@ -315,23 +315,6 @@ export function ProviderSettings({
               <p className={css.note}>{t('antigravityInstallHint')}</p>
             ) : (
               <>
-                <dl className={css.facts}>
-                  <div>
-                    <dt>{t('antigravityLoginState')}</dt>
-                    <dd>{t(phaseKey(login?.phase))}{login?.maskedEmail === undefined ? '' : ` · ${login.maskedEmail}`}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('antigravityProject')}</dt>
-                    <dd>{login?.projectAvailable === true ? t('antigravityProjectReady') : t('antigravityProjectUnavailable')}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('antigravityRiskState')}</dt>
-                    <dd>{antigravity.view?.riskAcknowledged === true ? t('antigravityRiskAccepted') : t('antigravityRiskPending')}</dd>
-                  </div>
-                </dl>
-
-                <p className={css.note}>{t('antigravityRisk')}</p>
-
                 <div className={css.actions}>
                   <button
                     type="button"
@@ -618,21 +601,6 @@ export function ProviderSettings({
                 <p className={css.note}>{t('antigravityInstallHint')}</p>
               ) : (
                 <>
-                  <dl className={css.facts}>
-                    <div>
-                      <dt>{t('antigravityLoginState')}</dt>
-                      <dd>{t(phaseKey(login?.phase))}{login?.maskedEmail === undefined ? '' : ` · ${login.maskedEmail}`}</dd>
-                    </div>
-                    <div>
-                      <dt>{t('antigravityProject')}</dt>
-                      <dd>{login?.projectAvailable === true ? t('antigravityProjectReady') : t('antigravityProjectUnavailable')}</dd>
-                    </div>
-                    <div>
-                      <dt>{t('antigravityRiskState')}</dt>
-                      <dd>{antigravity.view?.riskAcknowledged === true ? t('antigravityRiskAccepted') : t('antigravityRiskPending')}</dd>
-                    </div>
-                  </dl>
-
                   <div className={css.actions}>
                     <button
                       type="button"
