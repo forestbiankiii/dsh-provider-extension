@@ -87,6 +87,23 @@ function resolveAccountTier(account: { tier?: string | undefined }): GeminiTier 
   return 'Pro'
 }
 
+function formatResetSeconds(epochSeconds?: number): string {
+  if (!epochSeconds) return ''
+  try {
+    const diffMs = epochSeconds * 1000 - Date.now()
+    if (diffMs <= 0) return '即将重置'
+    const totalMinutes = Math.floor(diffMs / 60_000)
+    const days = Math.floor(totalMinutes / (24 * 60))
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60)
+    const mins = totalMinutes % 60
+    if (days > 0) return `${days}天${hours > 0 ? ` ${hours}小时` : ''}后重置`
+    if (hours > 0) return `${hours}小时${mins > 0 ? ` ${mins}分` : ''}后重置`
+    return `${Math.max(1, mins)}分钟后重置`
+  } catch {
+    return ''
+  }
+}
+
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
 export function ProviderSettings({
   useAccounts, useAntigravity, loadAccounts, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount,
@@ -107,6 +124,17 @@ export function ProviderSettings({
   const [editingCodexAccountLabel, setEditingCodexAccountLabel] = useState<string>('')
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
   const [expandedQuotaAccounts, setExpandedQuotaAccounts] = useState<Record<string, boolean>>({})
+  const [expandedCodexQuotaAccounts, setExpandedCodexQuotaAccounts] = useState<Record<string, boolean>>({})
+
+  const toggleCodexAccountQuota = (id: string) => {
+    setExpandedCodexQuotaAccounts(prev => {
+      const next = { ...prev, [id]: !prev[id] }
+      if (next[id] && (!accounts.usage[id] || accounts.usage[id]?.status === 'error')) {
+        void readQuota(id).catch(() => {})
+      }
+      return next
+    })
+  }
 
   const startRenameCodex = (id: string, currentLabel: string) => {
     setEditingCodexAccountId(id)
@@ -246,6 +274,22 @@ export function ProviderSettings({
                 {accounts.status === 'error' ? t('providerError') : t('accountCount', { count: accounts.accounts.length })}
               </span>
             </div>
+
+            <div className={css.actions}>
+              <button
+                type="button"
+                className={`${css.action} ${css.primary}`}
+                disabled={accounts.loginPending === true}
+                onClick={() => { void loginCodex().catch(() => {}) }}
+              >{accounts.loginPending === true ? t('providerWorking') : t('addAccount')}</button>
+              {typeof accounts.loginUrl === 'string' ? (
+                <a className={css.action} href={accounts.loginUrl} target="_blank" rel="noreferrer">
+                  {t('codexOpenLink')}
+                </a>
+              ) : null}
+              <button type="button" className={css.action} onClick={() => { void loadAccounts() }}>{t('providerRefresh')}</button>
+            </div>
+
             {accounts.accounts.length === 0 ? (
               <p className={css.note}>{t('codexNoAccounts')}</p>
             ) : (
@@ -255,8 +299,22 @@ export function ProviderSettings({
                   const weekly = usage?.status === 'ready' ? usage.value.weeklyPercent : undefined
                   const email = maskedEmail(account.email)
                   const isEditing = editingCodexAccountId === account.id
+                  const isQuotaOpen = expandedCodexQuotaAccounts[account.id] === true
                   return (
-                    <div key={account.id} className={css.accountCardButton}>
+                    <div
+                      key={account.id}
+                      className={css.accountCardButton}
+                      role="button"
+                      aria-label={isQuotaOpen ? t('quotaHide') : t('quotaView')}
+                      tabIndex={0}
+                      onClick={() => toggleCodexAccountQuota(account.id)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          toggleCodexAccountQuota(account.id)
+                        }
+                      }}
+                    >
                       <div className={css.accountCardTop}>
                         <div className={css.accountIdentityCol}>
                           <div className={css.accountTitleRow}>
@@ -294,24 +352,20 @@ export function ProviderSettings({
                           {email === undefined ? null : <span className={css.note}>{email}</span>}
                         </div>
                         <div className={css.actions} onClick={e => e.stopPropagation()}>
-                          <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
-                            {account.active ? t('accountActive') : t('accountUse')}
-                          </span>
-                          {!account.active && selectCodexAccount ? (
+                          {account.active ? (
+                            <span className={css.modelState} data-state="live-available">
+                              {t('accountActive')}
+                            </span>
+                          ) : selectCodexAccount ? (
                             <button
                               type="button"
                               className={css.action}
                               disabled={accounts.switchingId !== undefined}
-                              onClick={() => { void selectCodexAccount(account.id) }}
+                              onClick={e => {
+                                e.stopPropagation()
+                                void selectCodexAccount(account.id)
+                              }}
                             >{t('accountUse')}</button>
-                          ) : null}
-                          {!account.active && (usage === undefined || usage.status === 'error') ? (
-                            <button
-                              type="button"
-                              className={css.action}
-                              disabled={accounts.switchingId !== undefined}
-                              onClick={() => { void readQuota(account.id).catch(() => {}) }}
-                            >{t('readQuota')}</button>
                           ) : null}
                           {confirmingDeleteId === account.id ? (
                             <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
@@ -338,28 +392,74 @@ export function ProviderSettings({
                               onClick={() => setConfirmingDeleteId(account.id)}
                             >{t('accountRemove')}</button>
                           )}
+                          <span className={css.accountChevron} data-open={isQuotaOpen}>▼</span>
                         </div>
                       </div>
+
+                      {isQuotaOpen && (
+                        <div className={css.accountExpandQuota} onClick={e => e.stopPropagation()}>
+                          <div className={css.quotaBlockTitle}>{t('quotaBalance')}</div>
+                          {usage?.status === 'loading' ? (
+                            <p className={css.note}>{t('quotaReading')}</p>
+                          ) : usage?.status === 'ready' ? (
+                            <div className={css.quotaBars}>
+                              {usage.value.shortPercent !== undefined ? (
+                                <div className={css.quotaBarItem}>
+                                  <div className={css.quotaBarHeader}>
+                                    <span>5小时额度</span>
+                                    <span className={css.quotaBarPercent}>{usage.value.shortPercent}%</span>
+                                  </div>
+                                  <div className={css.quotaProgressTrack}>
+                                    <div
+                                      className={css.quotaProgressFill}
+                                      style={{
+                                        width: `${Math.min(100, Math.max(0, usage.value.shortPercent))}%`,
+                                        background: usage.value.shortPercent > 30 ? '#10b981' : usage.value.shortPercent > 10 ? '#f59e0b' : '#ef4444',
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              ) : null}
+                              <div className={css.quotaBarItem}>
+                                <div className={css.quotaBarHeader}>
+                                  <span>周额度</span>
+                                  <span className={css.quotaBarPercent}>{usage.value.weeklyPercent ?? 100}%</span>
+                                </div>
+                                <div className={css.quotaProgressTrack}>
+                                  <div
+                                    className={css.quotaProgressFill}
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, usage.value.weeklyPercent ?? 100))}%`,
+                                      background: (usage.value.weeklyPercent ?? 100) > 30 ? '#3b82f6' : (usage.value.weeklyPercent ?? 100) > 10 ? '#f59e0b' : '#ef4444',
+                                    }}
+                                  />
+                                </div>
+                                {usage.value.weeklyResetsAt ? (
+                                  <span className={css.quotaResetTime}>
+                                    {formatResetSeconds(usage.value.weeklyResetsAt)}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className={css.quotaErrorRow}>
+                              <span className={css.note}>{usage?.status === 'error' ? t('quotaFailedShort') : t('quotaNoData')}</span>
+                              <button
+                                type="button"
+                                className={css.action}
+                                onClick={() => { void readQuota(account.id).catch(() => {}) }}
+                              >
+                                {t('readQuota')}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
               </div>
             )}
-            <p className={css.note}>{t('codexAddHint')}</p>
-            <div className={css.actions}>
-              <button
-                type="button"
-                className={`${css.action} ${css.primary}`}
-                disabled={accounts.loginPending === true}
-                onClick={() => { void loginCodex().catch(() => {}) }}
-              >{accounts.loginPending === true ? t('providerWorking') : t('codexSignIn')}</button>
-              {typeof accounts.loginUrl === 'string' ? (
-                <a className={css.action} href={accounts.loginUrl} target="_blank" rel="noreferrer">
-                  {t('codexOpenLink')}
-                </a>
-              ) : null}
-              <button type="button" className={css.action} onClick={() => { void loadAccounts() }}>{t('providerRefresh')}</button>
-            </div>
           </article>
         )}
 
@@ -878,6 +978,21 @@ export function ProviderSettings({
 
           {expanded.codex && (
             <div className={css.quickView}>
+              <div className={css.actions}>
+                <button
+                  type="button"
+                  className={`${css.action} ${css.primary}`}
+                  disabled={accounts.loginPending === true}
+                  onClick={() => { void loginCodex().catch(() => {}) }}
+                >{accounts.loginPending === true ? t('providerWorking') : t('addAccount')}</button>
+                {typeof accounts.loginUrl === 'string' ? (
+                  <a className={css.action} href={accounts.loginUrl} target="_blank" rel="noreferrer">
+                    {t('codexOpenLink')}
+                  </a>
+                ) : null}
+                <button type="button" className={css.action} onClick={() => { void loadAccounts() }}>{t('providerRefresh')}</button>
+              </div>
+
               {accounts.accounts.length === 0 ? (
                 <p className={css.note}>{t('codexNoAccounts')}</p>
               ) : (
@@ -887,8 +1002,22 @@ export function ProviderSettings({
                     const weekly = usage?.status === 'ready' ? usage.value.weeklyPercent : undefined
                     const email = maskedEmail(account.email)
                     const isEditing = editingCodexAccountId === account.id
+                    const isQuotaOpen = expandedCodexQuotaAccounts[account.id] === true
                     return (
-                      <div key={account.id} className={css.accountCardButton}>
+                      <div
+                        key={account.id}
+                        className={css.accountCardButton}
+                        role="button"
+                        aria-label={isQuotaOpen ? t('quotaHide') : t('quotaView')}
+                        tabIndex={0}
+                        onClick={() => toggleCodexAccountQuota(account.id)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            toggleCodexAccountQuota(account.id)
+                          }
+                        }}
+                      >
                         <div className={css.accountCardTop}>
                           <div className={css.accountIdentityCol}>
                             <div className={css.accountTitleRow}>
@@ -926,24 +1055,20 @@ export function ProviderSettings({
                             {email === undefined ? null : <span className={css.note}>{email}</span>}
                           </div>
                           <div className={css.actions} onClick={e => e.stopPropagation()}>
-                            <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
-                              {account.active ? t('accountActive') : t('accountUse')}
-                            </span>
-                            {!account.active && selectCodexAccount ? (
+                            {account.active ? (
+                              <span className={css.modelState} data-state="live-available">
+                                {t('accountActive')}
+                              </span>
+                            ) : selectCodexAccount ? (
                               <button
                                 type="button"
                                 className={css.action}
                                 disabled={accounts.switchingId !== undefined}
-                                onClick={() => { void selectCodexAccount(account.id) }}
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  void selectCodexAccount(account.id)
+                                }}
                               >{t('accountUse')}</button>
-                            ) : null}
-                            {!account.active && (usage === undefined || usage.status === 'error') ? (
-                              <button
-                                type="button"
-                                className={css.action}
-                                disabled={accounts.switchingId !== undefined}
-                                onClick={() => { void readQuota(account.id).catch(() => {}) }}
-                              >{t('readQuota')}</button>
                             ) : null}
                             {confirmingDeleteId === account.id ? (
                               <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
@@ -970,27 +1095,74 @@ export function ProviderSettings({
                                 onClick={() => setConfirmingDeleteId(account.id)}
                               >{t('accountRemove')}</button>
                             )}
+                            <span className={css.accountChevron} data-open={isQuotaOpen}>▼</span>
                           </div>
                         </div>
+
+                        {isQuotaOpen && (
+                          <div className={css.accountExpandQuota} onClick={e => e.stopPropagation()}>
+                            <div className={css.quotaBlockTitle}>{t('quotaBalance')}</div>
+                            {usage?.status === 'loading' ? (
+                              <p className={css.note}>{t('quotaReading')}</p>
+                            ) : usage?.status === 'ready' ? (
+                              <div className={css.quotaBars}>
+                                {usage.value.shortPercent !== undefined ? (
+                                  <div className={css.quotaBarItem}>
+                                    <div className={css.quotaBarHeader}>
+                                      <span>5小时额度</span>
+                                      <span className={css.quotaBarPercent}>{usage.value.shortPercent}%</span>
+                                    </div>
+                                    <div className={css.quotaProgressTrack}>
+                                      <div
+                                        className={css.quotaProgressFill}
+                                        style={{
+                                          width: `${Math.min(100, Math.max(0, usage.value.shortPercent))}%`,
+                                          background: usage.value.shortPercent > 30 ? '#10b981' : usage.value.shortPercent > 10 ? '#f59e0b' : '#ef4444',
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                ) : null}
+                                <div className={css.quotaBarItem}>
+                                  <div className={css.quotaBarHeader}>
+                                    <span>周额度</span>
+                                    <span className={css.quotaBarPercent}>{usage.value.weeklyPercent ?? 100}%</span>
+                                  </div>
+                                  <div className={css.quotaProgressTrack}>
+                                    <div
+                                      className={css.quotaProgressFill}
+                                      style={{
+                                        width: `${Math.min(100, Math.max(0, usage.value.weeklyPercent ?? 100))}%`,
+                                        background: (usage.value.weeklyPercent ?? 100) > 30 ? '#3b82f6' : (usage.value.weeklyPercent ?? 100) > 10 ? '#f59e0b' : '#ef4444',
+                                      }}
+                                    />
+                                  </div>
+                                  {usage.value.weeklyResetsAt ? (
+                                    <span className={css.quotaResetTime}>
+                                      {formatResetSeconds(usage.value.weeklyResetsAt)}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className={css.quotaErrorRow}>
+                                <span className={css.note}>{usage?.status === 'error' ? t('quotaFailedShort') : t('quotaNoData')}</span>
+                                <button
+                                  type="button"
+                                  className={css.action}
+                                  onClick={() => { void readQuota(account.id).catch(() => {}) }}
+                                >
+                                  {t('readQuota')}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )
                   })}
                 </div>
               )}
-              <div className={css.actions}>
-                <button
-                  type="button"
-                  className={`${css.action} ${css.primary}`}
-                  disabled={accounts.loginPending === true}
-                  onClick={() => { void loginCodex().catch(() => {}) }}
-                >{accounts.loginPending === true ? t('providerWorking') : t('addAccount')}</button>
-                {typeof accounts.loginUrl === 'string' ? (
-                  <a className={css.action} href={accounts.loginUrl} target="_blank" rel="noreferrer">
-                    {t('codexOpenLink')}
-                  </a>
-                ) : null}
-                <button type="button" className={css.action} onClick={() => { void loadAccounts() }}>{t('providerRefresh')}</button>
-              </div>
             </div>
           )}
         </article>

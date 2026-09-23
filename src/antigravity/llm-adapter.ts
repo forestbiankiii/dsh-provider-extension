@@ -282,16 +282,21 @@ export class AntigravityAdapter extends LlmAdapter {
           replayed = true
           continue
         }
-        if (response.status === 400 && await responseReportsContextWindowExceeded(response, {
-          ...(signal === undefined ? {} : { signal }),
-          idleTimeoutMs: this.options.idleTimeoutMs,
-          totalTimeoutMs: this.options.totalTimeoutMs,
-          maxResponseBytes: this.options.maxResponseBytes,
-          maxFrameBytes: this.options.maxFrameBytes,
-        })) {
-          throw contextWindowExceededError(response.status)
+        if (response.status === 400) {
+          const details = await readProviderBadRequest(response, {
+            ...(signal === undefined ? {} : { signal }),
+            idleTimeoutMs: this.options.idleTimeoutMs,
+            totalTimeoutMs: this.options.totalTimeoutMs,
+            maxResponseBytes: this.options.maxResponseBytes,
+            maxFrameBytes: this.options.maxFrameBytes,
+          })
+          if (details.contextWindowExceeded) throw contextWindowExceededError(response.status)
+          if (details.message !== undefined) {
+            throw new LlmError(`Antigravity rejected the request: ${details.message}`, 'PROTOCOL_DRIFT', { status: response.status })
+          }
+        } else {
+          await cancelResponse(response)
         }
-        await cancelResponse(response)
         throw toLlmError(statusError)
       }
       try {
@@ -1087,42 +1092,33 @@ function contentKinds(message: Message): Array<'text' | 'reasoning' | 'tool-call
 }
 
 /**
- * Tool calls in the latest assistant turn that carry no provider signature.
+ * Antigravity Gemini tool calls that carry no provider signature.
  *
- * The signature lives in the adapter-private replay envelope. A provider-
- * neutral or user-authored history carries no envelope at all and is replayed
- * as before; it is specifically a *signed turn that arrived without its
- * signature* that the wire refuses with 400 INVALID_ARGUMENT — surfaced merely
- * as the opaque PROTOCOL_DRIFT failure, which then repeats for every later
- * request because the malformed turn stays in history.
- *
- * Only the newest assistant turn is inspected: earlier unsigned calls were
- * already accepted by the provider on the requests that followed them, so
- * rewriting that history would discard context for no benefit. Dropping the
- * call together with its paired result (which would otherwise become an orphan
- * `functionResponse`) keeps the rest of the conversation usable.
+ * One malformed call anywhere in the retained history makes Google reject all
+ * later requests with 400 INVALID_ARGUMENT. This includes tool calls produced
+ * by another provider before the session switched to Gemini: they have no
+ * Gemini signature and cannot be sent back as functionCall parts. The paired
+ * result is replaced with a plain-text note by the message mapper so no orphan
+ * functionResponse reaches the wire.
  */
 function unsignedToolCallIds(options: GenerateOptions): ReadonlySet<string> {
   const dropped = new Set<string>()
   // Claude already has a designed fallback: the first call carries
-  // SKIP_THOUGHT_SIGNATURE. Only the Gemini path has no recovery, so only it
-  // needs the newest unsigned call removed.
+  // SKIP_THOUGHT_SIGNATURE. Only the Gemini path needs unsigned calls removed.
   if (antigravityModelFamily(options.model) === 'claude') return dropped
-  const lastAssistant = options.messages.filter(message => message.role === 'assistant').at(-1)
-  if (lastAssistant === undefined) return dropped
-  const replay = compatibleReplayState(lastAssistant, ANTIGRAVITY_PROVIDER, options.model, contentKinds(lastAssistant))
-  if (replay === undefined) return dropped
-  const replayBlocks = replay.blocks
-  let replayIndex = 0
-  for (const block of lastAssistant.content) {
-    if (block.type !== 'text' && block.type !== 'reasoning' && block.type !== 'tool-call') continue
-    const replayBlock = replayBlocks[replayIndex++]
-    if (block.type !== 'tool-call') continue
-    // A signature on the public block wins; otherwise the envelope decides.
-    const blockSignature = (block as unknown as { signature?: string; thoughtSignature?: string }).signature
-      ?? (block as unknown as { signature?: string; thoughtSignature?: string }).thoughtSignature
-    const replaySignature = replayBlock !== undefined && replayBlock.kind === 'tool-call' ? replayBlock.signature : undefined
-    if (blockSignature === undefined && replaySignature === undefined) dropped.add(block.id)
+  for (const message of options.messages) {
+    if (message.role !== 'assistant') continue
+    const replay = compatibleReplayState(message, ANTIGRAVITY_PROVIDER, options.model, contentKinds(message))
+    let replayIndex = 0
+    for (const block of message.content) {
+      if (block.type !== 'text' && block.type !== 'reasoning' && block.type !== 'tool-call') continue
+      const replayBlock = replay?.blocks[replayIndex++]
+      if (block.type !== 'tool-call') continue
+      const blockSignature = (block as unknown as { signature?: string; thoughtSignature?: string }).signature
+        ?? (block as unknown as { signature?: string; thoughtSignature?: string }).thoughtSignature
+      const replaySignature = replayBlock !== undefined && replayBlock.kind === 'tool-call' ? replayBlock.signature : undefined
+      if (blockSignature === undefined && replaySignature === undefined) dropped.add(block.id)
+    }
   }
   return dropped
 }
@@ -1218,7 +1214,7 @@ function errorDetails(value: Record<string, unknown>): NonNullable<ProviderEvent
   }
 }
 
-async function responseReportsContextWindowExceeded(
+async function readProviderBadRequest(
   response: Response,
   options: {
     readonly signal?: AbortSignal
@@ -1227,7 +1223,8 @@ async function responseReportsContextWindowExceeded(
     readonly maxResponseBytes: number
     readonly maxFrameBytes: number
   },
-): Promise<boolean> {
+): Promise<{ readonly contextWindowExceeded: boolean; readonly message?: string }> {
+  let message: string | undefined
   try {
     for await (const event of iteratePrivateSse(response, {
       ...(options.signal === undefined ? {} : { signal: options.signal }),
@@ -1237,14 +1234,49 @@ async function responseReportsContextWindowExceeded(
       maxFrameBytes: Math.min(MAX_PROVIDER_ERROR_FRAME_BYTES, options.maxFrameBytes),
     })) {
       const payload = event.data.replace(/^\)\]\}'(?:\r?\n)?/u, '')
-      if (providerErrorEnvelopeReportsContextWindowExceeded(payload, 0)) return true
+      if (providerErrorEnvelopeReportsContextWindowExceeded(payload, 0)) return { contextWindowExceeded: true }
+      message ??= providerErrorEnvelopeMessage(payload, 0)
     }
-    return false
+    return { contextWindowExceeded: false, ...(message === undefined ? {} : { message }) }
   } catch (error) {
     if (error instanceof PrivateTransportError && error.code === 'cancelled') throw toLlmError(error)
     if (isAborted(options.signal)) throw new LlmError('The Antigravity request was cancelled', 'CANCELLED')
-    return false
+    return { contextWindowExceeded: false }
   }
+}
+
+function providerErrorEnvelopeMessage(value: string, depth: number): string | undefined {
+  if (depth > MAX_PROVIDER_ERROR_JSON_DEPTH || value.length === 0 || value.length > MAX_PROVIDER_ERROR_BYTES) return undefined
+  const json = value.trim()
+  if (!json.startsWith('{') || !jsonDepthIsBounded(json, MAX_PROVIDER_ERROR_JSON_DEPTH)) return safeProviderErrorMessage(json)
+  try {
+    const parsed = JSON.parse(json) as unknown
+    return isRecord(parsed) ? providerErrorMessage(parsed, depth + 1) : undefined
+  } catch {
+    return safeProviderErrorMessage(json)
+  }
+}
+
+function providerErrorMessage(value: Record<string, unknown>, depth: number): string | undefined {
+  if (depth > MAX_PROVIDER_ERROR_JSON_DEPTH) return undefined
+  if (isRecord(value.error)) {
+    const nested = providerErrorMessage(value.error, depth + 1)
+    if (nested !== undefined) return nested
+  }
+  if (typeof value.message !== 'string') return undefined
+  return providerErrorEnvelopeMessage(value.message, depth + 1) ?? safeProviderErrorMessage(value.message)
+}
+
+function safeProviderErrorMessage(value: string): string | undefined {
+  const sanitized = value
+    .replace(/Bearer\s+\S+/giu, 'Bearer [redacted]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, '[redacted-email]')
+    .replace(/[A-Za-z0-9+/_=-]{48,}/gu, '[redacted]')
+    .replace(/[\u0000-\u001f\u007f]+/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .slice(0, 1024)
+  return sanitized.length === 0 ? undefined : sanitized
 }
 
 function providerErrorReportsContextWindowExceeded(value: Record<string, unknown>, depth: number): boolean {

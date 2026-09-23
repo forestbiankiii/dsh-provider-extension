@@ -97,6 +97,17 @@ describe('provider settings surface', () => {
     expect(b.renameCodexAccount).toHaveBeenCalledWith('work', 'Work Account Renamed')
   })
 
+  it('expands Codex account card on click to reveal detailed quota balance', () => {
+    bench({ status: 'ready' }, codexAccounts)
+    expect(screen.queryByText('周额度')).toBeNull()
+    const card = screen.getByRole('button', { name: en.quotaView })
+    fireEvent.click(card)
+    expect(screen.getByText('周额度')).toBeTruthy()
+    expect(screen.getByText(en.quotaBalance)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.quotaHide }))
+    expect(screen.queryByText('周额度')).toBeNull()
+  })
+
   it('supports two-level navigation: level 1 provider overview and level 2 single-provider detail', () => {
     bench({ status: 'ready' }, codexAccounts)
     // Level 1: Displays multiple providers

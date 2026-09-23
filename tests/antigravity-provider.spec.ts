@@ -3,6 +3,8 @@ import {
   AntigravityController, decodeModels, decodeStatus, isAntigravityProvider,
 } from '../src/client/providers/antigravity.ts'
 import { createMemoryAuthStore } from '../src/antigravity/auth-store.ts'
+import { AntigravityAdapter, buildAntigravityGeneratePayload } from '../src/antigravity/llm-adapter.ts'
+import { createReplayState } from '../src/antigravity/replay.ts'
 
 const status = {
   status: {
@@ -38,6 +40,63 @@ describe('antigravity provider integration', () => {
     expect(isAntigravityProvider('google-antigravity-work')).toBe(true)
     expect(isAntigravityProvider('openai-codex')).toBe(false)
     expect(isAntigravityProvider(undefined)).toBe(false)
+  })
+
+  it('drops unsigned tool calls retained from another provider', () => {
+    const model = 'antigravity-gemini-3.8-flash'
+    const replay = (signature?: string) => ({
+      kind: 'model', provider: 'google-antigravity', model,
+      replayState: createReplayState(model, 'gemini', 'STOP', [
+        { kind: 'tool-call', ...(signature === undefined ? {} : { signature }) },
+      ]),
+    })
+    const payload = buildAntigravityGeneratePayload({
+      provider: 'google-antigravity',
+      model,
+      messages: [
+        { role: 'assistant', content: [{ type: 'tool-call', id: 'old-unsigned', name: 'read', arguments: '{}' }], source: { kind: 'model', provider: 'openai-codex', model: 'gpt-5.6-sol' } },
+        { role: 'user', content: [{ type: 'tool-result', toolCallId: 'old-unsigned', content: [{ type: 'text', text: 'stale result' }] }] },
+        { role: 'assistant', content: [{ type: 'tool-call', id: 'new-signed', name: 'read', arguments: '{}' }], source: replay('provider-signature') },
+        { role: 'user', content: [{ type: 'tool-result', toolCallId: 'new-signed', content: [{ type: 'text', text: 'fresh result' }] }] },
+      ],
+    } as never, { projectId: 'project' } as never)
+
+    const contents = (payload.request as { contents: Array<{ parts: Array<Record<string, unknown>> }> }).contents
+    const parts = contents.flatMap(content => content.parts)
+    expect(parts.flatMap(part => typeof (part.functionCall as { name?: unknown } | undefined)?.name === 'string'
+      ? [(part.functionCall as { name: string }).name]
+      : [])).toEqual(['read'])
+    expect(parts.some(part => typeof part.text === 'string' && part.text.includes('signature is no longer available'))).toBe(true)
+    expect(parts.some(part => (part.functionResponse as { response?: { content?: unknown } } | undefined)?.response?.content === 'fresh result')).toBe(true)
+  })
+
+  it('surfaces a bounded provider reason for HTTP 400', async () => {
+    const adapter = new AntigravityAdapter({
+      auth: {
+        credential: async () => ({
+          accessToken: 'access-token', refreshToken: 'refresh-token',
+          expiresAt: Date.now() + 60_000, projectId: 'project',
+        }),
+      },
+      transport: {
+        request: async () => new Response(JSON.stringify({
+          error: { code: 400, message: 'Function call is missing a thought_signature in functionCall parts.' },
+        }), { status: 400, headers: { 'content-type': 'application/json' } }),
+      },
+    })
+    const request = async () => {
+      for await (const _chunk of adapter.stream({
+        provider: 'google-antigravity',
+        model: 'antigravity-gemini-3.8-flash',
+        messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+      } as never)) { /* no chunks expected */ }
+    }
+
+    await expect(request()).rejects.toMatchObject({
+      code: 'PROTOCOL_DRIFT',
+      message: 'Antigravity rejected the request: Function call is missing a thought_signature in functionCall parts.',
+      failure: { code: 'PROTOCOL_DRIFT', status: 400 },
+    })
   })
 
   it('decodes the status envelope and rejects a foreign plugin id', () => {
