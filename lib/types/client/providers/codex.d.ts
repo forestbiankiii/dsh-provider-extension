@@ -78,6 +78,8 @@ export declare class CodexAccountsController {
     readQuota(id: string): Promise<void>;
     /** Start interactive ChatGPT OAuth login and wait for completion. */
     login(): Promise<void>;
+    /** Rename one saved ChatGPT account. */
+    renameAccount(id: string, label: string): Promise<void>;
     /** Remove one saved ChatGPT account. */
     removeAccount(id: string): Promise<void>;
     /** Reload the roster only when a surface already asked for it. */

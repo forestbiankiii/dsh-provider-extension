@@ -92,6 +92,8 @@ export function apply(ctx: ClientContext): void {
       loadAccounts: async () => { await codexAccounts.load() },
       readQuota: readCodexQuota,
       loginCodex: async () => { await codexAccounts.login() },
+      selectCodexAccount: async (id) => { await codexAccounts.select(id) },
+      renameCodexAccount: async (id, label) => { await codexAccounts.renameAccount(id, label) },
       removeCodexAccount: async (id) => { await codexAccounts.removeAccount(id) },
       loadAntigravity: async () => { await antigravity.load() },
       loginAntigravity: async () => { await antigravity.login() },

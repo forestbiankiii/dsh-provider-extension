@@ -337,6 +337,7 @@ const RPC_ENDPOINTS = Object.freeze([
 	"login/cancel",
 	"logout",
 	"account/select",
+	"account/rename",
 	"account/remove",
 	"usage",
 	"diagnostics",
@@ -645,6 +646,25 @@ var DshOAuthAccountVault = class {
 			});
 		});
 	}
+	rename(id, label) {
+		return this.#enqueue(async () => {
+			const normalizedLabel = normalizeLabel(label);
+			await this.#modifyPayload((current) => {
+				const index = current.accounts.findIndex((account) => account.id === id);
+				if (index === -1) throw new Error("Unknown Codex account");
+				const nextAccounts = [...current.accounts];
+				nextAccounts[index] = {
+					...nextAccounts[index],
+					label: normalizedLabel
+				};
+				return {
+					...current,
+					accounts: nextAccounts
+				};
+			});
+			return this.list();
+		});
+	}
 	modifyActive(update) {
 		return this.#enqueue(async () => {
 			if (await this.#ensurePayload() === void 0) {
@@ -870,6 +890,11 @@ function createCodexAuthService(models, store, options = {}) {
 		async select(id) {
 			if (accountVault === void 0) throw new Error("Codex multi-account is unavailable");
 			await accountVault.select(id);
+			return this.status();
+		},
+		async rename(id, label) {
+			if (accountVault === void 0) throw new Error("Codex multi-account is unavailable");
+			await accountVault.rename(id, label);
 			return this.status();
 		},
 		async remove(id) {
@@ -1213,6 +1238,9 @@ var CodexLoginCoordinator = class {
 	async selectAccount(id) {
 		return publicClone(await this.auth.select(id));
 	}
+	async renameAccount(id, label) {
+		return publicClone(await this.auth.rename(id, label));
+	}
 	async removeAccount(id) {
 		return publicClone(await this.auth.remove(id));
 	}
@@ -1263,6 +1291,7 @@ function createCodexRpcHandler(coordinator, options = {}) {
 			if (endpoint === "login/cancel") return ok(await coordinator.cancel(input.id));
 			if (endpoint === "logout") return ok(await coordinator.logout({ signal }));
 			if (endpoint === "account/select") return ok(await coordinator.selectAccount(input.id));
+			if (endpoint === "account/rename") return ok(await coordinator.renameAccount(input.id, input.label));
 			if (endpoint === "account/remove") return ok(await coordinator.removeAccount(input.id));
 			return badRequest(`unknown Codex auth endpoint: ${endpoint}`);
 		} catch (error) {

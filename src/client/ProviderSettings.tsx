@@ -22,6 +22,8 @@ export interface ProviderSettingsInjected {
   loadAccounts: () => Promise<void>
   readQuota: (id: string) => Promise<void>
   loginCodex: () => Promise<void>
+  selectCodexAccount?: (id: string) => Promise<void>
+  renameCodexAccount?: (id: string, label: string) => Promise<void>
   removeCodexAccount: (id: string) => Promise<void>
   loadAntigravity: () => Promise<void>
   loginAntigravity: () => Promise<void>
@@ -87,7 +89,7 @@ function resolveAccountTier(account: { tier?: string | undefined }): GeminiTier 
 
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
 export function ProviderSettings({
-  useAccounts, useAntigravity, loadAccounts, readQuota, loginCodex, removeCodexAccount,
+  useAccounts, useAntigravity, loadAccounts, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount,
   loadAntigravity, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, t,
 }: ProviderSettingsProps): ReactNode {
   const accounts = useAccounts(snapshot => snapshot)
@@ -101,8 +103,22 @@ export function ProviderSettings({
   const [accountDisabledMap, setAccountDisabledMap] = useState<AccountDisabledModelsMap>(() => loadAccountDisabledModels())
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null)
   const [editingAccountLabel, setEditingAccountLabel] = useState<string>('')
+  const [editingCodexAccountId, setEditingCodexAccountId] = useState<string | null>(null)
+  const [editingCodexAccountLabel, setEditingCodexAccountLabel] = useState<string>('')
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
   const [expandedQuotaAccounts, setExpandedQuotaAccounts] = useState<Record<string, boolean>>({})
+
+  const startRenameCodex = (id: string, currentLabel: string) => {
+    setEditingCodexAccountId(id)
+    setEditingCodexAccountLabel(currentLabel)
+  }
+
+  const saveRenameCodex = async (id: string) => {
+    if (editingCodexAccountLabel.trim() && renameCodexAccount) {
+      await renameCodexAccount(id, editingCodexAccountLabel.trim())
+    }
+    setEditingCodexAccountId(null)
+  }
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -233,64 +249,101 @@ export function ProviderSettings({
             {accounts.accounts.length === 0 ? (
               <p className={css.note}>{t('codexNoAccounts')}</p>
             ) : (
-              <ul className={css.accounts}>
+              <div className={css.accounts}>
                 {accounts.accounts.map(account => {
                   const usage = accounts.usage[account.id]
                   const weekly = usage?.status === 'ready' ? usage.value.weeklyPercent : undefined
                   const email = maskedEmail(account.email)
+                  const isEditing = editingCodexAccountId === account.id
                   return (
-                    <li key={account.id} className={css.account}>
-                      <span className={css.accountIdentity}>
-                        <span className={css.modelName}>{account.label}</span>
-                        {email === undefined ? null : <span className={css.note}>{email}</span>}
-                      </span>
-                      <span className={css.accountMeta}>
-                        <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
-                          {account.active ? t('accountActive') : t('accountUse')}
-                        </span>
-                        <span className={css.note}>
-                          {usage?.status === 'loading' ? t('quotaReading')
-                            : usage?.status === 'error' ? t('quotaFailedShort')
-                              : weekly === undefined ? t('quotaNoWeekly') : t('weeklyQuota', { value: weekly })}
-                        </span>
-                      </span>
-                      {!account.active && (usage === undefined || usage.status === 'error') ? (
-                        <button
-                          type="button"
-                          className={css.action}
-                          disabled={accounts.switchingId !== undefined}
-                          onClick={() => { void readQuota(account.id).catch(() => {}) }}
-                        >{t('readQuota')}</button>
-                      ) : null}
-                      {confirmingDeleteId === account.id ? (
-                        <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
-                          <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
-                          <button
-                            type="button"
-                            className={`${css.action} ${css.danger}`}
-                            onClick={() => {
-                              setConfirmingDeleteId(null)
-                              void removeCodexAccount(account.id).catch(() => {})
-                            }}
-                          >{t('confirmYes')}</button>
-                          <button
-                            type="button"
-                            className={css.action}
-                            onClick={() => setConfirmingDeleteId(null)}
-                          >{t('confirmNo')}</button>
+                    <div key={account.id} className={css.accountCardButton}>
+                      <div className={css.accountCardTop}>
+                        <div className={css.accountIdentityCol}>
+                          <div className={css.accountTitleRow}>
+                            {isEditing ? (
+                              <input
+                                className={css.renameInput}
+                                value={editingCodexAccountLabel}
+                                onChange={e => setEditingCodexAccountLabel(e.target.value)}
+                                onClick={e => e.stopPropagation()}
+                                onBlur={() => { void saveRenameCodex(account.id) }}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') void saveRenameCodex(account.id)
+                                  if (e.key === 'Escape') setEditingCodexAccountId(null)
+                                }}
+                                autoFocus
+                              />
+                            ) : (
+                              <span
+                                className={css.accountName}
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  startRenameCodex(account.id, account.label)
+                                }}
+                                title="点击直接重命名"
+                              >
+                                {account.label}
+                              </span>
+                            )}
+                            <span className={css.accountTierBadge} data-tier="Pro">
+                              {usage?.status === 'loading' ? t('quotaReading')
+                                : usage?.status === 'error' ? t('quotaFailedShort')
+                                : weekly === undefined ? t('quotaNoWeekly') : t('weeklyQuota', { value: weekly })}
+                            </span>
+                          </div>
+                          {email === undefined ? null : <span className={css.note}>{email}</span>}
                         </div>
-                      ) : (
-                        <button
-                          type="button"
-                          className={css.action}
-                          disabled={accounts.switchingId !== undefined}
-                          onClick={() => setConfirmingDeleteId(account.id)}
-                        >{t('accountRemove')}</button>
-                      )}
-                    </li>
+                        <div className={css.actions} onClick={e => e.stopPropagation()}>
+                          <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
+                            {account.active ? t('accountActive') : t('accountUse')}
+                          </span>
+                          {!account.active && selectCodexAccount ? (
+                            <button
+                              type="button"
+                              className={css.action}
+                              disabled={accounts.switchingId !== undefined}
+                              onClick={() => { void selectCodexAccount(account.id) }}
+                            >{t('accountUse')}</button>
+                          ) : null}
+                          {!account.active && (usage === undefined || usage.status === 'error') ? (
+                            <button
+                              type="button"
+                              className={css.action}
+                              disabled={accounts.switchingId !== undefined}
+                              onClick={() => { void readQuota(account.id).catch(() => {}) }}
+                            >{t('readQuota')}</button>
+                          ) : null}
+                          {confirmingDeleteId === account.id ? (
+                            <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
+                              <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
+                              <button
+                                type="button"
+                                className={`${css.action} ${css.danger}`}
+                                onClick={() => {
+                                  setConfirmingDeleteId(null)
+                                  void removeCodexAccount(account.id).catch(() => {})
+                                }}
+                              >{t('confirmYes')}</button>
+                              <button
+                                type="button"
+                                className={css.action}
+                                onClick={() => setConfirmingDeleteId(null)}
+                              >{t('confirmNo')}</button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className={css.action}
+                              disabled={accounts.switchingId !== undefined}
+                              onClick={() => setConfirmingDeleteId(account.id)}
+                            >{t('accountRemove')}</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   )
                 })}
-              </ul>
+              </div>
             )}
             <p className={css.note}>{t('codexAddHint')}</p>
             <div className={css.actions}>
@@ -828,64 +881,101 @@ export function ProviderSettings({
               {accounts.accounts.length === 0 ? (
                 <p className={css.note}>{t('codexNoAccounts')}</p>
               ) : (
-                <ul className={css.accounts}>
+                <div className={css.accounts}>
                   {accounts.accounts.map(account => {
                     const usage = accounts.usage[account.id]
                     const weekly = usage?.status === 'ready' ? usage.value.weeklyPercent : undefined
                     const email = maskedEmail(account.email)
+                    const isEditing = editingCodexAccountId === account.id
                     return (
-                      <li key={account.id} className={css.account}>
-                        <span className={css.accountIdentity}>
-                          <span className={css.modelName}>{account.label}</span>
-                          {email === undefined ? null : <span className={css.note}>{email}</span>}
-                        </span>
-                        <span className={css.accountMeta}>
-                          <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
-                            {account.active ? t('accountActive') : t('accountUse')}
-                          </span>
-                          <span className={css.note}>
-                            {usage?.status === 'loading' ? t('quotaReading')
-                              : usage?.status === 'error' ? t('quotaFailedShort')
-                                : weekly === undefined ? t('quotaNoWeekly') : t('weeklyQuota', { value: weekly })}
-                          </span>
-                        </span>
-                        {!account.active && (usage === undefined || usage.status === 'error') ? (
-                          <button
-                            type="button"
-                            className={css.action}
-                            disabled={accounts.switchingId !== undefined}
-                            onClick={() => { void readQuota(account.id).catch(() => {}) }}
-                          >{t('readQuota')}</button>
-                        ) : null}
-                        {confirmingDeleteId === account.id ? (
-                          <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
-                            <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
-                            <button
-                              type="button"
-                              className={`${css.action} ${css.danger}`}
-                              onClick={() => {
-                                setConfirmingDeleteId(null)
-                                void removeCodexAccount(account.id).catch(() => {})
-                              }}
-                            >{t('confirmYes')}</button>
-                            <button
-                              type="button"
-                              className={css.action}
-                              onClick={() => setConfirmingDeleteId(null)}
-                            >{t('confirmNo')}</button>
+                      <div key={account.id} className={css.accountCardButton}>
+                        <div className={css.accountCardTop}>
+                          <div className={css.accountIdentityCol}>
+                            <div className={css.accountTitleRow}>
+                              {isEditing ? (
+                                <input
+                                  className={css.renameInput}
+                                  value={editingCodexAccountLabel}
+                                  onChange={e => setEditingCodexAccountLabel(e.target.value)}
+                                  onClick={e => e.stopPropagation()}
+                                  onBlur={() => { void saveRenameCodex(account.id) }}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') void saveRenameCodex(account.id)
+                                    if (e.key === 'Escape') setEditingCodexAccountId(null)
+                                  }}
+                                  autoFocus
+                                />
+                              ) : (
+                                <span
+                                  className={css.accountName}
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    startRenameCodex(account.id, account.label)
+                                  }}
+                                  title="点击直接重命名"
+                                >
+                                  {account.label}
+                                </span>
+                              )}
+                              <span className={css.accountTierBadge} data-tier="Pro">
+                                {usage?.status === 'loading' ? t('quotaReading')
+                                  : usage?.status === 'error' ? t('quotaFailedShort')
+                                  : weekly === undefined ? t('quotaNoWeekly') : t('weeklyQuota', { value: weekly })}
+                              </span>
+                            </div>
+                            {email === undefined ? null : <span className={css.note}>{email}</span>}
                           </div>
-                        ) : (
-                          <button
-                            type="button"
-                            className={css.action}
-                            disabled={accounts.switchingId !== undefined}
-                            onClick={() => setConfirmingDeleteId(account.id)}
-                          >{t('accountRemove')}</button>
-                        )}
-                      </li>
+                          <div className={css.actions} onClick={e => e.stopPropagation()}>
+                            <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
+                              {account.active ? t('accountActive') : t('accountUse')}
+                            </span>
+                            {!account.active && selectCodexAccount ? (
+                              <button
+                                type="button"
+                                className={css.action}
+                                disabled={accounts.switchingId !== undefined}
+                                onClick={() => { void selectCodexAccount(account.id) }}
+                              >{t('accountUse')}</button>
+                            ) : null}
+                            {!account.active && (usage === undefined || usage.status === 'error') ? (
+                              <button
+                                type="button"
+                                className={css.action}
+                                disabled={accounts.switchingId !== undefined}
+                                onClick={() => { void readQuota(account.id).catch(() => {}) }}
+                              >{t('readQuota')}</button>
+                            ) : null}
+                            {confirmingDeleteId === account.id ? (
+                              <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
+                                <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
+                                <button
+                                  type="button"
+                                  className={`${css.action} ${css.danger}`}
+                                  onClick={() => {
+                                    setConfirmingDeleteId(null)
+                                    void removeCodexAccount(account.id).catch(() => {})
+                                  }}
+                                >{t('confirmYes')}</button>
+                                <button
+                                  type="button"
+                                  className={css.action}
+                                  onClick={() => setConfirmingDeleteId(null)}
+                                >{t('confirmNo')}</button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                className={css.action}
+                                disabled={accounts.switchingId !== undefined}
+                                onClick={() => setConfirmingDeleteId(account.id)}
+                              >{t('accountRemove')}</button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     )
                   })}
-                </ul>
+                </div>
               )}
               <div className={css.actions}>
                 <button

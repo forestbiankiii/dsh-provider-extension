@@ -367,6 +367,24 @@ export class CodexAccountsController {
     }
   }
 
+  /** Rename one saved ChatGPT account. */
+  async renameAccount(id: string, label: string): Promise<void> {
+    const current = this.store.getSnapshot()
+    const nextAccounts = current.accounts.map(acc => acc.id === id ? { ...acc, label } : acc)
+    const nextState = Object.freeze({ ...current, accounts: nextAccounts })
+    this.store.set(nextState)
+    saveCachedCodexState(nextState)
+
+    try {
+      const accounts = await readRoster(this.rpc, 'account/rename' as any, { id, label })
+      if (!this.disposed) {
+        this.store.set(Object.freeze({ ...this.store.getSnapshot(), accounts }))
+      }
+    } catch {
+      // Keep optimistic rename
+    }
+  }
+
   /** Remove one saved ChatGPT account. */
   async removeAccount(id: string): Promise<void> {
     const current = this.store.getSnapshot()

@@ -19,6 +19,7 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
   const loadAccounts = vi.fn(async () => {})
   const loginAntigravity = vi.fn(async () => {})
   const loginCodex = vi.fn(async () => {})
+  const renameCodexAccount = vi.fn(async () => {})
   const removeCodexAccount = vi.fn(async () => {})
   const renameAntigravityAccount = vi.fn(async () => {})
   const readAntigravityQuota = vi.fn(async () => {})
@@ -29,6 +30,7 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
     loadAccounts,
     readQuota: vi.fn(async () => {}),
     loginCodex,
+    renameCodexAccount,
     removeCodexAccount,
     loadAntigravity: vi.fn(async () => {}),
     loginAntigravity,
@@ -39,7 +41,7 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
     t: (key: keyof typeof en, args?: Record<string, unknown>) => en[key].replace(/\{(\w+)\}/g, (_, name: string) => String(args?.[name] ?? '')),
   } as unknown as ProviderSettingsProps
   const view = render(<ProviderSettings {...props} />)
-  return { loadAccounts, loginAntigravity, loginCodex, removeCodexAccount, renameAntigravityAccount, readAntigravityQuota, view }
+  return { loadAccounts, loginAntigravity, loginCodex, renameCodexAccount, removeCodexAccount, renameAntigravityAccount, readAntigravityQuota, view }
 }
 
 describe('provider settings surface', () => {
@@ -82,6 +84,17 @@ describe('provider settings surface', () => {
     expect(screen.getByText(en.confirmDelete)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: en.confirmYes }))
     expect(b.removeCodexAccount).toHaveBeenCalledWith('work')
+  })
+
+  it('supports inline renaming for Codex accounts matching Antigravity experience', () => {
+    const b = bench({ status: 'ready' }, codexAccounts)
+    const nameEl = screen.getByText('Work')
+    fireEvent.click(nameEl)
+    const input = screen.getByDisplayValue('Work')
+    expect(input).toBeTruthy()
+    fireEvent.change(input, { target: { value: 'Work Account Renamed' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(b.renameCodexAccount).toHaveBeenCalledWith('work', 'Work Account Renamed')
   })
 
   it('supports two-level navigation: level 1 provider overview and level 2 single-provider detail', () => {
