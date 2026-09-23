@@ -1,25 +1,9 @@
-/**
- * Optional integration with the published `dsh-antigravity-auth` capability bundle.
- *
- * That bundle owns the Antigravity OAuth flow, the wire identity, and the LLM
- * adapter that publishes Antigravity model routes into the shared model
- * directory. This module only drives its loopback-guarded account RPC and never
- * handles tokens: the browser receives phases, a login URL, a masked email, and
- * a value-free model catalog.
- */
+/** Client-half controller for Antigravity with multi-account support and quota monitoring. */
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client';
-import { type WritableSnapshotStore } from '../store.ts';
-/** Provider route the upstream adapter registers. */
-export declare const ANTIGRAVITY_PROVIDER = "google-antigravity";
-/** Package the companion bundle is published as. */
-export declare const ANTIGRAVITY_PACKAGE = "dsh-antigravity-auth";
-/**
- * Account RPC namespace on the shared `/api` channel. It is intentionally not
- * the package name: the companion registers the shorter `antigravity-auth`.
- */
-export declare const ANTIGRAVITY_RPC_NAMESPACE = "antigravity-auth";
-/** npm range this integration was written against. */
-export declare const ANTIGRAVITY_PACKAGE_RANGE = "0.1.4-rc.1";
+import type { WritableSnapshotStore } from '../store.ts';
+export declare const ANTIGRAVITY_PROVIDER: "google-antigravity";
+export declare const ANTIGRAVITY_PACKAGE: "dsh-antigravity-auth";
+export declare const ANTIGRAVITY_PACKAGE_RANGE: ">=0.1.0";
 export declare const ANTIGRAVITY_LOGIN_PHASES: readonly ["idle", "pending", "success", "cancelled", "expired", "port-conflict", "failed"];
 export type AntigravityLoginPhase = (typeof ANTIGRAVITY_LOGIN_PHASES)[number];
 export interface AntigravityLoginStatus {
@@ -30,6 +14,29 @@ export interface AntigravityLoginStatus {
     readonly expiresAt?: string;
     readonly maskedEmail?: string;
     readonly errorCode?: string;
+}
+export interface AntigravityAccountView {
+    readonly id: string;
+    readonly label: string;
+    readonly email?: string | undefined;
+    readonly tier?: string | undefined;
+    readonly active: boolean;
+}
+export type AntigravityQuotaWindow = '5h' | 'weekly';
+export interface AntigravityQuotaWindowView {
+    readonly window: AntigravityQuotaWindow;
+    readonly remainingFraction: number;
+    readonly resetTime: string;
+}
+export interface AntigravityQuotaGroupView {
+    readonly group: 'gemini' | 'non-gemini';
+    readonly modelCount: number;
+    readonly windows: readonly AntigravityQuotaWindowView[];
+}
+export interface AntigravityQuotaView {
+    readonly state: string;
+    readonly checkedAt?: string;
+    readonly groups?: readonly AntigravityQuotaGroupView[];
 }
 export interface AntigravityModelEntry {
     readonly id: string;
@@ -49,12 +56,15 @@ export interface AntigravityState {
     /** `absent` means the companion bundle is not installed in this profile. */
     readonly status: 'idle' | 'checking' | 'ready' | 'absent' | 'error';
     readonly view?: AntigravityStatus | undefined;
+    readonly accounts: readonly AntigravityAccountView[];
     readonly models?: AntigravityModelCatalog | undefined;
+    readonly usage?: Readonly<Record<string, AntigravityQuotaView>> | undefined;
     readonly error?: string | undefined;
     /** True while a login or logout call is in flight. */
     readonly busy?: boolean | undefined;
     /** True while the Host reports a pending browser login. */
     readonly loginPending?: boolean | undefined;
+    readonly switchingId?: string | undefined;
 }
 /** Whether a model-directory route belongs to the Antigravity provider. */
 export declare function isAntigravityProvider(provider: string | undefined): boolean;
@@ -62,6 +72,8 @@ export declare function isAntigravityProvider(provider: string | undefined): boo
 export declare function decodeLoginStatus(value: unknown): AntigravityLoginStatus | undefined;
 /** Decode the whole status envelope; `pluginId` proves the companion answered. */
 export declare function decodeStatus(value: unknown): AntigravityStatus | undefined;
+export declare function decodeAccounts(value: unknown): readonly AntigravityAccountView[];
+export declare function decodeAntigravityQuota(value: unknown): AntigravityQuotaView | undefined;
 /** Decode the value-free advisory model catalog. */
 export declare function decodeModels(value: unknown): AntigravityModelCatalog | undefined;
 /** Drive the companion bundle's guarded account RPC. */
@@ -71,16 +83,29 @@ export declare class AntigravityController {
     private generation;
     private disposed;
     constructor(rpc: ClientConnectionRpc);
-    /** Read status and (when available) the model catalog. */
+    /** Read status, accounts, models, and quota. */
     load(): Promise<void>;
+    /** Switch active Google account by id. */
+    selectAccount(id: string): Promise<void>;
+    /** Remove one saved Google account. */
+    removeAccount(id: string): Promise<void>;
+    /** Update label or tier of one saved Google account. */
+    updateAccount(id: string, patch: {
+        label?: string | undefined;
+        tier?: string | undefined;
+    }): Promise<void>;
+    /** Rename one saved Google account. */
+    renameAccount(id: string, label: string): Promise<void>;
+    /** Read active or specified account quota/balance. */
+    readQuota(id?: string): Promise<void>;
     /** Acknowledge the upstream risk notice and start the Google OAuth flow. */
     login(): Promise<void>;
     /** Drop the stored Antigravity credential. */
     logout(): Promise<void>;
     invalidate(): void;
     dispose(): void;
-    private patch;
     private readStatus;
     private readModels;
+    private patch;
     private callRaw;
 }

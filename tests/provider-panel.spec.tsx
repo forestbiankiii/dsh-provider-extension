@@ -6,8 +6,9 @@ import { ProviderPanel, sliderIndexFromPoint, type ProviderPanelProps } from '..
 import { en } from '../src/client/locales.ts'
 import type { CodexAccountsState } from '../src/client/providers/codex.ts'
 afterEach(cleanup)
-function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean } = {}) {
-  const state: ModelDirectoryState = { current: { provider: 'a', model: 'sol', reasoningEffort: 'high' }, routable: true,
+function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean; provider?: string } = {}) {
+  const currentProvider = options.provider ?? 'a'
+  const state: ModelDirectoryState = { current: { provider: currentProvider, model: 'sol', reasoningEffort: 'high' }, routable: true,
     groups: options.empty ? [] : [
       { id: 'a', name: 'Provider A', models: [
         { id: 'sol', name: 'Sol', reasoning: { efforts: [{ id: 'low', name: 'Low' }, { id: 'high', name: 'High' }] } },
@@ -171,10 +172,42 @@ describe('model panel component', () => {
     expect(dialog.textContent).toContain('Low')
     expect(dialog.textContent).toContain('High')
   })
+  it('remembers a previously chosen effort tier when switching models', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    const lowPill = screen.getByRole('button', { name: 'Low' })
+    fireEvent.click(lowPill)
+    await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: 'a', model: 'sol', reasoningEffort: 'low' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Plain' }))
+    await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: 'a', model: 'plain' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Sol' }))
+    await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: 'a', model: 'sol', reasoningEffort: 'low' }))
+  })
   it('shows an empty catalog rather than permanent loading', async () => {
     const b = bench({ empty: true })
     await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
     await waitFor(() => expect(screen.getByText(en.empty)).toBeTruthy())
+  })
+  it('filters out disabled models according to model visibility settings', async () => {
+    localStorage.setItem('dsh-provider-extension:disabled-models', JSON.stringify(['plain']))
+    try {
+      const b = bench()
+      await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+      const dialog = screen.getByRole('dialog', { name: en.title })
+      expect(dialog.textContent).toContain('Sol')
+      expect(dialog.textContent).not.toContain('Select Plain')
+    } finally {
+      localStorage.removeItem('dsh-provider-extension:disabled-models')
+    }
+  })
+  it('renders quota pill in the composer bar with 5h remaining and weekly quota on hover', async () => {
+    bench({ codex: true, provider: 'openai-codex' })
+    const quotaBtn = screen.getByRole('button', { name: /wk 76%/ })
+    expect(quotaBtn).toBeTruthy()
+    expect(screen.getByText('周额度:')).toBeTruthy()
+    expect(screen.getByText('76%')).toBeTruthy()
   })
   it('closes on outside click', () => {
     bench()

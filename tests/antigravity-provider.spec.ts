@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   AntigravityController, decodeModels, decodeStatus, isAntigravityProvider,
 } from '../src/client/providers/antigravity.ts'
+import { createMemoryAuthStore } from '../src/antigravity/auth-store.ts'
 
 const status = {
   status: {
@@ -94,5 +95,98 @@ describe('antigravity provider integration', () => {
     expect(state.busy).toBe(false)
     expect(state.error).toBe('port busy')
     expect(state.status).toBe('ready')
+  })
+
+  it('supports multi-account switching and removal in controller', async () => {
+    const initialAccounts = [
+      { id: 'work@gmail.com', label: 'Work', email: 'work@gmail.com', active: true },
+      { id: 'personal@gmail.com', label: 'Personal', email: 'personal@gmail.com', active: false },
+    ]
+    const call = vi.fn()
+      .mockImplementationOnce(() => ok({ ...signedIn, accounts: initialAccounts }))
+      .mockImplementationOnce(() => ok(catalog))
+      .mockImplementationOnce(() => ok({ accounts: [
+        { id: 'work@gmail.com', label: 'Work', email: 'work@gmail.com', active: false },
+        { id: 'personal@gmail.com', label: 'Personal', email: 'personal@gmail.com', active: true },
+      ]}))
+      .mockImplementationOnce(() => ok({ ...signedIn, accounts: [
+        { id: 'work@gmail.com', label: 'Work', email: 'work@gmail.com', active: false },
+        { id: 'personal@gmail.com', label: 'Personal', email: 'personal@gmail.com', active: true },
+      ]}))
+      .mockImplementationOnce(() => ok(catalog))
+
+    const controller = new AntigravityController({ call } as never)
+    await controller.load()
+    expect(controller.store.getSnapshot().accounts).toHaveLength(2)
+    expect(controller.store.getSnapshot().accounts[0]?.active).toBe(true)
+
+    await controller.selectAccount('personal@gmail.com')
+    expect(controller.store.getSnapshot().accounts[1]?.active).toBe(true)
+  })
+
+  it('reads quota summary and decodes gemini and claude groups', async () => {
+    const quotaData = {
+      state: 'available',
+      checkedAt: '2026-09-22T00:00:00.000Z',
+      groups: [
+        {
+          group: 'gemini',
+          modelCount: 5,
+          windows: [
+            { window: '5h', remainingFraction: 0.95, resetTime: '2026-09-22T05:00:00.000Z' },
+            { window: 'weekly', remainingFraction: 0.8, resetTime: '2026-09-29T00:00:00.000Z' },
+          ],
+        },
+        {
+          group: 'non-gemini',
+          modelCount: 2,
+          windows: [
+            { window: '5h', remainingFraction: 1.0, resetTime: '2026-09-22T05:00:00.000Z' },
+            { window: 'weekly', remainingFraction: 0.75, resetTime: '2026-09-29T00:00:00.000Z' },
+          ],
+        },
+      ],
+    }
+
+    const call = vi.fn()
+      .mockImplementationOnce(() => ok(signedIn))
+      .mockImplementationOnce(() => ok(catalog))
+      .mockImplementationOnce(() => ok(quotaData))
+
+    const controller = new AntigravityController({ call } as never)
+    await controller.load()
+    await controller.readQuota()
+
+    const usageMap = controller.store.getSnapshot().usage
+    const usage = usageMap['fo***@gmail.com'] ?? usageMap['default']
+    expect(usage?.state).toBe('available')
+    expect(usage?.groups).toHaveLength(2)
+    expect(usage?.groups?.[0]?.group).toBe('gemini')
+    expect(usage?.groups?.[0]?.windows[0]?.remainingFraction).toBe(0.95)
+    expect(usage?.groups?.[1]?.group).toBe('non-gemini')
+  })
+
+  it('supports in-memory multi-account operations in auth store', async () => {
+    const store = createMemoryAuthStore()
+    expect(await store.read()).toBeUndefined()
+    expect(await store.readAccounts()).toEqual([])
+
+    await store.commit({ refreshToken: 'token1', projectId: 'p1', email: 'one@gmail.com' })
+    const acc1 = await store.read()
+    expect(acc1?.email).toBe('one@gmail.com')
+    expect(await store.readAccounts()).toHaveLength(1)
+
+    await store.commit({ refreshToken: 'token2', projectId: 'p2', email: 'two@gmail.com' })
+    const acc2 = await store.read()
+    expect(acc2?.email).toBe('two@gmail.com')
+    const accounts = await store.readAccounts()
+    expect(accounts).toHaveLength(2)
+
+    await store.selectAccount('one@gmail.com')
+    expect((await store.read())?.email).toBe('one@gmail.com')
+
+    const remaining = await store.removeAccount('one@gmail.com')
+    expect(remaining).toHaveLength(1)
+    expect((await store.read())?.email).toBe('two@gmail.com')
   })
 })

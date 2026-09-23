@@ -11,9 +11,20 @@ export declare function accentFor(modelId: string, index: number): string;
 export declare function effortIndex(model: ProviderPanelModel, effortId: string | undefined): number;
 /** Only a valid declared default is a known resting effort; never infer Max. */
 export declare function restingEffort(model: ProviderPanelModel): string | undefined;
+/** Prefer a previously chosen effort for this model when still supported; otherwise fall back to resting effort. */
+export declare function resolveModelEffort(model: ProviderPanelModel, rememberedEffort?: string): string | undefined;
 /** Match the complete route, not a model id that another provider may also own. */
 export declare function isCurrentModel(current: ModelDirectoryState['current'], provider: string, model: ProviderPanelModel): boolean;
 /** Submit only installed ModelSelection fields. Metadata cannot enable context forwarding. */
 export declare function selectionForRow(model: ProviderPanelModel, provider: string, effortId: string | undefined): ModelSelection;
 /** Render the current provider, or the first loaded group as an explicit fallback. */
 export declare function activeGroup(state: ModelDirectoryState): ProviderPanelGroup | undefined;
+export declare const DISABLED_MODELS_STORAGE_KEY = "dsh-provider-extension:disabled-models";
+export declare const ACCOUNT_DISABLED_MODELS_STORAGE_KEY = "dsh-provider-extension:account-disabled-models";
+export declare const MODELS_VISIBILITY_EVENT = "dsh-provider-extension:models-visibility-changed";
+export type AccountDisabledModelsMap = Record<string, string[]>;
+export declare function loadAccountDisabledModels(): AccountDisabledModelsMap;
+export declare function saveAccountDisabledModels(map: AccountDisabledModelsMap): void;
+export declare function getDisabledModelsForAccount(accountId?: string): Set<string>;
+export declare function loadDisabledModels(): Set<string>;
+export declare function saveDisabledModels(disabled: Set<string>): void;

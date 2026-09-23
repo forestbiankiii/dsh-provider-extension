@@ -32,6 +32,17 @@ export function restingEffort(model: ProviderPanelModel): string | undefined {
   return effortIndex(model, effort) >= 0 ? effort : undefined
 }
 
+/** Prefer a previously chosen effort for this model when still supported; otherwise fall back to resting effort. */
+export function resolveModelEffort(
+  model: ProviderPanelModel,
+  rememberedEffort?: string,
+): string | undefined {
+  if (rememberedEffort !== undefined && effortIndex(model, rememberedEffort) >= 0) {
+    return rememberedEffort
+  }
+  return restingEffort(model)
+}
+
 /** Match the complete route, not a model id that another provider may also own. */
 export function isCurrentModel(
   current: ModelDirectoryState['current'], provider: string, model: ProviderPanelModel,
@@ -56,4 +67,59 @@ export function selectionForRow(
 /** Render the current provider, or the first loaded group as an explicit fallback. */
 export function activeGroup(state: ModelDirectoryState): ProviderPanelGroup | undefined {
   return state.groups.find(group => group.id === state.current?.provider) ?? state.groups[0]
+}
+
+export const DISABLED_MODELS_STORAGE_KEY = 'dsh-provider-extension:disabled-models'
+export const ACCOUNT_DISABLED_MODELS_STORAGE_KEY = 'dsh-provider-extension:account-disabled-models'
+export const MODELS_VISIBILITY_EVENT = 'dsh-provider-extension:models-visibility-changed'
+
+export type AccountDisabledModelsMap = Record<string, string[]>
+
+export function loadAccountDisabledModels(): AccountDisabledModelsMap {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(ACCOUNT_DISABLED_MODELS_STORAGE_KEY)
+      if (raw) return JSON.parse(raw) as AccountDisabledModelsMap
+    }
+  } catch {}
+  return {}
+}
+
+export function saveAccountDisabledModels(map: AccountDisabledModelsMap): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(ACCOUNT_DISABLED_MODELS_STORAGE_KEY, JSON.stringify(map))
+      window.dispatchEvent(new Event(MODELS_VISIBILITY_EVENT))
+    }
+  } catch {}
+}
+
+export function getDisabledModelsForAccount(accountId?: string): Set<string> {
+  const map = loadAccountDisabledModels()
+  if (accountId && Array.isArray(map[accountId])) {
+    return new Set(map[accountId])
+  }
+  return loadDisabledModels()
+}
+
+export function loadDisabledModels(): Set<string> {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(DISABLED_MODELS_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) return new Set(parsed)
+      }
+    }
+  } catch {}
+  return new Set()
+}
+
+export function saveDisabledModels(disabled: Set<string>): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(DISABLED_MODELS_STORAGE_KEY, JSON.stringify([...disabled]))
+      window.dispatchEvent(new Event(MODELS_VISIBILITY_EVENT))
+    }
+  } catch {}
 }

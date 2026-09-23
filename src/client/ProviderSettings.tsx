@@ -1,12 +1,14 @@
-/** Settings page that creates and drives the plugin's provider integrations. */
+/** Settings page: Level 1 hub with expandable quick views, and Level 2 provider-only detail view. */
 
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { maskedEmail, type CodexAccountsState } from './providers/codex.ts'
+import { type AntigravityState } from './providers/antigravity.ts'
 import {
-  ANTIGRAVITY_PACKAGE, ANTIGRAVITY_PACKAGE_RANGE, type AntigravityState,
-} from './providers/antigravity.ts'
+  loadDisabledModels, saveDisabledModels, loadAccountDisabledModels,
+  saveAccountDisabledModels, type AccountDisabledModelsMap, MODELS_VISIBILITY_EVENT,
+} from './selection.ts'
 import css from './ProviderSettings.module.css'
 
 /** Per-surface actions and stores injected by the client plugin. */
@@ -19,9 +21,16 @@ export interface ProviderSettingsInjected {
   }
   loadAccounts: () => Promise<void>
   readQuota: (id: string) => Promise<void>
+  loginCodex: () => Promise<void>
+  removeCodexAccount: (id: string) => Promise<void>
   loadAntigravity: () => Promise<void>
   loginAntigravity: () => Promise<void>
   logoutAntigravity: () => Promise<void>
+  selectAntigravityAccount?: (id: string) => Promise<void>
+  updateAntigravityAccount?: (id: string, patch: { label?: string; tier?: string }) => Promise<void>
+  renameAntigravityAccount?: (id: string, label: string) => Promise<void>
+  removeAntigravityAccount?: (id: string) => Promise<void>
+  readAntigravityQuota?: (id?: string) => Promise<void>
 }
 
 /** Settings-section props: the shell lends `close`, the plugin injects the rest. */
@@ -32,6 +41,8 @@ export type ProviderSettingsProps =
 
 type PhaseKey = 'antigravityIdle' | 'antigravityPending' | 'antigravitySuccess'
   | 'antigravityCancelled' | 'antigravityExpired' | 'antigravityPortConflict' | 'antigravityFailed'
+
+type ProviderId = 'codex' | 'antigravity' | 'claude' | 'gemini' | 'openai' | 'opencode'
 
 /** Copy shown for one Antigravity login phase. */
 function phaseKey(phase: string | undefined): PhaseKey {
@@ -46,17 +57,517 @@ function phaseKey(phase: string | undefined): PhaseKey {
   }
 }
 
-/** Render provider creation plus the status of every supported integration. */
+function formatResetTime(iso: string): string {
+  try {
+    const d = new Date(iso)
+    if (!Number.isFinite(d.getTime())) return ''
+    const now = Date.now()
+    const diffMs = d.getTime() - now
+    if (diffMs > 0 && diffMs < 86_400_000) {
+      const hours = Math.floor(diffMs / 3_600_000)
+      const mins = Math.floor((diffMs % 3_600_000) / 60_000)
+      if (hours > 0) return `${hours}h ${mins}m`
+      return `${mins}m`
+    }
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  } catch {
+    return ''
+  }
+}
+
+export const GEMINI_TIERS = ['Free', 'Pro', 'Ultra'] as const
+export type GeminiTier = typeof GEMINI_TIERS[number]
+
+function resolveAccountTier(account: { tier?: string | undefined }): GeminiTier {
+  if (account.tier === 'Ultra') return 'Ultra'
+  if (account.tier === 'Free') return 'Free'
+  if (account.tier === 'Pro') return 'Pro'
+  return 'Pro'
+}
+
+/** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
 export function ProviderSettings({
-  useAccounts, useAntigravity, loadAccounts, readQuota, loadAntigravity, loginAntigravity, logoutAntigravity, t,
+  useAccounts, useAntigravity, loadAccounts, readQuota, loginCodex, removeCodexAccount,
+  loadAntigravity, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, t,
 }: ProviderSettingsProps): ReactNode {
   const accounts = useAccounts(snapshot => snapshot)
   const antigravity = useAntigravity(snapshot => snapshot)
-  const [creating, setCreating] = useState(false)
-  const login = antigravity.view?.login
-  const installed = antigravity.status === 'ready'
-  const installCommand = `dsh plugin --profile desktop add ${ANTIGRAVITY_PACKAGE}@${ANTIGRAVITY_PACKAGE_RANGE}`
+  const [selectedProvider, setSelectedProvider] = useState<ProviderId | null>(null)
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    codex: true,
+    antigravity: true,
+  })
+  const [disabledModels, setDisabledModels] = useState<Set<string>>(() => loadDisabledModels())
+  const [accountDisabledMap, setAccountDisabledMap] = useState<AccountDisabledModelsMap>(() => loadAccountDisabledModels())
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null)
+  const [editingAccountLabel, setEditingAccountLabel] = useState<string>('')
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
+  const [expandedQuotaAccounts, setExpandedQuotaAccounts] = useState<Record<string, boolean>>({})
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setDisabledModels(loadDisabledModels())
+      setAccountDisabledMap(loadAccountDisabledModels())
+    }
+    window.addEventListener(MODELS_VISIBILITY_EVENT, handleVisibilityChange)
+    return () => { window.removeEventListener(MODELS_VISIBILITY_EVENT, handleVisibilityChange) }
+  }, [])
+
+  const toggleAccountModel = (accountId: string, modelId: string) => {
+    setAccountDisabledMap(prev => {
+      const currentList = prev[accountId] ?? []
+      const nextList = currentList.includes(modelId)
+        ? currentList.filter(id => id !== modelId)
+        : [...currentList, modelId]
+      const nextMap = { ...prev, [accountId]: nextList }
+      saveAccountDisabledModels(nextMap)
+      return nextMap
+    })
+  }
+
+  const toggleModel = (id: string) => {
+    const next = new Set(disabledModels)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setDisabledModels(next)
+    saveDisabledModels(next)
+  }
+
+  const toggleAccountQuota = (id: string) => {
+    setExpandedQuotaAccounts(prev => {
+      const next = { ...prev, [id]: !prev[id] }
+      if (next[id] && !agUsage[id]) {
+        void readAntigravityQuota?.(id)
+      }
+      return next
+    })
+  }
+
+  const startRename = (id: string, currentLabel: string) => {
+    setEditingAccountId(id)
+    setEditingAccountLabel(currentLabel)
+  }
+
+  const saveRename = async (id: string) => {
+    if (editingAccountLabel.trim() && renameAntigravityAccount) {
+      await renameAntigravityAccount(id, editingAccountLabel.trim())
+    }
+    setEditingAccountId(null)
+  }
+
+  const login = antigravity?.view?.login
+  const agAccounts = antigravity?.accounts ?? []
+  const agUsage = antigravity?.usage ?? {}
+  const antigravityConnected = login?.configured === true
+  const codexConnected = accounts.accounts.length > 0
+
+  useEffect(() => {
+    if (agAccounts.length === 1 && agAccounts[0] && expandedQuotaAccounts[agAccounts[0].id] === undefined) {
+      setExpandedQuotaAccounts({ [agAccounts[0].id]: true })
+    }
+  }, [agAccounts.length])
+
+  const toggleExpand = (id: string) => {
+    setExpanded(prev => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  const refreshAll = () => {
+    void loadAccounts()
+    void loadAntigravity()
+  }
+
+  // Automatic self-check on mount to ensure fresh status without manual refresh
+  useEffect(() => {
+    void loadAccounts()
+    void loadAntigravity()
+  }, [loadAccounts, loadAntigravity])
+
+  // =========================================================================
+  // LEVEL 2: Single Provider Detail View
+  // =========================================================================
+  if (selectedProvider !== null) {
+    const providerTitles: Record<ProviderId, string> = {
+      codex: t('providerCodex'),
+      antigravity: t('providerAntigravity'),
+      claude: t('providerClaude'),
+      gemini: t('providerGemini'),
+      openai: t('providerOpenAi'),
+      opencode: t('providerOpenCode'),
+    }
+
+    return (
+      <section className={css.page} data-testid="provider-settings-detail">
+        <div className={css.navBack}>
+          <button
+            type="button"
+            className={css.backButton}
+            onClick={() => setSelectedProvider(null)}
+          >
+            ← {t('backToProviders')}
+          </button>
+          <div className={css.breadcrumb}>
+            <span>{t('settingsNav')}</span>
+            <span>/</span>
+            <span className={css.breadcrumbCurrent}>{providerTitles[selectedProvider]}</span>
+          </div>
+        </div>
+
+        {selectedProvider === 'codex' && (
+          <article className={css.card}>
+            <div className={css.cardHead}>
+              <span className={css.cardTitle}>{t('providerCodex')}</span>
+              <span className={css.badge} data-state={codexConnected ? 'ready' : 'idle'}>
+                {accounts.status === 'error' ? t('providerError') : t('accountCount', { count: accounts.accounts.length })}
+              </span>
+            </div>
+            {accounts.accounts.length === 0 ? (
+              <p className={css.note}>{t('codexNoAccounts')}</p>
+            ) : (
+              <ul className={css.accounts}>
+                {accounts.accounts.map(account => {
+                  const usage = accounts.usage[account.id]
+                  const weekly = usage?.status === 'ready' ? usage.value.weeklyPercent : undefined
+                  const email = maskedEmail(account.email)
+                  return (
+                    <li key={account.id} className={css.account}>
+                      <span className={css.accountIdentity}>
+                        <span className={css.modelName}>{account.label}</span>
+                        {email === undefined ? null : <span className={css.note}>{email}</span>}
+                      </span>
+                      <span className={css.accountMeta}>
+                        <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
+                          {account.active ? t('accountActive') : t('accountUse')}
+                        </span>
+                        <span className={css.note}>
+                          {usage?.status === 'loading' ? t('quotaReading')
+                            : usage?.status === 'error' ? t('quotaFailedShort')
+                              : weekly === undefined ? t('quotaNoWeekly') : t('weeklyQuota', { value: weekly })}
+                        </span>
+                      </span>
+                      {!account.active && (usage === undefined || usage.status === 'error') ? (
+                        <button
+                          type="button"
+                          className={css.action}
+                          disabled={accounts.switchingId !== undefined}
+                          onClick={() => { void readQuota(account.id).catch(() => {}) }}
+                        >{t('readQuota')}</button>
+                      ) : null}
+                      {confirmingDeleteId === account.id ? (
+                        <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
+                          <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
+                          <button
+                            type="button"
+                            className={`${css.action} ${css.danger}`}
+                            onClick={() => {
+                              setConfirmingDeleteId(null)
+                              void removeCodexAccount(account.id).catch(() => {})
+                            }}
+                          >{t('confirmYes')}</button>
+                          <button
+                            type="button"
+                            className={css.action}
+                            onClick={() => setConfirmingDeleteId(null)}
+                          >{t('confirmNo')}</button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className={css.action}
+                          disabled={accounts.switchingId !== undefined}
+                          onClick={() => setConfirmingDeleteId(account.id)}
+                        >{t('accountRemove')}</button>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            <p className={css.note}>{t('codexAddHint')}</p>
+            <div className={css.actions}>
+              <button
+                type="button"
+                className={`${css.action} ${css.primary}`}
+                disabled={accounts.loginPending === true}
+                onClick={() => { void loginCodex().catch(() => {}) }}
+              >{accounts.loginPending === true ? t('providerWorking') : t('codexSignIn')}</button>
+              {typeof accounts.loginUrl === 'string' ? (
+                <a className={css.action} href={accounts.loginUrl} target="_blank" rel="noreferrer">
+                  {t('codexOpenLink')}
+                </a>
+              ) : null}
+              <button type="button" className={css.action} onClick={() => { void loadAccounts() }}>{t('providerRefresh')}</button>
+            </div>
+          </article>
+        )}
+
+        {selectedProvider === 'antigravity' && (
+          <article className={css.card}>
+            <div className={css.cardHead}>
+              <span className={css.cardTitle}>{t('providerAntigravity')}</span>
+              <span className={css.badge} data-state={antigravityConnected ? 'ready' : 'idle'}>
+                {antigravity.status === 'error' ? t('providerError')
+                  : antigravity.status === 'checking' ? t('providerChecking')
+                    : antigravityConnected ? t('providerStatusConnected') : t('providerStatusIdle')}
+              </span>
+            </div>
+
+            {antigravity.status === 'absent' ? (
+              <p className={css.note}>{t('antigravityInstallHint')}</p>
+            ) : (
+              <>
+                <dl className={css.facts}>
+                  <div>
+                    <dt>{t('antigravityLoginState')}</dt>
+                    <dd>{t(phaseKey(login?.phase))}{login?.maskedEmail === undefined ? '' : ` · ${login.maskedEmail}`}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('antigravityProject')}</dt>
+                    <dd>{login?.projectAvailable === true ? t('antigravityProjectReady') : t('antigravityProjectUnavailable')}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('antigravityRiskState')}</dt>
+                    <dd>{antigravity.view?.riskAcknowledged === true ? t('antigravityRiskAccepted') : t('antigravityRiskPending')}</dd>
+                  </div>
+                </dl>
+
+                <p className={css.note}>{t('antigravityRisk')}</p>
+
+                <div className={css.actions}>
+                  <button
+                    type="button"
+                    className={`${css.action} ${css.primary}`}
+                    disabled={antigravity.busy === true || login?.phase === 'pending'}
+                    onClick={() => { void loginAntigravity().catch(() => {}) }}
+                  >{antigravity.busy === true ? t('providerWorking') : t('addAccount')}</button>
+                  {typeof login?.authorizationUrl === 'string' ? (
+                    <a className={css.action} href={login.authorizationUrl} target="_blank" rel="noreferrer">
+                      {t('antigravityOpenLink')}
+                    </a>
+                  ) : null}
+                  <button type="button" className={css.action} onClick={() => { void loadAntigravity() }}>{t('providerRefresh')}</button>
+                </div>
+
+                {antigravity.error === undefined ? null : <p className={css.error} role="alert">{antigravity.error}</p>}
+
+                <div className={css.block}>
+                  <div className={css.blockHeadRow}>
+                    <span className={css.blockTitle}>{t('antigravityAccounts')}</span>
+                    <span className={css.badge}>{t('accountCount', { count: agAccounts.length })}</span>
+                  </div>
+                  {agAccounts.length === 0 ? (
+                    <p className={css.note}>{t('antigravityNoAccounts')}</p>
+                  ) : (
+                    <div className={css.accounts}>
+                      {agAccounts.map(account => {
+                        const email = account.email ? maskedEmail(account.email) : (account.active && login?.maskedEmail ? login.maskedEmail : 'Google 账号已绑定')
+                        const tier = resolveAccountTier(account)
+                        const isEditing = editingAccountId === account.id
+                        const isQuotaOpen = expandedQuotaAccounts[account.id] === true
+                        const quota = agUsage[account.id] ?? (account.active ? agUsage['default'] : undefined)
+                        return (
+                          <div
+                            key={account.id}
+                            className={css.accountCardButton}
+                            role="button"
+                            aria-label={isQuotaOpen ? t('quotaHide') : t('quotaView')}
+                            tabIndex={0}
+                            onClick={() => toggleAccountQuota(account.id)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                toggleAccountQuota(account.id)
+                              }
+                            }}
+                          >
+                            <div className={css.accountCardTop}>
+                              <div className={css.accountIdentityCol}>
+                                <div className={css.accountTitleRow}>
+                                  {isEditing ? (
+                                    <input
+                                      className={css.renameInput}
+                                      value={editingAccountLabel}
+                                      onChange={e => setEditingAccountLabel(e.target.value)}
+                                      onClick={e => e.stopPropagation()}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter') void saveRename(account.id)
+                                        if (e.key === 'Escape') setEditingAccountId(null)
+                                      }}
+                                      autoFocus
+                                    />
+                                  ) : (
+                                    <span
+                                      className={css.accountName}
+                                      onClick={e => {
+                                        e.stopPropagation()
+                                        startRename(account.id, account.label)
+                                      }}
+                                      title="点击直接重命名"
+                                    >
+                                      {account.label}
+                                    </span>
+                                  )}
+                                  <span className={css.accountTierBadge} data-tier={tier}>
+                                    {tier}
+                                  </span>
+                                </div>
+                                <span className={css.note}>{email}</span>
+                              </div>
+                              <div className={css.actions} onClick={e => e.stopPropagation()}>
+                                <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
+                                  {account.active ? t('accountActive') : t('accountUse')}
+                                </span>
+                                {isEditing ? (
+                                  <>
+                                    <button type="button" className={css.action} onClick={() => { void saveRename(account.id) }}>{t('renameSave')}</button>
+                                    <button type="button" className={css.action} onClick={() => setEditingAccountId(null)}>{t('renameCancel')}</button>
+                                  </>
+                                ) : null}
+                                {!account.active && selectAntigravityAccount ? (
+                                  <button
+                                    type="button"
+                                    className={css.action}
+                                    disabled={antigravity.switchingId !== undefined}
+                                    onClick={() => { void selectAntigravityAccount(account.id) }}
+                                  >{t('accountUse')}</button>
+                                ) : null}
+                                {removeAntigravityAccount ? (
+                                  confirmingDeleteId === account.id ? (
+                                    <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
+                                      <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
+                                      <button
+                                        type="button"
+                                        className={`${css.action} ${css.danger}`}
+                                        onClick={() => {
+                                          setConfirmingDeleteId(null)
+                                          void removeAntigravityAccount(account.id)
+                                        }}
+                                      >{t('confirmYes')}</button>
+                                      <button
+                                        type="button"
+                                        className={css.action}
+                                        onClick={() => setConfirmingDeleteId(null)}
+                                      >{t('confirmNo')}</button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className={css.action}
+                                      disabled={antigravity.switchingId !== undefined}
+                                      onClick={e => {
+                                        e.stopPropagation()
+                                        setConfirmingDeleteId(account.id)
+                                      }}
+                                    >{t('accountRemove')}</button>
+                                  )
+                                ) : null}
+                                <span className={css.accountChevron} data-open={isQuotaOpen}>▼</span>
+                              </div>
+                            </div>
+
+                            {isQuotaOpen ? (
+                              <div className={css.accountExpandQuota} onClick={e => e.stopPropagation()}>
+                                <div className={css.blockHeadRow}>
+                                  <span className={css.quotaGroupTitle}>{t('quotaBalance')}</span>
+                                  <button
+                                    type="button"
+                                    className={css.action}
+                                    onClick={() => { void readAntigravityQuota?.(account.id) }}
+                                  >{t('readQuota')}</button>
+                                </div>
+                                {quota?.groups && quota.groups.length > 0 ? (
+                                  <div className={css.quotaCards}>
+                                    {quota.groups.map(group => {
+                                      const groupTitle = group.group === 'gemini' ? t('quotaGemini') : t('quotaClaude')
+                                      return (
+                                        <div key={group.group} className={css.quotaCard}>
+                                          <span className={css.quotaGroupTitle}>{groupTitle}</span>
+                                          <div className={css.quotaWindows}>
+                                            {group.windows.map(win => {
+                                              const pct = Math.round(win.remainingFraction * 100)
+                                              const label = win.window === '5h' ? t('quota5h', { value: pct }) : t('quotaWeeklyFraction', { value: pct })
+                                              const resetText = win.resetTime ? formatResetTime(win.resetTime) : ''
+                                              return (
+                                                <div key={win.window} className={css.quotaWindowItem}>
+                                                  <div className={css.quotaWindowHead}>
+                                                    <span className={css.quotaWindowLabel}>{label}</span>
+                                                    {resetText ? <span className={css.quotaResetTime}>{t('quotaResetAt', { time: resetText })}</span> : null}
+                                                  </div>
+                                                  <progress className={css.quotaBar} max={100} value={pct} />
+                                                </div>
+                                              )
+                                            })}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className={css.note}>{t('quotaNoData')}</p>
+                                )}
+
+                                <div className={css.accountModelsBlock}>
+                                  <div className={css.blockHeadRow}>
+                                    <span className={css.quotaGroupTitle}>{t('antigravityModels')}</span>
+                                  </div>
+                                  {antigravity.models === undefined || antigravity.models.models.length === 0 ? (
+                                    <p className={css.note}>{t('antigravityNoModels')}</p>
+                                  ) : (
+                                    <ul className={css.models}>
+                                      {antigravity.models.models.map(model => {
+                                        const isModelDisabled = accountDisabledMap[account.id]?.includes(model.id)
+                                        return (
+                                          <li key={model.id}>
+                                            <span className={css.modelName}>{model.name}</span>
+                                            <div className={css.modelToggleRow}>
+                                              {model.state === 'unavailable' ? (
+                                                <span className={css.modelState} data-state="unavailable">
+                                                  {t('antigravityModelUnavailable')}
+                                                </span>
+                                              ) : null}
+                                              <label className={css.switch} title={t('modelToggle')}>
+                                                <input
+                                                  type="checkbox"
+                                                  checked={!isModelDisabled}
+                                                  onChange={() => toggleAccountModel(account.id, model.id)}
+                                                />
+                                                <span className={css.switchSlider} />
+                                              </label>
+                                            </div>
+                                          </li>
+                                        )
+                                      })}
+                                    </ul>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </article>
+        )}
+
+        {selectedProvider !== 'codex' && selectedProvider !== 'antigravity' && (
+          <article className={css.card}>
+            <div className={css.cardHead}>
+              <span className={css.cardTitle}>{providerTitles[selectedProvider]}</span>
+              <span className={css.badge} data-state="roadmap">{t('providerStatusRoadmap')}</span>
+            </div>
+            <p className={css.note}>{t('roadmapNotice')}</p>
+          </article>
+        )}
+      </section>
+    )
+  }
+
+  // =========================================================================
+  // LEVEL 1: Providers Overview & Expandable Quick Views
+  // =========================================================================
   return (
     <section className={css.page} data-testid="provider-settings">
       <header className={css.head}>
@@ -64,168 +575,468 @@ export function ProviderSettings({
           <h2 className={css.title}>{t('settingsNav')}</h2>
           <p className={css.intro}>{t('providersIntro')}</p>
         </div>
-        <div className={css.headActions}>
-          <button
-            type="button"
-            className={`${css.action} ${css.primary}`}
-            aria-expanded={creating}
-            onClick={() => { setCreating(value => !value) }}
-          >{creating ? t('providerCloseCatalog') : t('createProvider')}</button>
-          <button type="button" className={css.action} disabled={antigravity.busy === true} onClick={() => { void loadAntigravity() }}>
-            {antigravity.status === 'checking' ? t('providerChecking') : t('providerRefresh')}
-          </button>
-        </div>
       </header>
 
-      {creating ? (
-        <div className={css.catalog} data-testid="provider-catalog">
-          <div className={css.catalogRow}>
-            <div className={css.catalogCopy}>
-              <span className={css.cardTitle}>{t('providerAntigravity')}</span>
-              <span className={css.note}>{t('antigravityCatalogHint')}</span>
+      <div className={css.providerList}>
+        {/* 1. Antigravity (Google) */}
+        <article className={css.providerCard}>
+          <div className={css.providerCardHead}>
+            <div className={css.providerMain} onClick={() => toggleExpand('antigravity')}>
+              <div className={css.providerIcon} data-provider="antigravity">AG</div>
+              <div className={css.providerTitles}>
+                <span className={css.providerTitle}>{t('providerAntigravity')}</span>
+                <span className={css.providerSubtitle}>
+                  {login?.configured ? `${t('antigravitySuccess')} · ${t('antigravityProject')}: ${login.projectAvailable ? t('antigravityProjectReady') : t('antigravityProjectUnavailable')}` : t(phaseKey(login?.phase))}
+                </span>
+              </div>
             </div>
-            {installed ? (
-              <button
-                type="button"
-                className={`${css.action} ${css.primary}`}
-                disabled={antigravity.busy === true}
-                onClick={() => { void loginAntigravity().catch(() => {}) }}
-              >{t('providerConnect')}</button>
-            ) : null}
-          </div>
-          {installed ? null : <code className={css.command}>{installCommand}</code>}
-          <div className={css.catalogRow}>
-            <div className={css.catalogCopy}>
-              <span className={css.cardTitle}>{t('providerCodex')}</span>
-              <span className={css.note}>{t('codexCatalogHint')}</span>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <article className={css.card}>
-        <div className={css.cardHead}>
-          <span className={css.cardTitle}>{t('providerAntigravity')}</span>
-          <span className={css.badge} data-state={antigravity.status}>
-            {antigravity.status === 'absent' ? t('providerNotInstalled')
-              : installed ? t('providerInstalled')
-                : antigravity.status === 'error' ? t('providerError') : t('providerChecking')}
-          </span>
-        </div>
-
-        {antigravity.status === 'absent' ? (
-          <>
-            <p className={css.note}>{t('antigravityInstallHint')}</p>
-            <code className={css.command}>{installCommand}</code>
-          </>
-        ) : (
-          <>
-            <dl className={css.facts}>
-              <div>
-                <dt>{t('antigravityLoginState')}</dt>
-                <dd>{t(phaseKey(login?.phase))}{login?.maskedEmail === undefined ? '' : ` · ${login.maskedEmail}`}</dd>
-              </div>
-              <div>
-                <dt>{t('antigravityProject')}</dt>
-                <dd>{login?.projectAvailable === true ? t('antigravityProjectReady') : t('antigravityProjectUnavailable')}</dd>
-              </div>
-              <div>
-                <dt>{t('antigravityRiskState')}</dt>
-                <dd>{antigravity.view?.riskAcknowledged === true ? t('antigravityRiskAccepted') : t('antigravityRiskPending')}</dd>
-              </div>
-            </dl>
-
-            <p className={css.note}>{t('antigravityRisk')}</p>
-
-            <div className={css.actions}>
-              <button
-                type="button"
-                className={`${css.action} ${css.primary}`}
-                disabled={antigravity.busy === true || login?.phase === 'pending'}
-                onClick={() => { void loginAntigravity().catch(() => {}) }}
-              >{antigravity.busy === true ? t('providerWorking') : t('antigravitySignIn')}</button>
-              {typeof login?.authorizationUrl === 'string' ? (
-                <a className={css.action} href={login.authorizationUrl} target="_blank" rel="noreferrer">
-                  {t('antigravityOpenLink')}
-                </a>
-              ) : null}
+            <div className={css.providerRight}>
+              <span className={css.providerBadge} data-status={antigravityConnected ? 'ready' : 'idle'}>
+                {antigravityConnected ? t('providerStatusConnected') : t('providerStatusIdle')}
+              </span>
               <button
                 type="button"
                 className={css.action}
-                disabled={antigravity.busy === true || login?.configured !== true}
-                onClick={() => { void logoutAntigravity().catch(() => {}) }}
-              >{t('antigravitySignOut')}</button>
+                onClick={() => toggleExpand('antigravity')}
+              >
+                {expanded.antigravity ? t('providerHideQuickView') : t('providerQuickView')}
+              </button>
+              <button
+                type="button"
+                className={`${css.action} ${css.primary}`}
+                onClick={() => setSelectedProvider('antigravity')}
+              >
+                {t('providerManage')} →
+              </button>
             </div>
+          </div>
 
-            {antigravity.error === undefined ? null : <p className={css.error} role="alert">{antigravity.error}</p>}
+          {expanded.antigravity && (
+            <div className={css.quickView}>
+              {antigravity.status === 'absent' ? (
+                <p className={css.note}>{t('antigravityInstallHint')}</p>
+              ) : (
+                <>
+                  <dl className={css.facts}>
+                    <div>
+                      <dt>{t('antigravityLoginState')}</dt>
+                      <dd>{t(phaseKey(login?.phase))}{login?.maskedEmail === undefined ? '' : ` · ${login.maskedEmail}`}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('antigravityProject')}</dt>
+                      <dd>{login?.projectAvailable === true ? t('antigravityProjectReady') : t('antigravityProjectUnavailable')}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('antigravityRiskState')}</dt>
+                      <dd>{antigravity.view?.riskAcknowledged === true ? t('antigravityRiskAccepted') : t('antigravityRiskPending')}</dd>
+                    </div>
+                  </dl>
 
-            <div className={css.block}>
-              <span className={css.blockTitle}>{t('antigravityModels')}</span>
-              {antigravity.models === undefined || antigravity.models.models.length === 0
-                ? <p className={css.note}>{t('antigravityNoModels')}</p>
-                : <ul className={css.models}>
-                  {antigravity.models.models.map(model => (
-                    <li key={model.id}>
-                      <span className={css.modelName}>{model.name}</span>
-                      <span className={css.modelState} data-state={model.state}>
-                        {model.state === 'live-available' ? t('antigravityModelLive')
-                          : model.state === 'snapshot' ? t('antigravityModelSnapshot') : t('antigravityModelUnavailable')}
-                      </span>
-                    </li>
-                  ))}
-                </ul>}
-            </div>
-          </>
-        )}
-      </article>
-
-      <article className={css.card}>
-        <div className={css.cardHead}>
-          <span className={css.cardTitle}>{t('providerCodex')}</span>
-          <span className={css.badge} data-state={accounts.status}>
-            {accounts.status === 'error' ? t('providerNotInstalled') : t('accountCount', { count: accounts.accounts.length })}
-          </span>
-        </div>
-        {accounts.accounts.length === 0 ? <p className={css.note}>{t('codexNoAccounts')}</p> : (
-          <ul className={css.accounts}>
-            {accounts.accounts.map(account => {
-              const usage = accounts.usage[account.id]
-              const weekly = usage?.status === 'ready' ? usage.value.weeklyPercent : undefined
-              const email = maskedEmail(account.email)
-              return (
-                <li key={account.id} className={css.account}>
-                  <span className={css.accountIdentity}>
-                    <span className={css.modelName}>{account.label}</span>
-                    {email === undefined ? null : <span className={css.note}>{email}</span>}
-                  </span>
-                  <span className={css.accountMeta}>
-                    <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
-                      {account.active ? t('accountActive') : t('accountUse')}
-                    </span>
-                    <span className={css.note}>
-                      {usage?.status === 'loading' ? t('quotaReading')
-                        : usage?.status === 'error' ? t('quotaFailedShort')
-                          : weekly === undefined ? t('quotaNoWeekly') : t('weeklyQuota', { value: weekly })}
-                    </span>
-                  </span>
-                  {!account.active && (usage === undefined || usage.status === 'error') ? (
+                  <div className={css.actions}>
                     <button
                       type="button"
-                      className={css.action}
-                      disabled={accounts.switchingId !== undefined}
-                      onClick={() => { void readQuota(account.id).catch(() => {}) }}
-                    >{t('readQuota')}</button>
+                      className={`${css.action} ${css.primary}`}
+                      disabled={antigravity.busy === true || login?.phase === 'pending'}
+                      onClick={() => { void loginAntigravity().catch(() => {}) }}
+                    >{antigravity.busy === true ? t('providerWorking') : t('addAccount')}</button>
+                    {typeof login?.authorizationUrl === 'string' ? (
+                      <a className={css.action} href={login.authorizationUrl} target="_blank" rel="noreferrer">
+                        {t('antigravityOpenLink')}
+                      </a>
+                    ) : null}
+                    <button type="button" className={css.action} onClick={() => { void loadAntigravity() }}>{t('providerRefresh')}</button>
+                  </div>
+
+                  {agAccounts.length > 0 ? (
+                    <div className={css.block}>
+                      <span className={css.blockTitle}>{t('antigravityAccounts')}</span>
+                      <div className={css.accounts}>
+                        {agAccounts.map(account => {
+                          const email = account.email ? maskedEmail(account.email) : (account.active && login?.maskedEmail ? login.maskedEmail : 'Google 账号已绑定')
+                          const tier = resolveAccountTier(account)
+                          const isQuotaOpen = expandedQuotaAccounts[account.id] === true
+                          const quota = agUsage[account.id] ?? (account.active ? agUsage['default'] : undefined)
+                          return (
+                            <div
+                              key={account.id}
+                              className={css.accountCardButton}
+                              role="button"
+                              aria-label={isQuotaOpen ? t('quotaHide') : t('quotaView')}
+                              tabIndex={0}
+                              onClick={() => toggleAccountQuota(account.id)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  toggleAccountQuota(account.id)
+                                }
+                              }}
+                            >
+                              <div className={css.accountCardTop}>
+                                <div className={css.accountIdentityCol}>
+                                  <div className={css.accountTitleRow}>
+                                    {editingAccountId === account.id ? (
+                                      <input
+                                        className={css.renameInput}
+                                        value={editingAccountLabel}
+                                        onChange={e => setEditingAccountLabel(e.target.value)}
+                                        onClick={e => e.stopPropagation()}
+                                        onBlur={() => { void saveRename(account.id) }}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter') void saveRename(account.id)
+                                          if (e.key === 'Escape') setEditingAccountId(null)
+                                        }}
+                                        autoFocus
+                                      />
+                                    ) : (
+                                      <span
+                                        className={css.accountName}
+                                        onClick={e => {
+                                          e.stopPropagation()
+                                          startRename(account.id, account.label)
+                                        }}
+                                        title="点击直接重命名"
+                                      >
+                                        {account.label}
+                                      </span>
+                                    )}
+                                    <span className={css.accountTierBadge} data-tier={tier}>
+                                      {tier}
+                                    </span>
+                                  </div>
+                                  <span className={css.note}>{email}</span>
+                                </div>
+                                <div className={css.actions} onClick={e => e.stopPropagation()}>
+                                  <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
+                                    {account.active ? t('accountActive') : t('accountUse')}
+                                  </span>
+                                  {!account.active && selectAntigravityAccount ? (
+                                    <button
+                                      type="button"
+                                      className={css.action}
+                                      disabled={antigravity.switchingId !== undefined}
+                                      onClick={() => { void selectAntigravityAccount(account.id) }}
+                                    >{t('accountUse')}</button>
+                                  ) : null}
+                                  <span className={css.accountChevron} data-open={isQuotaOpen}>▼</span>
+                                </div>
+                              </div>
+
+                              {isQuotaOpen ? (
+                                <div className={css.accountExpandQuota} onClick={e => e.stopPropagation()}>
+                                  <div className={css.blockHeadRow}>
+                                    <span className={css.quotaGroupTitle}>{t('quotaBalance')}</span>
+                                    <button
+                                      type="button"
+                                      className={css.action}
+                                      onClick={() => { void readAntigravityQuota?.(account.id) }}
+                                    >{t('readQuota')}</button>
+                                  </div>
+                                  {quota?.groups && quota.groups.length > 0 ? (
+                                    <div className={css.quotaCards}>
+                                      {quota.groups.map(group => {
+                                        const groupTitle = group.group === 'gemini' ? t('quotaGemini') : t('quotaClaude')
+                                        return (
+                                          <div key={group.group} className={css.quotaCard}>
+                                            <span className={css.quotaGroupTitle}>{groupTitle}</span>
+                                            <div className={css.quotaWindows}>
+                                              {group.windows.map(win => {
+                                                const pct = Math.round(win.remainingFraction * 100)
+                                                const label = win.window === '5h' ? t('quota5h', { value: pct }) : t('quotaWeeklyFraction', { value: pct })
+                                                const resetText = win.resetTime ? formatResetTime(win.resetTime) : ''
+                                                return (
+                                                  <div key={win.window} className={css.quotaWindowItem}>
+                                                    <div className={css.quotaWindowHead}>
+                                                      <span className={css.quotaWindowLabel}>{label}</span>
+                                                      {resetText ? <span className={css.quotaResetTime}>{t('quotaResetAt', { time: resetText })}</span> : null}
+                                                    </div>
+                                                    <progress className={css.quotaBar} max={100} value={pct} />
+                                                  </div>
+                                                )
+                                              })}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <p className={css.note}>{t('quotaNoData')}</p>
+                                  )}
+
+                                  <div className={css.accountModelsBlock}>
+                                    <div className={css.blockHeadRow}>
+                                      <span className={css.quotaGroupTitle}>{t('antigravityModels')}</span>
+                                    </div>
+                                    {antigravity.models === undefined || antigravity.models.models.length === 0 ? (
+                                      <p className={css.note}>{t('antigravityNoModels')}</p>
+                                    ) : (
+                                      <ul className={css.models}>
+                                        {antigravity.models.models.map(model => {
+                                          const isModelDisabled = accountDisabledMap[account.id]?.includes(model.id)
+                                          return (
+                                            <li key={model.id}>
+                                              <span className={css.modelName}>{model.name}</span>
+                                              <div className={css.modelToggleRow}>
+                                                {model.state === 'unavailable' ? (
+                                                  <span className={css.modelState} data-state="unavailable">
+                                                    {t('antigravityModelUnavailable')}
+                                                  </span>
+                                                ) : null}
+                                                <label className={css.switch} title={t('modelToggle')}>
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={!isModelDisabled}
+                                                    onChange={() => toggleAccountModel(account.id, model.id)}
+                                                  />
+                                                  <span className={css.switchSlider} />
+                                                </label>
+                                              </div>
+                                            </li>
+                                          )
+                                        })}
+                                      </ul>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                   ) : null}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-        <p className={css.note}>{t('codexAddHint')}</p>
-        <div className={css.actions}>
-          <button type="button" className={css.action} onClick={() => { void loadAccounts() }}>{t('providerRefresh')}</button>
-        </div>
-      </article>
+                </>
+              )}
+            </div>
+          )}
+        </article>
+
+        {/* 2. ChatGPT / Codex 订阅 */}
+        <article className={css.providerCard}>
+          <div className={css.providerCardHead}>
+            <div className={css.providerMain} onClick={() => toggleExpand('codex')}>
+              <div className={css.providerIcon} data-provider="codex">GPT</div>
+              <div className={css.providerTitles}>
+                <span className={css.providerTitle}>{t('providerCodex')}</span>
+                <span className={css.providerSubtitle}>
+                  {codexConnected ? t('accountCount', { count: accounts.accounts.length }) : t('codexNoAccounts')}
+                </span>
+              </div>
+            </div>
+            <div className={css.providerRight}>
+              <span className={css.providerBadge} data-status={codexConnected ? 'ready' : 'idle'}>
+                {codexConnected ? t('providerStatusConnected') : t('providerStatusIdle')}
+              </span>
+              <button
+                type="button"
+                className={css.action}
+                onClick={() => toggleExpand('codex')}
+              >
+                {expanded.codex ? t('providerHideQuickView') : t('providerQuickView')}
+              </button>
+              <button
+                type="button"
+                className={`${css.action} ${css.primary}`}
+                onClick={() => setSelectedProvider('codex')}
+              >
+                {t('providerManage')} →
+              </button>
+            </div>
+          </div>
+
+          {expanded.codex && (
+            <div className={css.quickView}>
+              {accounts.accounts.length === 0 ? (
+                <p className={css.note}>{t('codexNoAccounts')}</p>
+              ) : (
+                <ul className={css.accounts}>
+                  {accounts.accounts.map(account => {
+                    const usage = accounts.usage[account.id]
+                    const weekly = usage?.status === 'ready' ? usage.value.weeklyPercent : undefined
+                    const email = maskedEmail(account.email)
+                    return (
+                      <li key={account.id} className={css.account}>
+                        <span className={css.accountIdentity}>
+                          <span className={css.modelName}>{account.label}</span>
+                          {email === undefined ? null : <span className={css.note}>{email}</span>}
+                        </span>
+                        <span className={css.accountMeta}>
+                          <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
+                            {account.active ? t('accountActive') : t('accountUse')}
+                          </span>
+                          <span className={css.note}>
+                            {usage?.status === 'loading' ? t('quotaReading')
+                              : usage?.status === 'error' ? t('quotaFailedShort')
+                                : weekly === undefined ? t('quotaNoWeekly') : t('weeklyQuota', { value: weekly })}
+                          </span>
+                        </span>
+                        {!account.active && (usage === undefined || usage.status === 'error') ? (
+                          <button
+                            type="button"
+                            className={css.action}
+                            disabled={accounts.switchingId !== undefined}
+                            onClick={() => { void readQuota(account.id).catch(() => {}) }}
+                          >{t('readQuota')}</button>
+                        ) : null}
+                        {confirmingDeleteId === account.id ? (
+                          <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
+                            <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
+                            <button
+                              type="button"
+                              className={`${css.action} ${css.danger}`}
+                              onClick={() => {
+                                setConfirmingDeleteId(null)
+                                void removeCodexAccount(account.id).catch(() => {})
+                              }}
+                            >{t('confirmYes')}</button>
+                            <button
+                              type="button"
+                              className={css.action}
+                              onClick={() => setConfirmingDeleteId(null)}
+                            >{t('confirmNo')}</button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className={css.action}
+                            disabled={accounts.switchingId !== undefined}
+                            onClick={() => setConfirmingDeleteId(account.id)}
+                          >{t('accountRemove')}</button>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              <div className={css.actions}>
+                <button
+                  type="button"
+                  className={`${css.action} ${css.primary}`}
+                  disabled={accounts.loginPending === true}
+                  onClick={() => { void loginCodex().catch(() => {}) }}
+                >{accounts.loginPending === true ? t('providerWorking') : t('codexSignIn')}</button>
+                {typeof accounts.loginUrl === 'string' ? (
+                  <a className={css.action} href={accounts.loginUrl} target="_blank" rel="noreferrer">
+                    {t('codexOpenLink')}
+                  </a>
+                ) : null}
+                <button type="button" className={css.action} onClick={() => { void loadAccounts() }}>{t('providerRefresh')}</button>
+              </div>
+            </div>
+          )}
+        </article>
+
+        {/* 3. Claude (Anthropic) */}
+        <article className={css.providerCard}>
+          <div className={css.providerCardHead}>
+            <div className={css.providerMain} onClick={() => toggleExpand('claude')}>
+              <div className={css.providerIcon} data-provider="claude">CL</div>
+              <div className={css.providerTitles}>
+                <span className={css.providerTitle}>{t('providerClaude')}</span>
+                <span className={css.providerSubtitle}>{t('providerClaudeDesc')}</span>
+              </div>
+            </div>
+            <div className={css.providerRight}>
+              <span className={css.providerBadge} data-status="roadmap">
+                {t('providerStatusRoadmap')}
+              </span>
+              <button
+                type="button"
+                className={css.action}
+                onClick={() => toggleExpand('claude')}
+              >
+                {expanded.claude ? t('providerHideQuickView') : t('providerQuickView')}
+              </button>
+              <button
+                type="button"
+                className={css.action}
+                onClick={() => setSelectedProvider('claude')}
+              >
+                {t('providerManage')} →
+              </button>
+            </div>
+          </div>
+          {expanded.claude && (
+            <div className={css.quickView}>
+              <p className={css.note}>{t('roadmapNotice')}</p>
+            </div>
+          )}
+        </article>
+
+        {/* 4. Google Gemini API */}
+        <article className={css.providerCard}>
+          <div className={css.providerCardHead}>
+            <div className={css.providerMain} onClick={() => toggleExpand('gemini')}>
+              <div className={css.providerIcon} data-provider="gemini">GM</div>
+              <div className={css.providerTitles}>
+                <span className={css.providerTitle}>{t('providerGemini')}</span>
+                <span className={css.providerSubtitle}>{t('providerGeminiDesc')}</span>
+              </div>
+            </div>
+            <div className={css.providerRight}>
+              <span className={css.providerBadge} data-status="roadmap">
+                {t('providerStatusRoadmap')}
+              </span>
+              <button
+                type="button"
+                className={css.action}
+                onClick={() => setSelectedProvider('gemini')}
+              >
+                {t('providerManage')} →
+              </button>
+            </div>
+          </div>
+        </article>
+
+        {/* 5. OpenAI API */}
+        <article className={css.providerCard}>
+          <div className={css.providerCardHead}>
+            <div className={css.providerMain} onClick={() => toggleExpand('openai')}>
+              <div className={css.providerIcon} data-provider="openai">OA</div>
+              <div className={css.providerTitles}>
+                <span className={css.providerTitle}>{t('providerOpenAi')}</span>
+                <span className={css.providerSubtitle}>{t('providerOpenAiDesc')}</span>
+              </div>
+            </div>
+            <div className={css.providerRight}>
+              <span className={css.providerBadge} data-status="roadmap">
+                {t('providerStatusRoadmap')}
+              </span>
+              <button
+                type="button"
+                className={css.action}
+                onClick={() => setSelectedProvider('openai')}
+              >
+                {t('providerManage')} →
+              </button>
+            </div>
+          </div>
+        </article>
+
+        {/* 6. OpenCode */}
+        <article className={css.providerCard}>
+          <div className={css.providerCardHead}>
+            <div className={css.providerMain} onClick={() => toggleExpand('opencode')}>
+              <div className={css.providerIcon} data-provider="opencode">OC</div>
+              <div className={css.providerTitles}>
+                <span className={css.providerTitle}>{t('providerOpenCode')}</span>
+                <span className={css.providerSubtitle}>{t('providerOpenCodeDesc')}</span>
+              </div>
+            </div>
+            <div className={css.providerRight}>
+              <span className={css.providerBadge} data-status="roadmap">
+                {t('providerStatusRoadmap')}
+              </span>
+              <button
+                type="button"
+                className={css.action}
+                onClick={() => setSelectedProvider('opencode')}
+              >
+                {t('providerManage')} →
+              </button>
+            </div>
+          </div>
+        </article>
+      </div>
     </section>
   )
 }

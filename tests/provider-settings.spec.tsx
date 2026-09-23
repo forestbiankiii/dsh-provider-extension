@@ -18,53 +18,125 @@ const codexAccounts: CodexAccountsState = {
 function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emptyAccounts) {
   const loadAccounts = vi.fn(async () => {})
   const loginAntigravity = vi.fn(async () => {})
+  const loginCodex = vi.fn(async () => {})
+  const removeCodexAccount = vi.fn(async () => {})
+  const renameAntigravityAccount = vi.fn(async () => {})
+  const readAntigravityQuota = vi.fn(async () => {})
+  const selectAntigravityAccount = vi.fn(async () => {})
   const props = {
     useAccounts: (selector: (state: CodexAccountsState) => unknown) => selector(accounts),
     useAntigravity: (selector: (state: AntigravityState) => unknown) => selector(antigravity),
     loadAccounts,
     readQuota: vi.fn(async () => {}),
+    loginCodex,
+    removeCodexAccount,
     loadAntigravity: vi.fn(async () => {}),
     loginAntigravity,
     logoutAntigravity: vi.fn(async () => {}),
+    renameAntigravityAccount,
+    readAntigravityQuota,
+    selectAntigravityAccount,
     t: (key: keyof typeof en, args?: Record<string, unknown>) => en[key].replace(/\{(\w+)\}/g, (_, name: string) => String(args?.[name] ?? '')),
   } as unknown as ProviderSettingsProps
   const view = render(<ProviderSettings {...props} />)
-  return { loadAccounts, loginAntigravity, view }
+  return { loadAccounts, loginAntigravity, loginCodex, removeCodexAccount, renameAntigravityAccount, readAntigravityQuota, view }
 }
 
 describe('provider settings surface', () => {
-  it('reveals the provider catalog from the create button', () => {
+  it('renders the refreshed provider overview without redundant create catalog', () => {
     bench({ status: 'absent' })
     expect(screen.queryByTestId('provider-catalog')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: en.createProvider }))
-    expect(screen.getByTestId('provider-catalog')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: en.providerCloseCatalog }))
-    expect(screen.queryByTestId('provider-catalog')).toBeNull()
+    expect(screen.queryByRole('button', { name: en.createProvider })).toBeNull()
+    expect(screen.getAllByRole('button', { name: en.providerRefresh }).length).toBeGreaterThanOrEqual(1)
   })
 
-  it('shows the install command when the companion bundle is absent', () => {
+  it('shows the starting hint when antigravity status is absent', () => {
     bench({ status: 'absent' })
-    expect(screen.getByText(/dsh-antigravity-auth@/)).toBeTruthy()
-    expect(screen.getByText(en.providerNotInstalled)).toBeTruthy()
+    expect(screen.getByText(en.antigravityInstallHint)).toBeTruthy()
   })
 
   it('shows the signed-in account and its models, and starts a login on demand', () => {
     const b = bench({
       status: 'ready',
+      accounts: [
+        { id: 'fo***@gmail.com', label: 'Google Account', email: 'fo***@gmail.com', active: true },
+      ],
       view: { riskAcknowledged: true, login: { phase: 'success', configured: true, projectAvailable: true, maskedEmail: 'fo***@gmail.com' } },
       models: { state: 'live-available', models: [{ id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', state: 'live-available' }] },
     })
-    expect(screen.getByText(/fo\*\*\*@gmail\.com/)).toBeTruthy()
+    expect(screen.getAllByText(/fo\*\*\*@gmail\.com/).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Gemini 3.8 Flash')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: en.antigravitySignIn }))
+    fireEvent.click(screen.getByRole('button', { name: en.addAccount }))
     expect(b.loginAntigravity).toHaveBeenCalledOnce()
   })
 
-  it('lists the ChatGPT accounts with their weekly quota and cannot sign in without the companion', () => {
-    bench({ status: 'absent' }, codexAccounts)
+  it('lists the ChatGPT accounts with their weekly quota and can trigger sign in and removal', () => {
+    const b = bench({ status: 'ready' }, codexAccounts)
     expect(screen.getByText('Work')).toBeTruthy()
     expect(screen.getByText('wk 76%')).toBeTruthy()
     expect(screen.getByText(en.accountActive)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: en.antigravitySignIn })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en.codexSignIn }))
+    expect(b.loginCodex).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: en.accountRemove }))
+    expect(screen.getByText(en.confirmDelete)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.confirmYes }))
+    expect(b.removeCodexAccount).toHaveBeenCalledWith('work')
+  })
+
+  it('supports two-level navigation: level 1 provider overview and level 2 single-provider detail', () => {
+    bench({ status: 'ready' }, codexAccounts)
+    // Level 1: Displays multiple providers
+    expect(screen.getByText(en.providerCodex)).toBeTruthy()
+    expect(screen.getByText(en.providerAntigravity)).toBeTruthy()
+    expect(screen.getByText(en.providerClaude)).toBeTruthy()
+    expect(screen.getByText(en.providerGemini)).toBeTruthy()
+    expect(screen.getByText(en.providerOpenAi)).toBeTruthy()
+    expect(screen.getByText(en.providerOpenCode)).toBeTruthy()
+
+    // Click "Manage" on the first provider (Antigravity) to enter Level 2
+    const manageButtons = screen.getAllByRole('button', { name: new RegExp(en.providerManage) })
+    expect(manageButtons.length).toBeGreaterThanOrEqual(2)
+    fireEvent.click(manageButtons[0]!)
+
+    // Now in Level 2: Displays only Antigravity information
+    expect(screen.getByTestId('provider-settings-detail')).toBeTruthy()
+    expect(screen.getByText(new RegExp(en.backToProviders))).toBeTruthy()
+    // Other providers like Claude or OpenAI should not be on this level 2 page
+    expect(screen.queryByText(en.providerClaude)).toBeNull()
+    expect(screen.queryByText(en.providerOpenAi)).toBeNull()
+
+    // Click "Back to all providers" to return to Level 1
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(en.backToProviders) }))
+    expect(screen.queryByTestId('provider-settings-detail')).toBeNull()
+    expect(screen.getByTestId('provider-settings')).toBeTruthy()
+    expect(screen.getByText(en.providerClaude)).toBeTruthy()
+  })
+
+  it('supports toggling model visibility switches and expanding quota', () => {
+    bench({
+      status: 'ready',
+      accounts: [
+        { id: 'acc1', label: 'Primary Account', email: 'acc1@gmail.com', active: true, tier: 'Pro' },
+      ],
+      view: { riskAcknowledged: true, login: { phase: 'success', configured: true, projectAvailable: true } },
+      models: { state: 'live-available', models: [{ id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', state: 'live-available' }] },
+    })
+
+    // Check that model checkbox is rendered and can be toggled
+    const checkbox = screen.getByRole('checkbox', { name: '' })
+    expect(checkbox).toBeTruthy()
+    fireEvent.click(checkbox)
+
+    // Check account custom name and tier badge
+    expect(screen.getByText('Primary Account')).toBeTruthy()
+    expect(screen.getByText('Pro')).toBeTruthy()
+
+    // The account card is auto-expanded, showing quota balance
+    expect(screen.getByText(en.quotaBalance)).toBeTruthy()
+
+    // Clicking the card collapses the quota
+    const accountCard = screen.getByRole('button', { name: en.quotaHide })
+    fireEvent.click(accountCard)
+    expect(screen.queryByText(en.quotaBalance)).toBeNull()
   })
 })

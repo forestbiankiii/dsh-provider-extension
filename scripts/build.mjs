@@ -59,6 +59,13 @@ await build({
   format: 'esm',
   target: 'node20',
   sourcemap: true,
+  external: [
+    '@cortexkit/*',
+    '@deepseek-ai/*',
+    '@earendil-works/*',
+    'https-proxy-agent',
+    'agent-base',
+  ],
   logLevel: 'info',
 })
 

@@ -10,9 +10,10 @@ import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selec
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { isCodexProvider, maskedEmail, type CodexAccountsState } from './providers/codex.ts'
+import { isAntigravityProvider, type AntigravityState } from './providers/antigravity.ts'
 import {
-  accentFor, activeGroup, effortIndex, isCurrentModel, restingEffort,
-  selectionForRow, type ProviderPanelModel,
+  accentFor, activeGroup, effortIndex, isCurrentModel, resolveModelEffort, restingEffort,
+  selectionForRow, type ProviderPanelModel, loadDisabledModels, getDisabledModelsForAccount, MODELS_VISIBILITY_EVENT,
 } from './selection.ts'
 import css from './ProviderPanel.module.css'
 
@@ -25,6 +26,8 @@ export interface ProviderPanelInjected {
     directory: SnapshotStore<ModelDirectoryState>
     /** Secret-free Codex account roster from the installed subscription plugin. */
     accounts: SnapshotStore<CodexAccountsState>
+    /** Antigravity controller store with accounts and quota. */
+    antigravity?: SnapshotStore<AntigravityState>
   }
   /** Load the session's shared model directory. */
   loadDirectory: () => Promise<void>
@@ -36,6 +39,12 @@ export interface ProviderPanelInjected {
   readQuota: (id: string) => Promise<void>
   /** Submit one complete selection through the shared directory. */
   select: (selection: ModelSelection) => Promise<void>
+  /** Load Antigravity state & accounts. */
+  loadAntigravity?: () => Promise<void>
+  /** Select active Antigravity account. */
+  selectAntigravityAccount?: (id: string) => Promise<void>
+  /** Read Antigravity quota for specific or active account. */
+  readAntigravityQuota?: (id?: string) => Promise<void>
 }
 
 /** Complete replacement-seat props, including the composer's lock state. */
@@ -54,6 +63,31 @@ type SliderDrag = {
   pointerId?: number
 }
 
+const EFFORT_STORAGE_KEY = 'dsh-provider-extension:model-efforts'
+
+function loadEffortMemory(): Record<string, string> {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(EFFORT_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as Record<string, string>
+        }
+      }
+    }
+  } catch {}
+  return {}
+}
+
+function saveEffortMemory(memory: Record<string, string>): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(EFFORT_STORAGE_KEY, JSON.stringify(memory))
+    }
+  } catch {}
+}
+
 /** Convert one horizontal pointer coordinate into a discrete effort index. */
 export function sliderIndexFromPoint(clientX: number, rect: { left: number; width: number }, count: number): number {
   if (count <= 0) return -1
@@ -63,12 +97,36 @@ export function sliderIndexFromPoint(clientX: number, rect: { left: number; widt
   return Math.round(ratio * (count - 1))
 }
 
+function formatRemaining(isoTime?: string, pct?: number): string {
+  if (!isoTime) {
+    if (pct === 100) return '满额可用'
+    return '计算中…'
+  }
+  try {
+    const diffMs = new Date(isoTime).getTime() - Date.now()
+    if (diffMs <= 0) return '即将重置'
+    const totalMinutes = Math.floor(diffMs / 60_000)
+    const days = Math.floor(totalMinutes / (24 * 60))
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60)
+    const mins = totalMinutes % 60
+    if (days > 0) return `${days}天${hours > 0 ? ` ${hours}小时` : ''}后重置`
+    if (hours > 0) return `${hours}小时${mins > 0 ? ` ${mins}分` : ''}后重置`
+    return `${Math.max(1, mins)}分钟后重置`
+  } catch {
+    return ''
+  }
+}
+
 /** Render separate provider and model controls inside the official model seat. */
 export function ProviderPanel({
-  locked, available, useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, readQuota, select, t,
+  locked, available, useDirectory, useAccounts, useAntigravity,
+  loadDirectory, loadAccounts, selectAccount, readQuota, select,
+  loadAntigravity, selectAntigravityAccount, readAntigravityQuota, t,
 }: ProviderPanelProps): ReactNode {
   const directory = useDirectory(snapshot => snapshot)
   const accounts = useAccounts(snapshot => snapshot)
+  const fallbackAgState: AntigravityState = { status: 'idle', accounts: [], usage: {} }
+  const antigravity: AntigravityState = useAntigravity ? useAntigravity(snapshot => snapshot) : fallbackAgState
   const [open, setOpen] = useState<OpenPane>(null)
   const [providerDraft, setProviderDraft] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
@@ -76,6 +134,16 @@ export function ProviderPanel({
   const [accountError, setAccountError] = useState<string | null>(null)
   const [error, setError] = useState<{ kind: 'loadFailed' | 'selectFailed'; message: string } | null>(null)
   const [dragging, setDragging] = useState<SliderDrag | null>(null)
+  const [effortMemory, setEffortMemory] = useState<Record<string, string>>(() => loadEffortMemory())
+  const [disabledModels, setDisabledModels] = useState<Set<string>>(() => loadDisabledModels())
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setDisabledModels(loadDisabledModels())
+    }
+    window.addEventListener(MODELS_VISIBILITY_EVENT, handleVisibilityChange)
+    return () => { window.removeEventListener(MODELS_VISIBILITY_EVENT, handleVisibilityChange) }
+  }, [])
   const dragRef = useRef<SliderDrag | null>(null)
   const root = useRef<HTMLDivElement | null>(null)
   const providerTrigger = useRef<HTMLButtonElement | null>(null)
@@ -110,9 +178,29 @@ export function ProviderPanel({
     if (directory.current?.provider !== undefined) setProviderDraft(directory.current.provider)
   }, [directory.current?.provider])
 
+  // Sync authoritative model effort into memory so switching back remembers it.
+  useEffect(() => {
+    const cur = directory.current
+    const effort = cur?.reasoningEffort
+    if (cur?.provider && cur.model && effort !== undefined) {
+      const key = `${cur.provider}/${cur.model}`
+      setEffortMemory(prev => {
+        if (prev[key] === effort) return prev
+        const next: Record<string, string> = { ...prev, [key]: effort }
+        saveEffortMemory(next)
+        return next
+      })
+    }
+  }, [directory.current?.provider, directory.current?.model, directory.current?.reasoningEffort])
+
   const authoritativeGroup = activeGroup(directory)
   const group = directory.groups.find(candidate => candidate.id === providerDraft) ?? authoritativeGroup
-  const models = group?.models ?? []
+  const activeAgAccount = antigravity.accounts.find(account => account.active) ?? antigravity.accounts[0]
+  const disabledForCurrent = isAntigravityProvider(group?.id)
+    ? getDisabledModelsForAccount(activeAgAccount?.id)
+    : disabledModels
+  const allModels = group?.models ?? []
+  const models = allModels.filter(model => !disabledForCurrent.has(model.id))
   const currentModel = group === undefined || group.id !== directory.current?.provider ? undefined
     : models.find(model => isCurrentModel(directory.current, group.id, model))
   const efforts = currentModel?.reasoning?.efforts ?? []
@@ -125,7 +213,7 @@ export function ProviderPanel({
   const previewEfforts = previewModel?.reasoning?.efforts ?? []
   const previewEffortId = dragging !== null && group !== undefined && dragging.provider === group.id
     ? (dragging.index >= 0 ? previewEfforts[dragging.index]?.id : undefined)
-    : currentEffort
+    : (currentEffort ?? (currentModel && group ? resolveModelEffort(currentModel, effortMemory[`${group.id}/${currentModel.id}`] ?? effortMemory[currentModel.id]) : undefined))
   const pending = locked || busy || accounts.switchingId !== undefined || directory.status === 'selecting'
   const fetching = loading || directory.status === 'loading'
 
@@ -180,13 +268,26 @@ export function ProviderPanel({
     const next = open === pane ? null : pane
     setOpen(next)
     if (next !== null) reload()
-    if (next === 'provider' && directory.groups.some(candidate => isCodexProvider(candidate.id))) {
-      void loadAccounts()
+    if (next === 'provider') {
+      if (directory.groups.some(candidate => isCodexProvider(candidate.id))) {
+        void loadAccounts()
+      }
+      if (directory.groups.some(candidate => isAntigravityProvider(candidate.id))) {
+        void loadAntigravity?.()
+      }
     }
   }
 
   const submit = (model: ProviderPanelModel | undefined, effortId: string | undefined): void => {
     if (group === undefined || model === undefined || selecting.current || pending) return
+    if (effortId !== undefined) {
+      const key = `${group.id}/${model.id}`
+      setEffortMemory(prev => {
+        const next = { ...prev, [key]: effortId }
+        saveEffortMemory(next)
+        return next
+      })
+    }
     run('selectFailed', () => select(selectionForRow(model, group.id, effortId)))
   }
 
@@ -270,12 +371,16 @@ export function ProviderPanel({
     const isCurrent = isCurrentModel(directory.current, provider, model)
     const isDragTarget = dragging !== null && dragging.model.id === model.id && dragging.provider === provider
     const isRowActive = dragging !== null ? isDragTarget : isCurrent
-    const restingId = isCurrent ? currentEffort : restingEffort(model)
-    const resting = effortIndex(model, restingId)
+    const key = `${provider}/${model.id}`
+    const remembered = effortMemory[key] ?? effortMemory[model.id]
+    const effectiveEffortId = isCurrent
+      ? (currentEffort ?? resolveModelEffort(model, remembered))
+      : resolveModelEffort(model, remembered)
+    const resting = effortIndex(model, effectiveEffortId)
     const position = isDragTarget ? dragging.index : resting
     const ratio = count > 1 && position >= 0 ? position / (count - 1) : 0
-    const effortName = ladder[position]?.name ?? (restingId === undefined
-      ? t('defaultEffort') : t('unknownEffort', { effort: restingId }))
+    const effortName = ladder[position]?.name ?? (effectiveEffortId === undefined
+      ? t('defaultEffort') : t('unknownEffort', { effort: effectiveEffortId }))
     const accent = accentFor(model.id, index)
     return (
       <div
@@ -292,7 +397,7 @@ export function ProviderPanel({
         } as CSSProperties}
         onClick={(event) => {
           if ((event.target as HTMLElement).closest('[data-provider-panel-track]')) return
-          submit(model, restingId)
+          submit(model, effectiveEffortId)
         }}
       >
         <div className={css.rowHead}>
@@ -304,7 +409,7 @@ export function ProviderPanel({
             disabled={pending}
             onClick={(event) => {
               event.stopPropagation()
-              submit(model, restingId)
+              submit(model, effectiveEffortId)
             }}
           >{model.name}</button>
         </div>
@@ -392,9 +497,82 @@ export function ProviderPanel({
   const activeAccount = accounts.accounts.find(account => account.active)
   const baseProviderLabel = group?.name ?? directory.current?.provider ?? t('providerTrigger')
   const providerLabel = isCodexProvider(group?.id) && activeAccount !== undefined
-    ? `${baseProviderLabel} · ${activeAccount.label}` : baseProviderLabel
+    ? `${baseProviderLabel} · ${activeAccount.label}`
+    : isAntigravityProvider(group?.id) && activeAgAccount !== undefined
+      ? `${baseProviderLabel} · ${activeAgAccount.label}`
+      : baseProviderLabel
   const modelLabel = currentModel?.name ?? (group?.id === directory.current?.provider
     ? directory.current?.model ?? t('trigger') : t('trigger'))
+
+  const isAg = isAntigravityProvider(group?.id)
+  const isCodex = isCodexProvider(group?.id)
+
+  const agUsage = antigravity?.usage ?? {}
+  const quotaData = activeAgAccount ? (agUsage[activeAgAccount.id] ?? agUsage['default']) : undefined
+  const primaryGroup = quotaData?.groups?.find(g => g.group === 'gemini') ?? quotaData?.groups?.[0]
+  const fiveHourWin = primaryGroup?.windows?.find(w => w.window === '5h')
+  const weeklyWin = primaryGroup?.windows?.find(w => w.window === 'weekly')
+
+  useEffect(() => {
+    if (isAntigravityProvider(group?.id)) {
+      void loadAntigravity?.().catch(() => {})
+      if (activeAgAccount) {
+        void readAntigravityQuota?.(activeAgAccount.id).catch(() => {})
+      }
+    }
+  }, [group?.id, activeAgAccount?.id, loadAntigravity, readAntigravityQuota])
+
+  const fiveHourPct = fiveHourWin !== undefined ? Math.round(fiveHourWin.remainingFraction * 100) : undefined
+  const weeklyPct = weeklyWin !== undefined ? Math.round(weeklyWin.remainingFraction * 100) : undefined
+  const fiveHourReset = formatRemaining(fiveHourWin?.resetTime, fiveHourPct)
+  const weeklyReset = formatRemaining(weeklyWin?.resetTime, weeklyPct)
+
+  const codexUsage = activeAccount ? accounts.usage[activeAccount.id] : undefined
+  const codexWeekly = codexUsage?.status === 'ready' ? codexUsage.value.weeklyPercent : undefined
+
+  const quotaBadge = isAg ? (
+    <div className={css.quotaWrapper}>
+      <button
+        type="button"
+        className={css.quotaTrigger}
+        onClick={() => { if (activeAgAccount) void readAntigravityQuota?.(activeAgAccount.id).catch(() => {}) }}
+      >
+        {fiveHourPct !== undefined ? t('fiveHourQuota', { value: fiveHourPct }) : '5h 100%'}
+      </button>
+      <div className={css.quotaTooltip} role="tooltip">
+        <div className={css.quotaTooltipRow}>
+          <span className={css.quotaTooltipName}>5小时额度:</span>
+          <div>
+            <span className={css.quotaTooltipValue}>{fiveHourPct !== undefined ? `${fiveHourPct}%` : '100%'}</span>
+            {fiveHourReset ? <span className={css.quotaTooltipReset}>({fiveHourReset})</span> : null}
+          </div>
+        </div>
+        <div className={css.quotaTooltipRow}>
+          <span className={css.quotaTooltipName}>周额度:</span>
+          <div>
+            <span className={css.quotaTooltipValue}>{weeklyPct !== undefined ? `${weeklyPct}%` : '100%'}</span>
+            {weeklyReset ? <span className={css.quotaTooltipReset}>({weeklyReset})</span> : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : isCodex && codexWeekly !== undefined ? (
+    <div className={css.quotaWrapper}>
+      <button
+        type="button"
+        className={css.quotaTrigger}
+        onClick={() => { if (activeAccount) void readQuota?.(activeAccount.id).catch(() => {}) }}
+      >
+        {t('weeklyQuota', { value: codexWeekly })}
+      </button>
+      <div className={css.quotaTooltip} role="tooltip">
+        <div className={css.quotaTooltipRow}>
+          <span className={css.quotaTooltipName}>周额度:</span>
+          <span className={css.quotaTooltipValue}>{codexWeekly}%</span>
+        </div>
+      </div>
+    </div>
+  ) : null
 
   return (
     <div
@@ -409,6 +587,8 @@ export function ProviderPanel({
       }}
       ref={root}
     >
+      {quotaBadge}
+
       <button
         ref={providerTrigger}
         type="button"
@@ -456,6 +636,50 @@ export function ProviderPanel({
           <div className={css.providerList} role="listbox" aria-label={t('providerTitle')}>
             {directory.groups.map(candidate => {
               const selected = candidate.id === group?.id
+              if (isAntigravityProvider(candidate.id) && antigravity.accounts.length > 0) {
+                return (
+                  <div key={candidate.id} className={css.providerFamily} role="group" aria-label={candidate.name}>
+                    <div className={css.providerFamilyHead}>
+                      <span>{candidate.name}</span>
+                      <span className={css.providerCount}>{t('accountCount', { count: antigravity.accounts.length })}</span>
+                    </div>
+                    {antigravity.accounts.map(account => {
+                      const email = maskedEmail(account.email)
+                      return (
+                        <div key={account.id} className={css.accountRow}>
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={selected && account.active}
+                            className={selected && account.active
+                              ? `${css.accountOption} ${css.providerCurrent}` : css.accountOption}
+                            disabled={pending}
+                            onClick={() => {
+                              setProviderDraft(candidate.id)
+                              if (!account.active && selectAntigravityAccount) {
+                                void selectAntigravityAccount(account.id)
+                              }
+                              setOpen(null)
+                              queueMicrotask(() => { providerTrigger.current?.focus() })
+                            }}
+                          >
+                            <span className={css.accountIdentity}>
+                              <span className={css.accountLabel}>{account.label}</span>
+                              {email === undefined ? null : <span className={css.accountEmail}>{email}</span>}
+                            </span>
+                            <span className={css.accountMeta}>
+                              <span className={css.accountState}>
+                                {antigravity.switchingId === account.id ? t('accountSwitching')
+                                  : account.active ? t('accountActive') : t('accountUse')}
+                              </span>
+                            </span>
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              }
               if (!isCodexProvider(candidate.id) || accounts.status === 'error' || accounts.accounts.length === 0) {
                 return (
                   <div key={candidate.id}>

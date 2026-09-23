@@ -1,4 +1,4 @@
-/** Settings page that creates and drives the plugin's provider integrations. */
+/** Settings page: Level 1 hub with expandable quick views, and Level 2 provider-only detail view. */
 import { type ReactNode } from 'react';
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store';
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
@@ -14,11 +14,23 @@ export interface ProviderSettingsInjected {
     };
     loadAccounts: () => Promise<void>;
     readQuota: (id: string) => Promise<void>;
+    loginCodex: () => Promise<void>;
+    removeCodexAccount: (id: string) => Promise<void>;
     loadAntigravity: () => Promise<void>;
     loginAntigravity: () => Promise<void>;
     logoutAntigravity: () => Promise<void>;
+    selectAntigravityAccount?: (id: string) => Promise<void>;
+    updateAntigravityAccount?: (id: string, patch: {
+        label?: string;
+        tier?: string;
+    }) => Promise<void>;
+    renameAntigravityAccount?: (id: string, label: string) => Promise<void>;
+    removeAntigravityAccount?: (id: string) => Promise<void>;
+    readAntigravityQuota?: (id?: string) => Promise<void>;
 }
 /** Settings-section props: the shell lends `close`, the plugin injects the rest. */
 export type ProviderSettingsProps = PropsRuntime<'settings.section'> & PropsLocale<'providerExtension'> & InjectFace<ProviderSettingsInjected>;
-/** Render provider creation plus the status of every supported integration. */
-export declare function ProviderSettings({ useAccounts, useAntigravity, loadAccounts, readQuota, loadAntigravity, loginAntigravity, logoutAntigravity, t, }: ProviderSettingsProps): ReactNode;
+export declare const GEMINI_TIERS: readonly ["Free", "Pro", "Ultra"];
+export type GeminiTier = typeof GEMINI_TIERS[number];
+/** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
+export declare function ProviderSettings({ useAccounts, useAntigravity, loadAccounts, readQuota, loginCodex, removeCodexAccount, loadAntigravity, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, t, }: ProviderSettingsProps): ReactNode;

@@ -35,6 +35,8 @@ export interface CodexAccountsState {
   readonly usage: Readonly<Record<string, CodexUsageState>>
   /** True when a temporary switch could not be reverted to the previous account. */
   readonly restoreFailed: boolean
+  readonly loginPending?: boolean | undefined
+  readonly loginUrl?: string | undefined
 }
 
 interface RpcResult {
@@ -49,6 +51,42 @@ const SHORT_WINDOW_SECONDS = 18_000
 const initialState: CodexAccountsState = Object.freeze({
   status: 'idle', accounts: [], error: null, usage: {}, restoreFailed: false,
 })
+
+const CODEX_CACHE_KEY = 'dsh-provider-extension:codex-accounts-cache'
+
+function loadCachedCodexState(): CodexAccountsState {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(CODEX_CACHE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<CodexAccountsState>
+        if (Array.isArray(parsed?.accounts) && parsed.accounts.length > 0) {
+          return Object.freeze({
+            status: 'ready',
+            accounts: parsed.accounts,
+            error: null,
+            usage: parsed.usage && typeof parsed.usage === 'object' ? parsed.usage : {},
+            restoreFailed: false,
+          })
+        }
+      }
+    }
+  } catch {}
+  return initialState
+}
+
+function saveCachedCodexState(state: CodexAccountsState): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (state.status === 'ready' && state.accounts.length > 0) {
+        window.localStorage.setItem(CODEX_CACHE_KEY, JSON.stringify({
+          accounts: state.accounts,
+          usage: state.usage,
+        }))
+      }
+    }
+  } catch {}
+}
 
 /** Shared loading marker, typed so object spreads keep the discriminated union. */
 const LOADING: CodexUsageState = Object.freeze({ status: 'loading' })
@@ -117,7 +155,7 @@ export function decodeQuota(value: unknown): CodexQuotaView {
 
 async function call(
   rpc: ClientConnectionRpc,
-  endpoint: 'status' | 'account/select' | 'usage',
+  endpoint: 'status' | 'account/select' | 'account/remove' | 'usage' | 'login/start' | 'login/status' | 'login/cancel',
   payload: unknown,
 ): Promise<unknown> {
   const response = await rpc.call('/api', `codex-subscription/${endpoint}`, payload) as RpcResult
@@ -154,7 +192,7 @@ export function maskedEmail(email: string | undefined): string | undefined {
  * non-active account's quota needs a temporary switch that is reverted immediately.
  */
 export class CodexAccountsController {
-  readonly store = createLocalStore<CodexAccountsState>(initialState)
+  readonly store = createLocalStore<CodexAccountsState>(loadCachedCodexState())
   private generation = 0
   private disposed = false
 
@@ -165,17 +203,28 @@ export class CodexAccountsController {
     if (this.store.getSnapshot().switchingId !== undefined) return
     const generation = ++this.generation
     const previous = this.store.getSnapshot()
-    this.store.set(Object.freeze({ ...previous, status: 'loading', error: null, restoreFailed: false }))
+    this.store.set(Object.freeze({
+      ...previous,
+      status: previous.accounts.length > 0 ? 'ready' : 'loading',
+      error: null,
+      restoreFailed: false,
+    }))
     try {
       const accounts = await readRoster(this.rpc, 'status', {})
       if (this.disposed || generation !== this.generation) return
       const latest = this.store.getSnapshot()
-      this.store.set(Object.freeze({ ...latest, status: 'ready', accounts, error: null }))
+      const nextState: CodexAccountsState = Object.freeze({ ...latest, status: 'ready', accounts, error: null })
+      this.store.set(nextState)
+      saveCachedCodexState(nextState)
       void this.loadUsage(generation)
     } catch (error) {
       if (this.disposed || generation !== this.generation) return
       const latest = this.store.getSnapshot()
-      this.store.set(Object.freeze({ ...latest, status: 'error', error: failureMessage(error) }))
+      this.store.set(Object.freeze({
+        ...latest,
+        status: latest.accounts.length > 0 ? 'ready' : 'error',
+        error: failureMessage(error),
+      }))
     }
   }
 
@@ -274,6 +323,64 @@ export class CodexAccountsController {
     if (failure !== undefined) throw failure
   }
 
+  /** Start interactive ChatGPT OAuth login and wait for completion. */
+  async login(): Promise<void> {
+    const current = this.store.getSnapshot()
+    if (current.loginPending) return
+    this.store.set(Object.freeze({ ...current, loginPending: true, error: null }))
+    try {
+      const startResult = await call(this.rpc, 'login/start', { openExternal: true }) as { id?: string; authUrl?: string }
+      const flowId = startResult?.id
+      if (typeof flowId !== 'string') throw new Error('Could not start ChatGPT login')
+      const latest = this.store.getSnapshot()
+      this.store.set(Object.freeze({ ...latest, loginPending: true, loginUrl: startResult.authUrl }))
+
+      const poll = async (): Promise<void> => {
+        if (this.disposed) return
+        try {
+          const status = await call(this.rpc, 'login/status', { id: flowId }) as { authenticated?: boolean; phase?: string; error?: string }
+          if (status?.authenticated === true) {
+            window.dispatchEvent(new Event('dsh-codex-subscription:refresh-quick-quota'))
+            await this.load()
+            const s = this.store.getSnapshot()
+            this.store.set(Object.freeze({ ...s, loginPending: false, loginUrl: undefined }))
+            return
+          }
+          if (status?.phase === 'cancelled' || status?.phase === 'failed' || status?.phase === 'expired') {
+            const s = this.store.getSnapshot()
+            this.store.set(Object.freeze({
+              ...s,
+              loginPending: false,
+              loginUrl: undefined,
+              error: status.error ?? status.phase,
+            }))
+            return
+          }
+        } catch {}
+        setTimeout(poll, 1500)
+      }
+      setTimeout(poll, 1500)
+    } catch (error) {
+      const latest = this.store.getSnapshot()
+      this.store.set(Object.freeze({ ...latest, loginPending: false, loginUrl: undefined, error: failureMessage(error) }))
+    }
+  }
+
+  /** Remove one saved ChatGPT account. */
+  async removeAccount(id: string): Promise<void> {
+    const current = this.store.getSnapshot()
+    this.store.set(Object.freeze({ ...current, switchingId: id, error: null }))
+    try {
+      await call(this.rpc, 'account/remove', { id })
+      window.dispatchEvent(new Event('dsh-codex-subscription:refresh-quick-quota'))
+      await this.load()
+    } catch (error) {
+      const latest = this.store.getSnapshot()
+      this.store.set(Object.freeze({ ...latest, switchingId: undefined, error: failureMessage(error) }))
+      throw error
+    }
+  }
+
   /** Reload the roster only when a surface already asked for it. */
   invalidate(): void {
     if (this.store.getSnapshot().status === 'idle') return
@@ -294,6 +401,8 @@ export class CodexAccountsController {
 
   private setUsage(id: string, value: CodexUsageState): void {
     const latest = this.store.getSnapshot()
-    this.store.set(Object.freeze({ ...latest, usage: { ...latest.usage, [id]: value } }))
+    const nextState = Object.freeze({ ...latest, usage: { ...latest.usage, [id]: value } })
+    this.store.set(nextState)
+    saveCachedCodexState(nextState)
   }
 }

@@ -5,6 +5,7 @@ import type { SnapshotStore } from '@deepseek-ai/dsh-client-store';
 import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selection/client';
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
 import { type CodexAccountsState } from './providers/codex.ts';
+import { type AntigravityState } from './providers/antigravity.ts';
 /** Per-session injected seat dependencies. */
 export interface ProviderPanelInjected {
     /** Addressed subagent sessions cannot use Agent-bound model selection. */
@@ -14,6 +15,8 @@ export interface ProviderPanelInjected {
         directory: SnapshotStore<ModelDirectoryState>;
         /** Secret-free Codex account roster from the installed subscription plugin. */
         accounts: SnapshotStore<CodexAccountsState>;
+        /** Antigravity controller store with accounts and quota. */
+        antigravity?: SnapshotStore<AntigravityState>;
     };
     /** Load the session's shared model directory. */
     loadDirectory: () => Promise<void>;
@@ -25,6 +28,12 @@ export interface ProviderPanelInjected {
     readQuota: (id: string) => Promise<void>;
     /** Submit one complete selection through the shared directory. */
     select: (selection: ModelSelection) => Promise<void>;
+    /** Load Antigravity state & accounts. */
+    loadAntigravity?: () => Promise<void>;
+    /** Select active Antigravity account. */
+    selectAntigravityAccount?: (id: string) => Promise<void>;
+    /** Read Antigravity quota for specific or active account. */
+    readAntigravityQuota?: (id?: string) => Promise<void>;
 }
 /** Complete replacement-seat props, including the composer's lock state. */
 export type ProviderPanelProps = PropsRuntime<'conversation.input.model'> & PropsLocale<'providerExtension'> & InjectFace<ProviderPanelInjected>;
@@ -34,4 +43,4 @@ export declare function sliderIndexFromPoint(clientX: number, rect: {
     width: number;
 }, count: number): number;
 /** Render separate provider and model controls inside the official model seat. */
-export declare function ProviderPanel({ locked, available, useDirectory, useAccounts, loadDirectory, loadAccounts, selectAccount, readQuota, select, t, }: ProviderPanelProps): ReactNode;
+export declare function ProviderPanel({ locked, available, useDirectory, useAccounts, useAntigravity, loadDirectory, loadAccounts, selectAccount, readQuota, select, loadAntigravity, selectAntigravityAccount, readAntigravityQuota, t, }: ProviderPanelProps): ReactNode;

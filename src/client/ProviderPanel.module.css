@@ -6,9 +6,99 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   flex: 0 1 auto;
   min-width: 0;
+}
+
+.quotaWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.quotaTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 22px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, transform 140ms ease;
+  white-space: nowrap;
+}
+
+.quotaTrigger:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+  border-color: var(--dsw-alias-border-l3);
+}
+
+.quotaTrigger:active {
+  transform: scale(0.97);
+}
+
+.quotaTooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 170px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-3, #1f1f1f);
+  border: 1px solid var(--dsw-alias-border-l3, rgba(255, 255, 255, 0.15));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 200;
+  animation: quotaFadeIn 120ms ease;
+}
+
+.quotaWrapper:hover .quotaTooltip {
+  display: flex;
+}
+
+@keyframes quotaFadeIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.quotaTooltipRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.quotaTooltipName {
+  color: var(--dsw-alias-label-secondary);
+  font-weight: 500;
+}
+
+.quotaTooltipValue {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
+}
+
+.quotaTooltipReset {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 10px;
 }
 
 /* ---------------------------------------------------------------- triggers */

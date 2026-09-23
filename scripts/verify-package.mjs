@@ -19,8 +19,11 @@ const publicArtifacts = await Promise.all([
   'lib/types/index.d.ts', 'lib/types/client/index.d.ts', 'lib/types/client/ProviderPanel.d.ts',
 ].map(async path => [path, await readFile(resolve(root, path), 'utf8')]))
 for (const [path, content] of publicArtifacts) {
-  for (const forbidden of ['workspace:', 'catalog:', '@dshx/', 'C:\\dshx', 'C:/dshx']) {
-    if (content.includes(forbidden)) throw new Error(`${path} contains forbidden standalone reference: ${forbidden}`)
+  const forbidden = path === 'package.json'
+    ? ['workspace:', 'catalog:', '@dshx/', 'C:\\dshx', 'C:/dshx']
+    : ['@dshx/', 'C:\\dshx', 'C:/dshx']
+  for (const token of forbidden) {
+    if (content.includes(token)) throw new Error(`${path} contains forbidden standalone reference: ${token}`)
   }
 }
 

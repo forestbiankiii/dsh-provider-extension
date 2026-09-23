@@ -56,6 +56,10 @@
     "install:dsh": "node scripts/profile.mjs install",
     "uninstall:dsh": "node scripts/profile.mjs uninstall"
   },
+  "dependencies": {
+    "@cortexkit/antigravity-auth-core": "2.2.0",
+    "https-proxy-agent": "^7.0.6"
+  },
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.2",
     "@deepseek-ai/dsh-api-remotes": ">=0.1.2-rc.1",

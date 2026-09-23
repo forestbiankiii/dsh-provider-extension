@@ -34,6 +34,8 @@ export interface CodexAccountsState {
     readonly usage: Readonly<Record<string, CodexUsageState>>;
     /** True when a temporary switch could not be reverted to the previous account. */
     readonly restoreFailed: boolean;
+    readonly loginPending?: boolean | undefined;
+    readonly loginUrl?: string | undefined;
 }
 /**
  * Read the reported quota windows out of one `usage` response.
@@ -74,6 +76,10 @@ export declare class CodexAccountsController {
      * @param id - DSH-local account identity to measure.
      */
     readQuota(id: string): Promise<void>;
+    /** Start interactive ChatGPT OAuth login and wait for completion. */
+    login(): Promise<void>;
+    /** Remove one saved ChatGPT account. */
+    removeAccount(id: string): Promise<void>;
     /** Reload the roster only when a surface already asked for it. */
     invalidate(): void;
     dispose(): void;

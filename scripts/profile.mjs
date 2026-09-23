@@ -10,9 +10,15 @@ const PACKAGE = 'dsh-provider-extension'
  * from the profile before the current package is registered, so a rename never
  * leaves a second bundle row behind.
  */
-const LEGACY_PACKAGES = ['dsh-model-panel', '@dshx/client-ui-model-panel', '@dshx/client-ui-provider-extension']
-const LEGACY_ROW_IDS = '(?:ui-model-panel|model-panel|ui-provider-extension|provider-extension)'
-const LEGACY_NAMES = '(?:@dshx\\/client-ui-model-panel|dsh-model-panel|@dshx\\/client-ui-provider-extension|dsh-provider-extension)'
+const LEGACY_PACKAGES = [
+  'dsh-model-panel',
+  '@dshx/client-ui-model-panel',
+  '@dshx/client-ui-provider-extension',
+  'dsh-antigravity-auth',
+  'dsh-codex-subscription',
+]
+const LEGACY_ROW_IDS = '(?:ui-model-panel|model-panel|ui-provider-extension|provider-extension|antigravity-auth|antigravity-search|antigravity-image|antigravity-video|codex-subscription)'
+const LEGACY_NAMES = '(?:@dshx\\/client-ui-model-panel|dsh-model-panel|@dshx\\/client-ui-provider-extension|dsh-provider-extension|dsh-antigravity-auth|dsh-antigravity-auth\\/.*|dsh-codex-subscription)'
 const ROW_PATTERN = new RegExp(
   `(?:^|\\r?\\n)- insert:\\r?\\n {4}- id: ${LEGACY_ROW_IDS}\\r?\\n {6}name: ['"]${LEGACY_NAMES}['"]\\r?\\n?`,
   'g',

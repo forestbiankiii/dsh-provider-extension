@@ -53,7 +53,7 @@ export const inject = ['slots', 'locale', 'connection', 'modelDirectories', 'ses
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-provider-extension: dictionaries')
 
-  const connection = ctx.get('connection') as ConnectionHandle
+  const connection = ctx.get('connection') as unknown as ConnectionHandle
   const codexAccounts = new CodexAccountsController(connection.rpc)
   const antigravity = new AntigravityController(connection.rpc)
   ctx.effect(() => () => { codexAccounts.dispose() }, 'dsh-provider-extension: Codex account controller')
@@ -62,6 +62,11 @@ export function apply(ctx: ClientContext): void {
     codexAccounts.invalidate()
     antigravity.invalidate()
   }), 'dsh-provider-extension: account resets')
+  ctx.effect(() => {
+    void codexAccounts.load().catch(() => {})
+    void antigravity.load().catch(() => {})
+    return () => {}
+  }, 'dsh-provider-extension: startup self-check')
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = 'dsh-provider-extension'
@@ -86,9 +91,16 @@ export function apply(ctx: ClientContext): void {
       hooks: { accounts: codexAccounts.store, antigravity: antigravity.store },
       loadAccounts: async () => { await codexAccounts.load() },
       readQuota: readCodexQuota,
+      loginCodex: async () => { await codexAccounts.login() },
+      removeCodexAccount: async (id) => { await codexAccounts.removeAccount(id) },
       loadAntigravity: async () => { await antigravity.load() },
       loginAntigravity: async () => { await antigravity.login() },
       logoutAntigravity: async () => { await antigravity.logout() },
+      selectAntigravityAccount: async (id) => { await antigravity.selectAccount(id) },
+      updateAntigravityAccount: async (id, patch) => { await antigravity.updateAccount(id, patch) },
+      renameAntigravityAccount: async (id, label) => { await antigravity.renameAccount(id, label) },
+      removeAntigravityAccount: async (id) => { await antigravity.removeAccount(id) },
+      readAntigravityQuota: async (id) => { await antigravity.readQuota(id) },
     }),
   }, ProviderSettings))
 
@@ -102,18 +114,26 @@ export function apply(ctx: ClientContext): void {
     inject: (sessionId: string): ProviderPanelInjected => {
       const directory = ctx.modelDirectories.directoryFor(sessionId as SessionId)
       return {
-        available: ctx.sessions.subagentAddress(sessionId as SessionId) === undefined,
-        hooks: { directory: directory.store, accounts: codexAccounts.store },
+        available: (ctx.sessions as unknown as { subagentAddress?: (id: SessionId) => unknown }).subagentAddress?.(sessionId as SessionId) === undefined,
+        hooks: { directory: directory.store, accounts: codexAccounts.store, antigravity: antigravity.store },
         loadDirectory: async () => { await directory.load() },
         loadAccounts: async () => { await codexAccounts.load() },
+        loadAntigravity: async () => { await antigravity.load() },
         selectAccount: async (id) => {
           await codexAccounts.select(id)
           window.dispatchEvent(new Event('dsh-codex-subscription:refresh-quick-quota'))
           await directory.load()
         },
+        selectAntigravityAccount: async (id) => {
+          await antigravity.selectAccount(id)
+          await directory.load()
+        },
         readQuota: async (id) => {
           await codexAccounts.readQuota(id)
           window.dispatchEvent(new Event('dsh-codex-subscription:refresh-quick-quota'))
+        },
+        readAntigravityQuota: async (id) => {
+          await antigravity.readQuota(id)
         },
         select: async (selection) => { await directory.select(selection) },
       }
