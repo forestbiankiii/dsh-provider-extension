@@ -158,10 +158,7 @@ export function ProviderSettings({
   const accounts = useAccounts(snapshot => snapshot)
   const antigravity = useAntigravity(snapshot => snapshot)
   const [selectedProvider, setSelectedProvider] = useState<ProviderId | null>(null)
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({
-    codex: true,
-    antigravity: true,
-  })
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [disabledModels, setDisabledModels] = useState<Set<string>>(() => loadDisabledModels())
   const [accountDisabledMap, setAccountDisabledMap] = useState<AccountDisabledModelsMap>(() => loadAccountDisabledModels())
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null)
@@ -262,12 +259,6 @@ export function ProviderSettings({
   const agUsage = antigravity?.usage ?? {}
   const antigravityConnected = login?.configured === true
   const codexConnected = accounts.accounts.length > 0
-
-  useEffect(() => {
-    if (agAccounts.length === 1 && agAccounts[0] && expandedQuotaAccounts[agAccounts[0].id] === undefined) {
-      setExpandedQuotaAccounts({ [agAccounts[0].id]: true })
-    }
-  }, [agAccounts.length])
 
   const toggleExpand = (id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }))

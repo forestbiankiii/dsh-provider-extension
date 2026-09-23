@@ -46,14 +46,16 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
 
 describe('provider settings surface', () => {
   it('renders the refreshed provider overview without redundant create catalog', () => {
-    bench({ status: 'absent' })
+    bench({ status: 'ready' }, codexAccounts)
     expect(screen.queryByTestId('provider-catalog')).toBeNull()
     expect(screen.queryByRole('button', { name: en.createProvider })).toBeNull()
+    fireEvent.click(screen.getByText(en.providerCodex))
     expect(screen.getAllByRole('button', { name: en.providerRefresh }).length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows the starting hint when antigravity status is absent', () => {
     bench({ status: 'absent' })
+    fireEvent.click(screen.getByText(en.providerAntigravity))
     expect(screen.getByText(en.antigravityInstallHint)).toBeTruthy()
   })
 
@@ -66,7 +68,10 @@ describe('provider settings surface', () => {
       view: { riskAcknowledged: true, login: { phase: 'success', configured: true, projectAvailable: true, maskedEmail: 'fo***@gmail.com' } },
       models: { state: 'live-available', models: [{ id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', state: 'live-available' }] },
     })
+    fireEvent.click(screen.getByText(en.providerAntigravity))
     expect(screen.getAllByText(/fo\*\*\*@gmail\.com/).length).toBeGreaterThanOrEqual(1)
+    const card = screen.getByRole('button', { name: en.quotaView })
+    fireEvent.click(card)
     expect(screen.getByText('Gemini 3.8 Flash')).toBeTruthy()
     fireEvent.click(screen.getAllByRole('button', { name: en.addAccount })[0]!)
     expect(b.loginAntigravity).toHaveBeenCalledOnce()
@@ -74,6 +79,7 @@ describe('provider settings surface', () => {
 
   it('lists the ChatGPT accounts with their weekly quota and can trigger sign in and removal', () => {
     const b = bench({ status: 'ready' }, codexAccounts)
+    fireEvent.click(screen.getByText(en.providerCodex))
     expect(screen.getByText('Work')).toBeTruthy()
     expect(screen.getByText('wk 76%')).toBeTruthy()
     expect(screen.getByText(en.accountActive)).toBeTruthy()
@@ -88,6 +94,7 @@ describe('provider settings surface', () => {
 
   it('supports inline renaming for Codex accounts matching Antigravity experience', () => {
     const b = bench({ status: 'ready' }, codexAccounts)
+    fireEvent.click(screen.getByText(en.providerCodex))
     const nameEl = screen.getByText('Work')
     fireEvent.click(nameEl)
     const input = screen.getByDisplayValue('Work')
@@ -99,6 +106,7 @@ describe('provider settings surface', () => {
 
   it('expands Codex account card on click to reveal detailed quota balance', () => {
     bench({ status: 'ready' }, codexAccounts)
+    fireEvent.click(screen.getByText(en.providerCodex))
     expect(screen.queryByText('Weekly')).toBeNull()
     const card = screen.getByRole('button', { name: en.quotaView })
     fireEvent.click(card)
@@ -147,21 +155,26 @@ describe('provider settings surface', () => {
       models: { state: 'live-available', models: [{ id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', state: 'live-available' }] },
     })
 
-    // Check that model checkbox is rendered and can be toggled
-    const checkbox = screen.getByRole('checkbox', { name: '' })
-    expect(checkbox).toBeTruthy()
-    fireEvent.click(checkbox)
+    // Click Antigravity card head to expand provider
+    fireEvent.click(screen.getByText(en.providerAntigravity))
 
     // Check account custom name and tier badge
     expect(screen.getByText('Primary Account')).toBeTruthy()
     expect(screen.getByText('Pro')).toBeTruthy()
 
-    // The account card is auto-expanded, showing quota balance
+    // The account card is collapsed by default; click to expand quota
+    expect(screen.queryByText(en.quotaBalance)).toBeNull()
+    const accountCard = screen.getByRole('button', { name: en.quotaView })
+    fireEvent.click(accountCard)
     expect(screen.getByText(en.quotaBalance)).toBeTruthy()
 
+    // Check that model checkbox is rendered and can be toggled
+    const checkbox = screen.getByRole('checkbox', { name: '' })
+    expect(checkbox).toBeTruthy()
+    fireEvent.click(checkbox)
+
     // Clicking the card collapses the quota
-    const accountCard = screen.getByRole('button', { name: en.quotaHide })
-    fireEvent.click(accountCard)
+    fireEvent.click(screen.getByRole('button', { name: en.quotaHide }))
     expect(screen.queryByText(en.quotaBalance)).toBeNull()
   })
 })
