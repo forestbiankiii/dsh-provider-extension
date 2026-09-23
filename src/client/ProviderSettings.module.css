@@ -161,6 +161,13 @@
   gap: 12px;
   padding: 12px 14px;
   flex-wrap: wrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 140ms ease;
+}
+
+.providerCardHead:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .providerMain {

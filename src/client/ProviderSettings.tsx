@@ -580,8 +580,11 @@ export function ProviderSettings({
       <div className={css.providerList}>
         {/* 1. Antigravity (Google) */}
         <article className={css.providerCard}>
-          <div className={css.providerCardHead}>
-            <div className={css.providerMain} onClick={() => toggleExpand('antigravity')}>
+          <div
+            className={css.providerCardHead}
+            onClick={() => toggleExpand('antigravity')}
+          >
+            <div className={css.providerMain}>
               <div className={css.providerIcon} data-provider="antigravity">AG</div>
               <div className={css.providerTitles}>
                 <span className={css.providerTitle}>{t('providerAntigravity')}</span>
@@ -590,17 +593,10 @@ export function ProviderSettings({
                 </span>
               </div>
             </div>
-            <div className={css.providerRight}>
+            <div className={css.providerRight} onClick={e => e.stopPropagation()}>
               <span className={css.providerBadge} data-status={antigravityConnected ? 'ready' : 'idle'}>
                 {antigravityConnected ? t('providerStatusConnected') : t('providerStatusIdle')}
               </span>
-              <button
-                type="button"
-                className={css.action}
-                onClick={() => toggleExpand('antigravity')}
-              >
-                {expanded.antigravity ? t('providerHideQuickView') : t('providerQuickView')}
-              </button>
               <button
                 type="button"
                 className={`${css.action} ${css.primary}`}
@@ -608,6 +604,11 @@ export function ProviderSettings({
               >
                 {t('providerManage')} →
               </button>
+              <span
+                className={css.accountChevron}
+                data-open={expanded.antigravity}
+                onClick={() => toggleExpand('antigravity')}
+              >▼</span>
             </div>
           </div>
 
@@ -812,8 +813,11 @@ export function ProviderSettings({
 
         {/* 2. ChatGPT / Codex 订阅 */}
         <article className={css.providerCard}>
-          <div className={css.providerCardHead}>
-            <div className={css.providerMain} onClick={() => toggleExpand('codex')}>
+          <div
+            className={css.providerCardHead}
+            onClick={() => toggleExpand('codex')}
+          >
+            <div className={css.providerMain}>
               <div className={css.providerIcon} data-provider="codex">GPT</div>
               <div className={css.providerTitles}>
                 <span className={css.providerTitle}>{t('providerCodex')}</span>
@@ -822,17 +826,10 @@ export function ProviderSettings({
                 </span>
               </div>
             </div>
-            <div className={css.providerRight}>
+            <div className={css.providerRight} onClick={e => e.stopPropagation()}>
               <span className={css.providerBadge} data-status={codexConnected ? 'ready' : 'idle'}>
                 {codexConnected ? t('providerStatusConnected') : t('providerStatusIdle')}
               </span>
-              <button
-                type="button"
-                className={css.action}
-                onClick={() => toggleExpand('codex')}
-              >
-                {expanded.codex ? t('providerHideQuickView') : t('providerQuickView')}
-              </button>
               <button
                 type="button"
                 className={`${css.action} ${css.primary}`}
@@ -840,6 +837,11 @@ export function ProviderSettings({
               >
                 {t('providerManage')} →
               </button>
+              <span
+                className={css.accountChevron}
+                data-open={expanded.codex}
+                onClick={() => toggleExpand('codex')}
+              >▼</span>
             </div>
           </div>
 
@@ -927,25 +929,21 @@ export function ProviderSettings({
 
         {/* 3. Claude (Anthropic) */}
         <article className={css.providerCard}>
-          <div className={css.providerCardHead}>
-            <div className={css.providerMain} onClick={() => toggleExpand('claude')}>
+          <div
+            className={css.providerCardHead}
+            onClick={() => toggleExpand('claude')}
+          >
+            <div className={css.providerMain}>
               <div className={css.providerIcon} data-provider="claude">CL</div>
               <div className={css.providerTitles}>
                 <span className={css.providerTitle}>{t('providerClaude')}</span>
                 <span className={css.providerSubtitle}>{t('providerClaudeDesc')}</span>
               </div>
             </div>
-            <div className={css.providerRight}>
+            <div className={css.providerRight} onClick={e => e.stopPropagation()}>
               <span className={css.providerBadge} data-status="roadmap">
                 {t('providerStatusRoadmap')}
               </span>
-              <button
-                type="button"
-                className={css.action}
-                onClick={() => toggleExpand('claude')}
-              >
-                {expanded.claude ? t('providerHideQuickView') : t('providerQuickView')}
-              </button>
               <button
                 type="button"
                 className={css.action}
@@ -953,6 +951,11 @@ export function ProviderSettings({
               >
                 {t('providerManage')} →
               </button>
+              <span
+                className={css.accountChevron}
+                data-open={expanded.claude}
+                onClick={() => toggleExpand('claude')}
+              >▼</span>
             </div>
           </div>
           {expanded.claude && (
