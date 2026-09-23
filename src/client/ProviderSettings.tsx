@@ -517,14 +517,14 @@ export function ProviderSettings({
                           </div>
 
                           {/* 订阅有效期 Banner */}
-                          {account.expiresAt ? (
+                          {account.subscriptionUntil ? (
                             <div className={css.cockpitSubBanner}>
                               <div className={css.cockpitSubLeft}>
                                 <span>📅</span>
-                                <span>订阅有效期 {calcDaysRemaining(account.expiresAt)}</span>
+                                <span>订阅有效期 {calcDaysRemaining(new Date(account.subscriptionUntil).getTime())}</span>
                               </div>
                               <div className={css.cockpitSubRight}>
-                                {formatDateTime(account.expiresAt)}
+                                {formatDateTime(new Date(account.subscriptionUntil).getTime())}
                               </div>
                             </div>
                           ) : null}
@@ -1269,14 +1269,14 @@ export function ProviderSettings({
                             </div>
 
                             {/* 订阅有效期 Banner */}
-                            {account.expiresAt ? (
+                            {account.subscriptionUntil ? (
                               <div className={css.cockpitSubBanner}>
                                 <div className={css.cockpitSubLeft}>
                                   <span>📅</span>
-                                  <span>订阅有效期 {calcDaysRemaining(account.expiresAt)}</span>
+                                  <span>订阅有效期 {calcDaysRemaining(new Date(account.subscriptionUntil).getTime())}</span>
                                 </div>
                                 <div className={css.cockpitSubRight}>
-                                  {formatDateTime(account.expiresAt)}
+                                  {formatDateTime(new Date(account.subscriptionUntil).getTime())}
                                 </div>
                               </div>
                             ) : null}

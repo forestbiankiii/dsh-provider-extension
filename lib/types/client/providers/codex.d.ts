@@ -9,6 +9,7 @@ export interface CodexAccountView {
     readonly planType?: string;
     readonly accountId?: string;
     readonly userId?: string;
+    readonly subscriptionUntil?: string;
 }
 /** Quota windows the subscription plugin reported for one account. */
 export interface CodexQuotaView {

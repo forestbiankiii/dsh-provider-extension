@@ -588,9 +588,13 @@ var DshOAuthAccountVault = class {
 			if (payload === void 0) return [];
 			return payload.accounts.map((account) => {
 				const cred = account.credential;
-				const jwt = decodeJwtPayload(cred?.access);
-				const authObj = jwt?.["https://api.openai.com/auth"];
+				const accessJwt = decodeJwtPayload(cred?.access);
+				const idJwt = decodeJwtPayload(cred?.idToken ?? cred?.id_token);
+				const authObj = idJwt?.["https://api.openai.com/auth"] ?? accessJwt?.["https://api.openai.com/auth"];
 				const planType = typeof authObj?.chatgpt_plan_type === "string" ? authObj.chatgpt_plan_type.toUpperCase() : "PLUS";
+				const subscriptionUntil = typeof authObj?.chatgpt_subscription_active_until === "string"
+					? authObj.chatgpt_subscription_active_until
+					: cred.subscriptionUntil;
 				return {
 					id: account.id,
 					label: account.label,
@@ -599,7 +603,8 @@ var DshOAuthAccountVault = class {
 					...cred.email === void 0 ? {} : { email: cred.email },
 					planType,
 					accountId: cred.accountId ?? authObj?.chatgpt_account_id,
-					userId: authObj?.user_id
+					userId: authObj?.user_id,
+					...subscriptionUntil === void 0 ? {} : { subscriptionUntil }
 				};
 			});
 		});

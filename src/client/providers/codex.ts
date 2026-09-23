@@ -12,6 +12,7 @@ export interface CodexAccountView {
   readonly planType?: string
   readonly accountId?: string
   readonly userId?: string
+  readonly subscriptionUntil?: string
 }
 
 /** Quota windows the subscription plugin reported for one account. */
@@ -114,6 +115,7 @@ function decodeAccount(value: unknown): CodexAccountView | undefined {
     ...typeof candidate.planType === 'string' ? { planType: candidate.planType } : { planType: 'PLUS' },
     ...typeof candidate.accountId === 'string' ? { accountId: candidate.accountId } : {},
     ...typeof candidate.userId === 'string' ? { userId: candidate.userId } : {},
+    ...typeof candidate.subscriptionUntil === 'string' ? { subscriptionUntil: candidate.subscriptionUntil } : {},
   })
 }
 
