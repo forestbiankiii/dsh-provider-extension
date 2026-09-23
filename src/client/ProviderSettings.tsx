@@ -1,6 +1,6 @@
 /** Settings page: Level 1 hub with expandable quick views, and Level 2 provider-only detail view. */
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { maskedEmail, type CodexAccountsState } from './providers/codex.ts'
@@ -157,15 +157,17 @@ export function ProviderSettings({
     return () => { window.removeEventListener(MODELS_VISIBILITY_EVENT, handleVisibilityChange) }
   }, [])
 
+  const fetchedCodexRef = useRef<Set<string>>(new Set())
   useEffect(() => {
     if (selectedProvider === 'codex' || expanded.codex) {
       for (const acc of accounts.accounts) {
-        if (!acc.active && accounts.usage[acc.id] === undefined && accounts.switchingId === undefined) {
+        if (!acc.active && !fetchedCodexRef.current.has(acc.id) && accounts.switchingId === undefined) {
+          fetchedCodexRef.current.add(acc.id)
           void readQuota(acc.id).catch(() => {})
         }
       }
     }
-  }, [selectedProvider, expanded.codex, accounts.accounts, accounts.usage, accounts.switchingId, readQuota])
+  }, [selectedProvider, expanded.codex, accounts.accounts, accounts.switchingId, readQuota])
 
   const toggleAccountModel = (accountId: string, modelId: string) => {
     setAccountDisabledMap(prev => {
@@ -287,7 +289,7 @@ export function ProviderSettings({
                   {t('codexOpenLink')}
                 </a>
               ) : null}
-              <button type="button" className={css.action} onClick={() => { void loadAccounts() }}>{t('providerRefresh')}</button>
+              <button type="button" className={css.action} onClick={() => { fetchedCodexRef.current.clear(); void loadAccounts() }}>{t('providerRefresh')}</button>
             </div>
 
             {accounts.accounts.length === 0 ? (
@@ -990,7 +992,7 @@ export function ProviderSettings({
                     {t('codexOpenLink')}
                   </a>
                 ) : null}
-                <button type="button" className={css.action} onClick={() => { void loadAccounts() }}>{t('providerRefresh')}</button>
+                <button type="button" className={css.action} onClick={() => { fetchedCodexRef.current.clear(); void loadAccounts() }}>{t('providerRefresh')}</button>
               </div>
 
               {accounts.accounts.length === 0 ? (

@@ -155,16 +155,28 @@ export function decodeQuota(value: unknown): CodexQuotaView {
 
 async function call(
   rpc: ClientConnectionRpc,
-  endpoint: 'status' | 'account/select' | 'account/remove' | 'usage' | 'login/start' | 'login/status' | 'login/cancel',
+  endpoint: 'status' | 'account/select' | 'account/remove' | 'account/rename' | 'usage' | 'login/start' | 'login/status' | 'login/cancel',
   payload: unknown,
+  timeoutMs = 10_000,
 ): Promise<unknown> {
-  const response = await rpc.call('/api', `codex-subscription/${endpoint}`, payload) as RpcResult
-  if (response?.ok !== true) {
-    const message = response?.error?.message
-    throw new Error(typeof message === 'string' && message.length > 0
-      ? message : 'Codex subscription service is unavailable')
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('请求超时，请检查网络或稍后重试')), timeoutMs)
+  })
+  try {
+    const response = await Promise.race([
+      rpc.call('/api', `codex-subscription/${endpoint}`, payload) as Promise<RpcResult>,
+      timeoutPromise,
+    ])
+    if (response?.ok !== true) {
+      const message = response?.error?.message
+      throw new Error(typeof message === 'string' && message.length > 0
+        ? message : 'Codex subscription service is unavailable')
+    }
+    return response.value
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
   }
-  return response.value
 }
 
 async function readRoster(rpc: ClientConnectionRpc, endpoint: 'status' | 'account/select', payload: unknown): Promise<readonly CodexAccountView[]> {
@@ -315,7 +327,7 @@ export class CodexAccountsController {
           restored = false
         }
       }
-      if (!this.disposed && generation === this.generation) {
+      if (!this.disposed) {
         const latest = this.store.getSnapshot()
         this.store.set(Object.freeze({ ...latest, switchingId: undefined, restoreFailed: !restored }))
       }
