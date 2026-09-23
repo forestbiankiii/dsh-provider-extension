@@ -437,14 +437,34 @@ export class CodexAccountsController {
   /** Remove one saved ChatGPT account. */
   async removeAccount(id: string): Promise<void> {
     const current = this.store.getSnapshot()
-    this.store.set(Object.freeze({ ...current, switchingId: id, error: null }))
+    // Optimistically remove the account and delete its usage immediately
+    const nextAccounts = current.accounts.filter(account => account.id !== id)
+    const nextUsage = { ...current.usage }
+    delete nextUsage[id]
+    const nextState = Object.freeze({
+      ...current,
+      switchingId: undefined,
+      accounts: nextAccounts,
+      usage: nextUsage,
+      error: null,
+    })
+    this.store.set(nextState)
+    saveCachedCodexState(nextState)
+
     try {
       await call(this.rpc, 'account/remove', { id })
       window.dispatchEvent(new Event('dsh-codex-subscription:refresh-quick-quota'))
-      await this.load()
+      const accounts = await readRoster(this.rpc, 'status', {})
+      if (!this.disposed) {
+        const latest = this.store.getSnapshot()
+        const updated = Object.freeze({ ...latest, accounts })
+        this.store.set(updated)
+        saveCachedCodexState(updated)
+      }
     } catch (error) {
-      const latest = this.store.getSnapshot()
-      this.store.set(Object.freeze({ ...latest, switchingId: undefined, error: failureMessage(error) }))
+      if (!this.disposed) {
+        this.store.set(Object.freeze({ ...current, switchingId: undefined, error: failureMessage(error) }))
+      }
       throw error
     }
   }

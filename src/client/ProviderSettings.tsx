@@ -425,7 +425,8 @@ export function ProviderSettings({
                               <button
                                 type="button"
                                 className={`${css.action} ${css.danger}`}
-                                onClick={() => {
+                                onClick={e => {
+                                  e.stopPropagation()
                                   setConfirmingDeleteId(null)
                                   void removeCodexAccount(account.id).catch(() => {})
                                 }}
@@ -433,7 +434,10 @@ export function ProviderSettings({
                               <button
                                 type="button"
                                 className={css.action}
-                                onClick={() => setConfirmingDeleteId(null)}
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  setConfirmingDeleteId(null)
+                                }}
                               >{t('confirmNo')}</button>
                             </div>
                           ) : (
@@ -441,7 +445,10 @@ export function ProviderSettings({
                               type="button"
                               className={css.action}
                               disabled={accounts.switchingId !== undefined}
-                              onClick={() => setConfirmingDeleteId(account.id)}
+                              onClick={e => {
+                                e.stopPropagation()
+                                setConfirmingDeleteId(account.id)
+                              }}
                             >{t('accountRemove')}</button>
                           )}
                           <span className={css.accountChevron} data-open={isQuotaOpen}>▼</span>
@@ -1170,7 +1177,8 @@ export function ProviderSettings({
                                 <button
                                   type="button"
                                   className={`${css.action} ${css.danger}`}
-                                  onClick={() => {
+                                  onClick={e => {
+                                    e.stopPropagation()
                                     setConfirmingDeleteId(null)
                                     void removeCodexAccount(account.id).catch(() => {})
                                   }}
@@ -1178,7 +1186,10 @@ export function ProviderSettings({
                                 <button
                                   type="button"
                                   className={css.action}
-                                  onClick={() => setConfirmingDeleteId(null)}
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    setConfirmingDeleteId(null)
+                                  }}
                                 >{t('confirmNo')}</button>
                               </div>
                             ) : (
@@ -1186,7 +1197,10 @@ export function ProviderSettings({
                                 type="button"
                                 className={css.action}
                                 disabled={accounts.switchingId !== undefined}
-                                onClick={() => setConfirmingDeleteId(account.id)}
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  setConfirmingDeleteId(account.id)
+                                }}
                               >{t('accountRemove')}</button>
                             )}
                             <span className={css.accountChevron} data-open={isQuotaOpen}>▼</span>
