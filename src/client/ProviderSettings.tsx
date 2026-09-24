@@ -78,6 +78,18 @@ function formatResetTime(iso: string): string {
   }
 }
 
+export const CODEX_MODELS = [
+  { id: 'gpt-6-astra', name: 'GPT-6 Astra' },
+  { id: 'gpt-6-sol', name: 'GPT-6 Sol' },
+  { id: 'gpt-6-luna', name: 'GPT-6 Luna' },
+  { id: 'gpt-reserve', name: 'GPT Reserve' },
+  { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol' },
+  { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra' },
+  { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna' },
+  { id: 'gpt-5.5', name: 'GPT-5.5' },
+  { id: 'codex-auto-review', name: 'Codex Auto Review' },
+] as const
+
 export const GEMINI_TIERS = ['Free', 'Pro', 'Ultra'] as const
 export type GeminiTier = typeof GEMINI_TIERS[number]
 
@@ -526,6 +538,32 @@ export function ProviderSettings({
                               </div>
                             </div>
                           ) : null}
+
+                          <div className={css.accountModelsBlock}>
+                            <div className={css.blockHeadRow}>
+                              <span className={css.quotaGroupTitle}>{t('codexModels')}</span>
+                            </div>
+                            <ul className={css.models}>
+                              {CODEX_MODELS.map(model => {
+                                const isModelDisabled = accountDisabledMap[account.id]?.includes(model.id)
+                                return (
+                                  <li key={model.id}>
+                                    <span className={css.modelName}>{model.name}</span>
+                                    <div className={css.modelToggleRow}>
+                                      <label className={css.switch} title={t('modelToggle')}>
+                                        <input
+                                          type="checkbox"
+                                          checked={!isModelDisabled}
+                                          onChange={() => toggleAccountModel(account.id, model.id)}
+                                        />
+                                        <span className={css.switchSlider} />
+                                      </label>
+                                    </div>
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          </div>
 
                           {usage?.status === 'error' && (
                             <div className={css.quotaErrorRow}>
@@ -1278,6 +1316,32 @@ export function ProviderSettings({
                                 </div>
                               </div>
                             ) : null}
+
+                            <div className={css.accountModelsBlock}>
+                              <div className={css.blockHeadRow}>
+                                <span className={css.quotaGroupTitle}>{t('codexModels')}</span>
+                              </div>
+                              <ul className={css.models}>
+                                {CODEX_MODELS.map(model => {
+                                  const isModelDisabled = accountDisabledMap[account.id]?.includes(model.id)
+                                  return (
+                                    <li key={model.id}>
+                                      <span className={css.modelName}>{model.name}</span>
+                                      <div className={css.modelToggleRow}>
+                                        <label className={css.switch} title={t('modelToggle')}>
+                                          <input
+                                            type="checkbox"
+                                            checked={!isModelDisabled}
+                                            onChange={() => toggleAccountModel(account.id, model.id)}
+                                          />
+                                          <span className={css.switchSlider} />
+                                        </label>
+                                      </div>
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                            </div>
 
                             {usage?.status === 'error' && (
                               <div className={css.quotaErrorRow}>

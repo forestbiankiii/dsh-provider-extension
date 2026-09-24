@@ -196,9 +196,12 @@ export function ProviderPanel({
   const authoritativeGroup = activeGroup(directory)
   const group = directory.groups.find(candidate => candidate.id === providerDraft) ?? authoritativeGroup
   const activeAgAccount = antigravity.accounts.find(account => account.active) ?? antigravity.accounts[0]
+  const activeCodexAccount = accounts.accounts.find(account => account.active) ?? accounts.accounts[0]
   const disabledForCurrent = isAntigravityProvider(group?.id)
     ? getDisabledModelsForAccount(activeAgAccount?.id)
-    : disabledModels
+    : isCodexProvider(group?.id)
+      ? getDisabledModelsForAccount(activeCodexAccount?.id)
+      : disabledModels
   const allModels = group?.models ?? []
   const models = allModels.filter(model => !disabledForCurrent.has(model.id))
   const currentModel = group === undefined || group.id !== directory.current?.provider ? undefined
@@ -528,7 +531,15 @@ export function ProviderPanel({
   const weeklyReset = formatRemaining(weeklyWin?.resetTime, weeklyPct)
 
   const codexUsage = activeAccount ? accounts.usage[activeAccount.id] : undefined
-  const codexWeekly = codexUsage?.status === 'ready' ? codexUsage.value.weeklyPercent : undefined
+  const codexUsageVal = codexUsage?.status === 'ready' ? codexUsage.value : undefined
+  const codex5h = codexUsageVal?.shortPercent
+  const codexWeekly = codexUsageVal?.weeklyPercent
+  const codex5hReset = codexUsageVal?.shortResetsAt
+    ? formatRemaining(new Date(codexUsageVal.shortResetsAt * 1000).toISOString(), codex5h)
+    : undefined
+  const codexWeeklyReset = codexUsageVal?.weeklyResetsAt
+    ? formatRemaining(new Date(codexUsageVal.weeklyResetsAt * 1000).toISOString(), codexWeekly)
+    : undefined
 
   const quotaBadge = isAg ? (
     <div className={css.quotaWrapper}>
@@ -556,19 +567,29 @@ export function ProviderPanel({
         </div>
       </div>
     </div>
-  ) : isCodex && codexWeekly !== undefined ? (
+  ) : isCodex && (codexWeekly !== undefined || codex5h !== undefined) ? (
     <div className={css.quotaWrapper}>
       <button
         type="button"
         className={css.quotaTrigger}
         onClick={() => { if (activeAccount) void readQuota?.(activeAccount.id).catch(() => {}) }}
       >
-        {t('weeklyQuota', { value: codexWeekly })}
+        {codexWeekly !== undefined ? t('weeklyQuota', { value: codexWeekly }) : `${codex5h ?? 100}%`}
       </button>
       <div className={css.quotaTooltip} role="tooltip">
         <div className={css.quotaTooltipRow}>
+          <span className={css.quotaTooltipName}>5小时额度:</span>
+          <div>
+            <span className={css.quotaTooltipValue}>{codex5h !== undefined ? `${codex5h}%` : '100%'}</span>
+            {codex5hReset ? <span className={css.quotaTooltipReset}>({codex5hReset})</span> : null}
+          </div>
+        </div>
+        <div className={css.quotaTooltipRow}>
           <span className={css.quotaTooltipName}>周额度:</span>
-          <span className={css.quotaTooltipValue}>{codexWeekly}%</span>
+          <div>
+            <span className={css.quotaTooltipValue}>{codexWeekly !== undefined ? `${codexWeekly}%` : '100%'}</span>
+            {codexWeeklyReset ? <span className={css.quotaTooltipReset}>({codexWeeklyReset})</span> : null}
+          </div>
         </div>
       </div>
     </div>

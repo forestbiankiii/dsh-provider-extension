@@ -49,6 +49,7 @@ export declare const en: {
     readonly antigravitySignOut: "Sign out";
     readonly antigravityModels: "Models reported for this account";
     readonly antigravityNoModels: "No model catalog yet. Sign in first.";
+    readonly codexModels: "Available models for this account";
     readonly antigravityAccounts: "Google accounts";
     readonly antigravityNoAccounts: "No Google account connected yet. Sign in to add an account.";
     readonly antigravityAddAccount: "Add Google account";

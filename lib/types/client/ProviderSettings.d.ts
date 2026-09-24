@@ -33,6 +33,34 @@ export interface ProviderSettingsInjected {
 }
 /** Settings-section props: the shell lends `close`, the plugin injects the rest. */
 export type ProviderSettingsProps = PropsRuntime<'settings.section'> & PropsLocale<'providerExtension'> & InjectFace<ProviderSettingsInjected>;
+export declare const CODEX_MODELS: readonly [{
+    readonly id: "gpt-6-astra";
+    readonly name: "GPT-6 Astra";
+}, {
+    readonly id: "gpt-6-sol";
+    readonly name: "GPT-6 Sol";
+}, {
+    readonly id: "gpt-6-luna";
+    readonly name: "GPT-6 Luna";
+}, {
+    readonly id: "gpt-reserve";
+    readonly name: "GPT Reserve";
+}, {
+    readonly id: "gpt-5.6-sol";
+    readonly name: "GPT-5.6 Sol";
+}, {
+    readonly id: "gpt-5.6-terra";
+    readonly name: "GPT-5.6 Terra";
+}, {
+    readonly id: "gpt-5.6-luna";
+    readonly name: "GPT-5.6 Luna";
+}, {
+    readonly id: "gpt-5.5";
+    readonly name: "GPT-5.5";
+}, {
+    readonly id: "codex-auto-review";
+    readonly name: "Codex Auto Review";
+}];
 export declare const GEMINI_TIERS: readonly ["Free", "Pro", "Ultra"];
 export type GeminiTier = typeof GEMINI_TIERS[number];
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */

@@ -206,8 +206,21 @@ describe('model panel component', () => {
     bench({ codex: true, provider: 'openai-codex' })
     const quotaBtn = screen.getByRole('button', { name: /wk 76%/ })
     expect(quotaBtn).toBeTruthy()
+    expect(screen.getByText('5小时额度:')).toBeTruthy()
     expect(screen.getByText('周额度:')).toBeTruthy()
     expect(screen.getByText('76%')).toBeTruthy()
+  })
+  it('filters out Codex models disabled for the active Codex account', async () => {
+    localStorage.setItem('dsh-provider-extension:account-disabled-models', JSON.stringify({
+      work: ['codex'],
+    }))
+    try {
+      bench({ codex: true, provider: 'openai-codex' })
+      const dialog = screen.getByRole('dialog', { name: en.title })
+      expect(dialog.textContent).not.toContain('Select Codex')
+    } finally {
+      localStorage.removeItem('dsh-provider-extension:account-disabled-models')
+    }
   })
   it('closes on outside click', () => {
     bench()
