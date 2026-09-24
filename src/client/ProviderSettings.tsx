@@ -494,22 +494,24 @@ export function ProviderSettings({
                             ) : null}
                           </div>
 
-                          {/* 5h 额度条 */}
-                          <div className={css.cockpitQuotaSection}>
-                            <div className={css.cockpitQuotaHeader}>
-                              <span className={css.cockpitQuotaTitle}>5h</span>
-                              <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent ?? 100}%</span>
+                          {/* 5h 额度条 (PRO 账号无 5h 限额，不展示) */}
+                          {(!account.planType || account.planType.toUpperCase() !== 'PRO') && (
+                            <div className={css.cockpitQuotaSection}>
+                              <div className={css.cockpitQuotaHeader}>
+                                <span className={css.cockpitQuotaTitle}>5h</span>
+                                <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent ?? 100}%</span>
+                              </div>
+                              <div className={css.cockpitTrack}>
+                                <div
+                                  className={css.cockpitFill5h}
+                                  style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 100))}%` }}
+                                />
+                              </div>
+                              <div className={css.cockpitTimeSub}>
+                                {formatCockpitTime(usageVal?.shortResetsAt)}
+                              </div>
                             </div>
-                            <div className={css.cockpitTrack}>
-                              <div
-                                className={css.cockpitFill5h}
-                                style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 100))}%` }}
-                              />
-                            </div>
-                            <div className={css.cockpitTimeSub}>
-                              {formatCockpitTime(usageVal?.shortResetsAt)}
-                            </div>
-                          </div>
+                          )}
 
                           {/* Weekly 额度条 */}
                           <div className={css.cockpitQuotaSection}>
@@ -1279,22 +1281,24 @@ export function ProviderSettings({
                               ) : null}
                             </div>
 
-                            {/* 5h 额度条 */}
-                            <div className={css.cockpitQuotaSection}>
-                              <div className={css.cockpitQuotaHeader}>
-                                <span className={css.cockpitQuotaTitle}>5h</span>
-                                <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent ?? 100}%</span>
+                            {/* 5h 额度条 (PRO 账号无 5h 限额，不展示) */}
+                            {(!account.planType || account.planType.toUpperCase() !== 'PRO') && (
+                              <div className={css.cockpitQuotaSection}>
+                                <div className={css.cockpitQuotaHeader}>
+                                  <span className={css.cockpitQuotaTitle}>5h</span>
+                                  <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent ?? 100}%</span>
+                                </div>
+                                <div className={css.cockpitTrack}>
+                                  <div
+                                    className={css.cockpitFill5h}
+                                    style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 100))}%` }}
+                                  />
+                                </div>
+                                <div className={css.cockpitTimeSub}>
+                                  {formatCockpitTime(usageVal?.shortResetsAt)}
+                                </div>
                               </div>
-                              <div className={css.cockpitTrack}>
-                                <div
-                                  className={css.cockpitFill5h}
-                                  style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 100))}%` }}
-                                />
-                              </div>
-                              <div className={css.cockpitTimeSub}>
-                                {formatCockpitTime(usageVal?.shortResetsAt)}
-                              </div>
-                            </div>
+                            )}
 
                             {/* Weekly 额度条 */}
                             <div className={css.cockpitQuotaSection}>

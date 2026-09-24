@@ -596,13 +596,15 @@ export function ProviderPanel({
         {codexPillText}
       </button>
       <div className={css.quotaTooltip} role="tooltip">
-        <div className={css.quotaTooltipRow}>
-          <span className={css.quotaTooltipName}>5小时额度:</span>
-          <div>
-            <span className={css.quotaTooltipValue}>{codex5h !== undefined ? `${codex5h}%` : '100%'}</span>
-            {codex5hReset ? <span className={css.quotaTooltipReset}>({codex5hReset})</span> : null}
+        {!isCodexPro ? (
+          <div className={css.quotaTooltipRow}>
+            <span className={css.quotaTooltipName}>5小时额度:</span>
+            <div>
+              <span className={css.quotaTooltipValue}>{codex5h !== undefined ? `${codex5h}%` : '100%'}</span>
+              {codex5hReset ? <span className={css.quotaTooltipReset}>({codex5hReset})</span> : null}
+            </div>
           </div>
-        </div>
+        ) : null}
         <div className={css.quotaTooltipRow}>
           <span className={css.quotaTooltipName}>周额度:</span>
           <div>
