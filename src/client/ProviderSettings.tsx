@@ -532,7 +532,6 @@ export function ProviderSettings({
                           {account.subscriptionUntil ? (
                             <div className={css.cockpitSubBanner}>
                               <div className={css.cockpitSubLeft}>
-                                <span>📅</span>
                                 <span>订阅有效期 {calcDaysRemaining(new Date(account.subscriptionUntil).getTime())}</span>
                               </div>
                               <div className={css.cockpitSubRight}>
@@ -1318,7 +1317,6 @@ export function ProviderSettings({
                             {account.subscriptionUntil ? (
                               <div className={css.cockpitSubBanner}>
                                 <div className={css.cockpitSubLeft}>
-                                  <span>📅</span>
                                   <span>订阅有效期 {calcDaysRemaining(new Date(account.subscriptionUntil).getTime())}</span>
                                 </div>
                                 <div className={css.cockpitSubRight}>
