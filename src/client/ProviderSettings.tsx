@@ -45,7 +45,7 @@ export type ProviderSettingsProps =
 type PhaseKey = 'antigravityIdle' | 'antigravityPending' | 'antigravitySuccess'
   | 'antigravityCancelled' | 'antigravityExpired' | 'antigravityPortConflict' | 'antigravityFailed'
 
-type ProviderId = 'codex' | 'antigravity' | 'claude' | 'gemini' | 'openai' | 'opencode'
+type ProviderId = 'codex' | 'antigravity' | 'claude' | 'opencode'
 
 /** Copy shown for one Antigravity login phase. */
 function phaseKey(phase: string | undefined): PhaseKey {
@@ -283,8 +283,6 @@ export function ProviderSettings({
       codex: t('providerCodex'),
       antigravity: t('providerAntigravity'),
       claude: t('providerClaude'),
-      gemini: t('providerGemini'),
-      openai: t('providerOpenAi'),
       opencode: t('providerOpenCode'),
     }
 
@@ -1342,57 +1340,7 @@ export function ProviderSettings({
           )}
         </article>
 
-        {/* 4. Google Gemini API */}
-        <article className={css.providerCard}>
-          <div className={css.providerCardHead}>
-            <div className={css.providerMain} onClick={() => toggleExpand('gemini')}>
-              <div className={css.providerIcon} data-provider="gemini">GM</div>
-              <div className={css.providerTitles}>
-                <span className={css.providerTitle}>{t('providerGemini')}</span>
-                <span className={css.providerSubtitle}>{t('providerGeminiDesc')}</span>
-              </div>
-            </div>
-            <div className={css.providerRight}>
-              <span className={css.providerBadge} data-status="roadmap">
-                {t('providerStatusRoadmap')}
-              </span>
-              <button
-                type="button"
-                className={css.action}
-                onClick={() => setSelectedProvider('gemini')}
-              >
-                {t('providerManage')} →
-              </button>
-            </div>
-          </div>
-        </article>
-
-        {/* 5. OpenAI API */}
-        <article className={css.providerCard}>
-          <div className={css.providerCardHead}>
-            <div className={css.providerMain} onClick={() => toggleExpand('openai')}>
-              <div className={css.providerIcon} data-provider="openai">OA</div>
-              <div className={css.providerTitles}>
-                <span className={css.providerTitle}>{t('providerOpenAi')}</span>
-                <span className={css.providerSubtitle}>{t('providerOpenAiDesc')}</span>
-              </div>
-            </div>
-            <div className={css.providerRight}>
-              <span className={css.providerBadge} data-status="roadmap">
-                {t('providerStatusRoadmap')}
-              </span>
-              <button
-                type="button"
-                className={css.action}
-                onClick={() => setSelectedProvider('openai')}
-              >
-                {t('providerManage')} →
-              </button>
-            </div>
-          </div>
-        </article>
-
-        {/* 6. OpenCode */}
+        {/* 4. OpenCode */}
         <article className={css.providerCard}>
           <div className={css.providerCardHead}>
             <div className={css.providerMain} onClick={() => toggleExpand('opencode')}>

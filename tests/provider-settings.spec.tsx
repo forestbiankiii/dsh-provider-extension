@@ -122,8 +122,6 @@ describe('provider settings surface', () => {
     expect(screen.getByText(en.providerCodex)).toBeTruthy()
     expect(screen.getByText(en.providerAntigravity)).toBeTruthy()
     expect(screen.getByText(en.providerClaude)).toBeTruthy()
-    expect(screen.getByText(en.providerGemini)).toBeTruthy()
-    expect(screen.getByText(en.providerOpenAi)).toBeTruthy()
     expect(screen.getByText(en.providerOpenCode)).toBeTruthy()
 
     // Click "Manage" on the first provider (Antigravity) to enter Level 2
@@ -134,9 +132,9 @@ describe('provider settings surface', () => {
     // Now in Level 2: Displays only Antigravity information
     expect(screen.getByTestId('provider-settings-detail')).toBeTruthy()
     expect(screen.getByText(new RegExp(en.backToProviders))).toBeTruthy()
-    // Other providers like Claude or OpenAI should not be on this level 2 page
+    // Other providers like Claude or OpenCode should not be on this level 2 page
     expect(screen.queryByText(en.providerClaude)).toBeNull()
-    expect(screen.queryByText(en.providerOpenAi)).toBeNull()
+    expect(screen.queryByText(en.providerOpenCode)).toBeNull()
 
     // Click "Back to all providers" to return to Level 1
     fireEvent.click(screen.getByRole('button', { name: new RegExp(en.backToProviders) }))
