@@ -25,8 +25,8 @@ export declare const en: {
     readonly providersIntro: "Create and manage the model providers this plugin integrates.";
     readonly createProvider: "Create provider";
     readonly providerCloseCatalog: "Close";
-    readonly providerAntigravity: "Antigravity (Google)";
-    readonly providerCodex: "ChatGPT / Codex subscription";
+    readonly providerAntigravity: "Antigravity";
+    readonly providerCodex: "Codex";
     readonly providerInstalled: "Installed";
     readonly providerNotInstalled: "Not installed";
     readonly providerError: "Unavailable";
