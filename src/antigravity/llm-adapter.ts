@@ -282,17 +282,27 @@ export class AntigravityAdapter extends LlmAdapter {
           replayed = true
           continue
         }
-        if (response.status === 400) {
-          const details = await readProviderBadRequest(response, {
+        if (response.status === 400 || response.status === 503) {
+          const details = await readProviderFailureDetails(response, {
+            wireModel: resolveWireModel(options.model, options.reasoningEffort),
             ...(signal === undefined ? {} : { signal }),
             idleTimeoutMs: this.options.idleTimeoutMs,
             totalTimeoutMs: this.options.totalTimeoutMs,
             maxResponseBytes: this.options.maxResponseBytes,
             maxFrameBytes: this.options.maxFrameBytes,
           })
-          if (details.contextWindowExceeded) throw contextWindowExceededError(response.status)
-          if (details.message !== undefined) {
-            throw new LlmError(`Antigravity rejected the request: ${details.message}`, 'PROTOCOL_DRIFT', { status: response.status })
+          if (response.status === 503 && details.capacityUnavailable) {
+            throw new LlmError(
+              'Antigravity model capacity is temporarily unavailable (HTTP 503). This is not an account quota error; retry later or select another model/reasoning level.',
+              'MODEL_CAPACITY_EXHAUSTED',
+              { status: response.status },
+            )
+          }
+          if (response.status === 400) {
+            if (details.contextWindowExceeded) throw contextWindowExceededError(response.status)
+            if (details.message !== undefined) {
+              throw new LlmError(`Antigravity rejected the request: ${details.message}`, 'PROTOCOL_DRIFT', { status: response.status })
+            }
           }
         } else {
           await cancelResponse(response)
@@ -1214,17 +1224,19 @@ function errorDetails(value: Record<string, unknown>): NonNullable<ProviderEvent
   }
 }
 
-async function readProviderBadRequest(
+async function readProviderFailureDetails(
   response: Response,
   options: {
+    readonly wireModel: string
     readonly signal?: AbortSignal
     readonly idleTimeoutMs: number
     readonly totalTimeoutMs: number
     readonly maxResponseBytes: number
     readonly maxFrameBytes: number
   },
-): Promise<{ readonly contextWindowExceeded: boolean; readonly message?: string }> {
+): Promise<{ readonly contextWindowExceeded: boolean; readonly capacityUnavailable?: boolean; readonly message?: string }> {
   let message: string | undefined
+  let capacityUnavailable = false
   try {
     for await (const event of iteratePrivateSse(response, {
       ...(options.signal === undefined ? {} : { signal: options.signal }),
@@ -1234,14 +1246,32 @@ async function readProviderBadRequest(
       maxFrameBytes: Math.min(MAX_PROVIDER_ERROR_FRAME_BYTES, options.maxFrameBytes),
     })) {
       const payload = event.data.replace(/^\)\]\}'(?:\r?\n)?/u, '')
-      if (providerErrorEnvelopeReportsContextWindowExceeded(payload, 0)) return { contextWindowExceeded: true }
-      message ??= providerErrorEnvelopeMessage(payload, 0)
+      if (response.status === 400) {
+        if (providerErrorEnvelopeReportsContextWindowExceeded(payload, 0)) return { contextWindowExceeded: true }
+        message ??= providerErrorEnvelopeMessage(payload, 0)
+      } else {
+        capacityUnavailable = providerReportsCapacityUnavailable(payload, options.wireModel)
+      }
     }
-    return { contextWindowExceeded: false, ...(message === undefined ? {} : { message }) }
+    return { contextWindowExceeded: false, capacityUnavailable, ...(message === undefined ? {} : { message }) }
   } catch (error) {
     if (error instanceof PrivateTransportError && error.code === 'cancelled') throw toLlmError(error)
     if (isAborted(options.signal)) throw new LlmError('The Antigravity request was cancelled', 'CANCELLED')
     return { contextWindowExceeded: false }
+  }
+}
+
+/** Classify only the observed provider error envelope, never arbitrary model text. */
+function providerReportsCapacityUnavailable(payload: string, wireModel: string): boolean {
+  if (payload.length > MAX_PROVIDER_ERROR_BYTES || !jsonDepthIsBounded(payload, MAX_PROVIDER_ERROR_JSON_DEPTH)) return false
+  try {
+    const value: unknown = JSON.parse(payload)
+    if (!isRecord(value) || !isRecord(value.error)) return false
+    return value.error.code === 503
+      && value.error.status === 'UNAVAILABLE'
+      && value.error.message === `No capacity available for model ${wireModel} on the server`
+  } catch {
+    return false
   }
 }
 
@@ -1457,9 +1487,13 @@ function toLlmError(error: unknown): LlmError {
   if (error instanceof PrivateTransportError) {
     const kind = classifyPrivateFailure(error)
     const code = LLM_FAILURE_CODES[kind]
-    const message = kind === 'rate-limited'
-      ? 'Antigravity rate limit reached (Google returned 429 Resource Exhausted); please wait for your quota window to refresh'
-      : 'The Antigravity private request failed safely'
+    const messages: Partial<Record<PrivateFailureKind, string>> = {
+      'rate-limited': 'Antigravity rate limit or quota reached (HTTP 429); please retry after the limit resets.',
+      upstream: `Antigravity upstream service is temporarily unavailable${error.status === undefined ? '' : ` (HTTP ${error.status})`}; please retry later.`,
+      network: 'Antigravity network connection failed. Check the proxy route after switching Clash nodes or TUN mode; the request was not automatically retried.',
+      timeout: 'Antigravity request timed out. Check network connectivity or retry later; the request was not automatically retried.',
+    }
+    const message = messages[kind] ?? 'The Antigravity private request failed safely'
     return error.status === undefined
       ? new LlmError(message, code)
       : new LlmError(message, code, { status: error.status })

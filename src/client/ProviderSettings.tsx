@@ -394,6 +394,11 @@ export function ProviderSettings({
                                 {account.label}
                               </span>
                             )}
+                            {account.active ? (
+                              <span className={css.cockpitCurrentBadge}>
+                                {t('accountCurrent')}
+                              </span>
+                            ) : null}
                             <span className={css.accountTierBadge} data-tier="Pro">
                               {account.planType ?? 'PLUS'}
                             </span>
@@ -406,11 +411,7 @@ export function ProviderSettings({
                           {email === undefined ? null : <span className={css.note}>{email}</span>}
                         </div>
                         <div className={css.actions} onClick={e => e.stopPropagation()}>
-                          {account.active ? (
-                            <span className={css.modelState} data-state="live-available">
-                              {t('accountActive')}
-                            </span>
-                          ) : selectCodexAccount ? (
+                          {!account.active && selectCodexAccount ? (
                             <button
                               type="button"
                               className={css.action}
@@ -678,6 +679,11 @@ export function ProviderSettings({
                                       {account.label}
                                     </span>
                                   )}
+                                  {account.active ? (
+                                    <span className={css.cockpitCurrentBadge}>
+                                      {t('accountCurrent')}
+                                    </span>
+                                  ) : null}
                                   <span className={css.accountTierBadge} data-tier={tier}>
                                     {tier}
                                   </span>
@@ -685,9 +691,6 @@ export function ProviderSettings({
                                 <span className={css.note}>{email}</span>
                               </div>
                               <div className={css.actions} onClick={e => e.stopPropagation()}>
-                                <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
-                                  {account.active ? t('accountActive') : t('accountUse')}
-                                </span>
                                 {isEditing ? (
                                   <>
                                     <button type="button" className={css.action} onClick={() => { void saveRename(account.id) }}>{t('renameSave')}</button>
@@ -958,6 +961,11 @@ export function ProviderSettings({
                                         {account.label}
                                       </span>
                                     )}
+                                    {account.active ? (
+                                      <span className={css.cockpitCurrentBadge}>
+                                        {t('accountCurrent')}
+                                      </span>
+                                    ) : null}
                                     <span className={css.accountTierBadge} data-tier={tier}>
                                       {tier}
                                     </span>
@@ -965,9 +973,6 @@ export function ProviderSettings({
                                   <span className={css.note}>{email}</span>
                                 </div>
                                 <div className={css.actions} onClick={e => e.stopPropagation()}>
-                                  <span className={css.modelState} data-state={account.active ? 'live-available' : 'snapshot'}>
-                                    {account.active ? t('accountActive') : t('accountUse')}
-                                  </span>
                                   {!account.active && selectAntigravityAccount ? (
                                     <button
                                       type="button"
@@ -1175,6 +1180,11 @@ export function ProviderSettings({
                                   {account.label}
                                 </span>
                               )}
+                              {account.active ? (
+                                <span className={css.cockpitCurrentBadge}>
+                                  {t('accountCurrent')}
+                                </span>
+                              ) : null}
                               <span className={css.accountTierBadge} data-tier="Pro">
                                 {account.planType ?? 'PLUS'}
                               </span>
@@ -1187,11 +1197,7 @@ export function ProviderSettings({
                             {email === undefined ? null : <span className={css.note}>{email}</span>}
                           </div>
                           <div className={css.actions} onClick={e => e.stopPropagation()}>
-                            {account.active ? (
-                              <span className={css.modelState} data-state="live-available">
-                                {t('accountActive')}
-                              </span>
-                            ) : selectCodexAccount ? (
+                            {!account.active && selectCodexAccount ? (
                               <button
                                 type="button"
                                 className={css.action}

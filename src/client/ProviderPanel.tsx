@@ -525,6 +525,19 @@ export function ProviderPanel({
     }
   }, [group?.id, activeAgAccount?.id, loadAntigravity, readAntigravityQuota])
 
+  // Periodic auto-refresh every 60 seconds for active provider quota
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      if (isAntigravityProvider(group?.id) && activeAgAccount) {
+        void readAntigravityQuota?.(activeAgAccount.id).catch(() => {})
+      } else if (isCodexProvider(group?.id) && activeAccount) {
+        void readQuota?.(activeAccount.id).catch(() => {})
+      }
+    }, 60_000)
+    return () => clearInterval(timer)
+  }, [group?.id, activeAgAccount?.id, activeAccount?.id, readAntigravityQuota, readQuota])
+
   const fiveHourPct = fiveHourWin !== undefined ? Math.round(fiveHourWin.remainingFraction * 100) : undefined
   const weeklyPct = weeklyWin !== undefined ? Math.round(weeklyWin.remainingFraction * 100) : undefined
   const fiveHourReset = formatRemaining(fiveHourWin?.resetTime, fiveHourPct)
@@ -540,6 +553,12 @@ export function ProviderPanel({
   const codexWeeklyReset = codexUsageVal?.weeklyResetsAt
     ? formatRemaining(new Date(codexUsageVal.weeklyResetsAt * 1000).toISOString(), codexWeekly)
     : undefined
+
+  const codexPlanType = (activeAccount?.planType ?? '').toUpperCase()
+  const isCodexPro = codexPlanType === 'PRO' || codexPlanType.includes('PRO')
+  const codexPillText = isCodexPro
+    ? (codexWeekly !== undefined ? t('weeklyQuota', { value: codexWeekly }) : (codex5h !== undefined ? t('fiveHourQuota', { value: codex5h }) : '周 100%'))
+    : (codex5h !== undefined ? t('fiveHourQuota', { value: codex5h }) : (codexWeekly !== undefined ? t('weeklyQuota', { value: codexWeekly }) : '5h 100%'))
 
   const quotaBadge = isAg ? (
     <div className={css.quotaWrapper}>
@@ -574,7 +593,7 @@ export function ProviderPanel({
         className={css.quotaTrigger}
         onClick={() => { if (activeAccount) void readQuota?.(activeAccount.id).catch(() => {}) }}
       >
-        {codexWeekly !== undefined ? t('weeklyQuota', { value: codexWeekly }) : `${codex5h ?? 100}%`}
+        {codexPillText}
       </button>
       <div className={css.quotaTooltip} role="tooltip">
         <div className={css.quotaTooltipRow}>

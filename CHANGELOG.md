@@ -4,6 +4,13 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## Unreleased
+
+- Distinguish an observed Antigravity HTTP 503 `UNAVAILABLE` / "No capacity available" response from account quota exhaustion, generic upstream failures, network disconnects, and timeouts. Capacity detection checks the structured error and requested wire model; error bodies remain bounded.
+- Fail promptly when a proxy/upstream closes before complete HTTP response headers instead of waiting for the header timeout. Preserve request acceptance information and do not replay uncertain generation requests.
+- Add regression coverage for capacity JSON/SSE responses, invalid/oversized error bodies, quota/network failures, partial output, and incomplete proxy CONNECT responses.
+- Design reference: [dsh-agy-link](https://github.com/amlyczz/dsh-agy-link) separates server overload from hard account quota errors. These changes are independently implemented; no CLI bridge or source code was copied, and its automatic process retry policy was deliberately not adopted.
+
 ## 0.5.2 — 2026-09-16
 
 - Allow clicking anywhere inside a model card box (not just the model title text) to immediately select and switch to that model.

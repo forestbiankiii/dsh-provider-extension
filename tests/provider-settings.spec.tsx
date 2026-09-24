@@ -82,7 +82,7 @@ describe('provider settings surface', () => {
     fireEvent.click(screen.getByText(en.providerCodex))
     expect(screen.getByText('Work')).toBeTruthy()
     expect(screen.getByText('wk 76%')).toBeTruthy()
-    expect(screen.getByText(en.accountActive)).toBeTruthy()
+    expect(screen.getByText(en.accountCurrent)).toBeTruthy()
     const addButtons = screen.getAllByRole('button', { name: en.addAccount })
     fireEvent.click(addButtons[addButtons.length - 1]!)
     expect(b.loginCodex).toHaveBeenCalledOnce()

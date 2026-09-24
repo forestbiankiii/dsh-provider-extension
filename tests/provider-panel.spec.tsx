@@ -210,6 +210,34 @@ describe('model panel component', () => {
     expect(screen.getByText('周额度:')).toBeTruthy()
     expect(screen.getByText('76%')).toBeTruthy()
   })
+  it('displays 5h quota by default on the pill and weekly for pro accounts', async () => {
+    const props = {
+      locked: false, available: true,
+      useDirectory: (selector: any) => selector({ status: 'ready', groups: [{ id: 'openai-codex', name: 'ChatGPT', models: [{ id: 'codex', name: 'Codex' }] }], current: { provider: 'openai-codex', model: 'codex' }, error: null, failures: [] }),
+      useAccounts: (selector: any) => selector({
+        status: 'ready', error: null,
+        accounts: [{ id: 'plus-user', label: 'Plus User', active: true, planType: 'PLUS' }],
+        usage: { 'plus-user': { status: 'ready', value: { shortPercent: 44, weeklyPercent: 88 } } },
+      }),
+      useAntigravity: (selector: any) => selector({ status: 'idle', accounts: [] }),
+      select: vi.fn(), selectAccount: vi.fn(), readQuota: vi.fn(), loadDirectory: vi.fn(), loadAccounts: vi.fn(),
+      t: (key: keyof typeof en, args?: Record<string, unknown>) => en[key].replace(/\{(\w+)\}/g, (_, k: string) => String(args?.[k] ?? '')),
+    } as any
+    const { unmount } = render(<ProviderPanel {...props} />)
+    expect(screen.getByRole('button', { name: /5h 44%/ })).toBeTruthy()
+    unmount()
+
+    const proProps = {
+      ...props,
+      useAccounts: (selector: any) => selector({
+        status: 'ready', error: null,
+        accounts: [{ id: 'pro-user', label: 'Pro User', active: true, planType: 'PRO' }],
+        usage: { 'pro-user': { status: 'ready', value: { shortPercent: 44, weeklyPercent: 88 } } },
+      }),
+    }
+    render(<ProviderPanel {...proProps} />)
+    expect(screen.getByRole('button', { name: /wk 88%/ })).toBeTruthy()
+  })
   it('filters out Codex models disabled for the active Codex account', async () => {
     localStorage.setItem('dsh-provider-extension:account-disabled-models', JSON.stringify({
       work: ['codex'],

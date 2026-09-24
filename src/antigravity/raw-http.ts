@@ -158,6 +158,8 @@ async function waitForHead(
       clearTimeout(timer)
       socket.removeListener('data', onData)
       socket.removeListener('error', onError)
+      socket.removeListener('end', onClose)
+      socket.removeListener('close', onClose)
       signal?.removeEventListener('abort', onAbort)
       action()
     }
@@ -166,6 +168,10 @@ async function waitForHead(
         ? error
         : new PrivateTransportError('offline', 'The private endpoint closed before response headers', { accepted }),
     ))
+    const onClose = (): void => finish(() => {
+      socket.destroy()
+      reject(new PrivateTransportError('offline', 'The private endpoint closed before response headers', { accepted }))
+    })
     const onAbort = (): void => finish(() => {
       socket.destroy()
       reject(cancelled(accepted))
@@ -192,6 +198,8 @@ async function waitForHead(
     }), timeoutMs)
     socket.on('data', onData)
     socket.once('error', onError)
+    socket.once('end', onClose)
+    socket.once('close', onClose)
     if (signal?.aborted === true) onAbort()
     else signal?.addEventListener('abort', onAbort, { once: true })
   })

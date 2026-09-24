@@ -13,6 +13,7 @@ export declare const en: {
     readonly accountCount: "{count} accounts";
     readonly accountSwitching: "Switching…";
     readonly accountActive: "Active";
+    readonly accountCurrent: "Current";
     readonly accountUse: "Use";
     readonly weeklyQuota: "wk {value}%";
     readonly quotaNoWeekly: "no weekly quota";
