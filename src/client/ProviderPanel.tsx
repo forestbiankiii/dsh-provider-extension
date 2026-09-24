@@ -710,7 +710,7 @@ export function ProviderPanel({
                               {email === undefined ? null : <span className={css.accountEmail}>{email}</span>}
                             </span>
                             <span className={css.accountMeta}>
-                              <span className={css.accountState}>
+                              <span className={css.accountState} data-active={account.active}>
                                 {antigravity.switchingId === account.id ? t('accountSwitching')
                                   : account.active ? t('accountActive') : t('accountUse')}
                               </span>
@@ -781,7 +781,7 @@ export function ProviderPanel({
                             {email === undefined ? null : <span className={css.accountEmail}>{email}</span>}
                           </span>
                           <span className={css.accountMeta}>
-                            <span className={css.accountState}>
+                            <span className={css.accountState} data-active={account.active}>
                               {accounts.switchingId === account.id ? t('accountSwitching')
                                 : account.active ? t('accountActive') : t('accountUse')}
                             </span>

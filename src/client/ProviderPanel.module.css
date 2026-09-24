@@ -312,9 +312,10 @@
   border-radius: 10px;
   outline: none;
   background: transparent;
-  color: var(--dsw-alias-label-secondary);
+  color: var(--dsw-alias-label-primary);
   font-size: 13px;
   line-height: 20px;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
   transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
@@ -330,6 +331,11 @@
 }
 
 .providerCurrent {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--dsw-alias-label-primary);
+}
+
+.providerOption.providerCurrent {
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
   font-weight: 600;
@@ -339,7 +345,8 @@
   flex: none;
   min-width: 20px;
   color: var(--dsw-alias-label-caption);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 400;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -350,16 +357,23 @@
   padding: 6px 0 2px;
 }
 
+.providerFamily + .providerFamily {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+}
+
 .providerFamilyHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 26px;
-  padding: 2px 10px;
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
+  min-height: 28px;
+  padding: 4px 10px 2px;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
   line-height: 18px;
+  font-weight: 600;
 }
 
 .accountRow {
@@ -381,7 +395,7 @@
   gap: 12px;
   width: 100%;
   min-height: 44px;
-  padding: 6px 10px 6px 20px;
+  padding: 6px 10px 6px 18px;
   border: 1px solid transparent;
   border-radius: 10px;
   outline: none;
@@ -419,16 +433,17 @@
 }
 
 .accountLabel {
-  color: inherit;
+  color: var(--dsw-alias-label-primary);
   font-size: 13px;
   line-height: 18px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .accountEmail {
   color: var(--dsw-alias-label-caption);
   font-size: 11px;
   line-height: 16px;
+  font-weight: 400;
 }
 
 .accountMeta {
@@ -444,12 +459,19 @@
   color: var(--dsw-alias-label-caption);
   font-size: 11px;
   line-height: 16px;
+  font-weight: 400;
+}
+
+.accountState[data-active="true"] {
+  color: #10b981;
+  font-weight: 500;
 }
 
 .accountQuota {
-  color: var(--dsw-alias-label-secondary);
+  color: #38bdf8;
   font-size: 11px;
   line-height: 16px;
+  font-weight: 500;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
