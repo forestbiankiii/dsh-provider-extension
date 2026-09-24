@@ -74,7 +74,7 @@ export function apply(ctx: Context): void {
     cleanup: unprovide,
     label: 'antigravity-auth: OAuth and LLM operations',
   })
-  ctx.inject(['commands'], commandCtx => commandCtx.commands.register(createAntigravityAuthCommand(service, () => accountMode)))
+  ctx.inject(['commands'], (commandCtx: any) => commandCtx.commands.register(createAntigravityAuthCommand(service, () => accountMode)))
 }
 
 export * from './auth-service.ts'
