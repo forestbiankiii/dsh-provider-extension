@@ -411,17 +411,6 @@ export function ProviderSettings({
                           {email === undefined ? null : <span className={css.note}>{email}</span>}
                         </div>
                         <div className={css.actions} onClick={e => e.stopPropagation()}>
-                          {!account.active && selectCodexAccount ? (
-                            <button
-                              type="button"
-                              className={css.action}
-                              disabled={accounts.switchingId !== undefined}
-                              onClick={e => {
-                                e.stopPropagation()
-                                void selectCodexAccount(account.id)
-                              }}
-                            >{t('accountUse')}</button>
-                          ) : null}
                           {confirmingDeleteId === account.id ? (
                             <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
                               <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
@@ -698,14 +687,6 @@ export function ProviderSettings({
                                     <button type="button" className={css.action} onClick={() => setEditingAccountId(null)}>{t('renameCancel')}</button>
                                   </>
                                 ) : null}
-                                {!account.active && selectAntigravityAccount ? (
-                                  <button
-                                    type="button"
-                                    className={css.action}
-                                    disabled={antigravity.switchingId !== undefined}
-                                    onClick={() => { void selectAntigravityAccount(account.id) }}
-                                  >{t('accountUse')}</button>
-                                ) : null}
                                 {removeAntigravityAccount ? (
                                   confirmingDeleteId === account.id ? (
                                     <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
@@ -974,14 +955,6 @@ export function ProviderSettings({
                                   <span className={css.note}>{email}</span>
                                 </div>
                                 <div className={css.actions} onClick={e => e.stopPropagation()}>
-                                  {!account.active && selectAntigravityAccount ? (
-                                    <button
-                                      type="button"
-                                      className={css.action}
-                                      disabled={antigravity.switchingId !== undefined}
-                                      onClick={() => { void selectAntigravityAccount(account.id) }}
-                                    >{t('accountUse')}</button>
-                                  ) : null}
                                   <span className={css.accountChevron} data-open={isQuotaOpen}>▼</span>
                                 </div>
                               </div>
@@ -1198,17 +1171,6 @@ export function ProviderSettings({
                             {email === undefined ? null : <span className={css.note}>{email}</span>}
                           </div>
                           <div className={css.actions} onClick={e => e.stopPropagation()}>
-                            {!account.active && selectCodexAccount ? (
-                              <button
-                                type="button"
-                                className={css.action}
-                                disabled={accounts.switchingId !== undefined}
-                                onClick={e => {
-                                  e.stopPropagation()
-                                  void selectCodexAccount(account.id)
-                                }}
-                              >{t('accountUse')}</button>
-                            ) : null}
                             {confirmingDeleteId === account.id ? (
                               <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
                                 <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
