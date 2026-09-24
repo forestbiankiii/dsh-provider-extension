@@ -3,6 +3,7 @@
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client'
 import { createLocalStore, failureMessage, record } from '../store.ts'
 import type { WritableSnapshotStore } from '../store.ts'
+import { getCustomAccountLabel, saveCustomAccountLabel } from '../selection.ts'
 
 export const ANTIGRAVITY_PROVIDER = 'google-antigravity' as const
 export const ANTIGRAVITY_PACKAGE = 'dsh-antigravity-auth' as const
@@ -190,10 +191,13 @@ export function decodeAccounts(value: unknown): readonly AntigravityAccountView[
   for (const raw of root.accounts) {
     const acc = record(raw)
     if (!acc || typeof acc.id !== 'string') continue
+    const email = typeof acc.email === 'string' ? acc.email : undefined
+    const customLabel = getCustomAccountLabel(acc.id, email)
+    const baseLabel = typeof acc.label === 'string' ? acc.label : (email || 'Google Account')
     accounts.push(Object.freeze({
       id: acc.id,
-      label: typeof acc.label === 'string' ? acc.label : ((acc.email as string) || 'Google Account'),
-      ...(typeof acc.email === 'string' ? { email: acc.email } : {}),
+      label: customLabel || baseLabel,
+      ...(email !== undefined ? { email } : {}),
       ...(typeof acc.tier === 'string' && acc.tier.length > 0 ? { tier: acc.tier } : {}),
       active: Boolean(acc.active),
     }))
@@ -362,14 +366,20 @@ export class AntigravityController {
 
   /** Rename one saved Google account. */
   async renameAccount(id: string, label: string): Promise<void> {
+    const current = this.store.getSnapshot()
+    const target = current.accounts.find(a => a.id === id)
+    saveCustomAccountLabel(id, target?.email, label)
+
     try {
       const raw = await this.callRaw('account/rename', { id, label })
       const accounts = decodeAccounts(raw)
       this.patch({ accounts })
       saveCachedAntigravityState(this.store.getSnapshot())
-    } catch (error) {
-      this.patch({ error: failureMessage(error) })
-      throw error
+    } catch {
+      // Keep optimistic rename with saved custom label
+      const nextAccounts = current.accounts.map(a => a.id === id ? { ...a, label } : a)
+      this.patch({ accounts: nextAccounts })
+      saveCachedAntigravityState(this.store.getSnapshot())
     }
   }
 

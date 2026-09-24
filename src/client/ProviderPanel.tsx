@@ -198,9 +198,9 @@ export function ProviderPanel({
   const activeAgAccount = antigravity.accounts.find(account => account.active) ?? antigravity.accounts[0]
   const activeCodexAccount = accounts.accounts.find(account => account.active) ?? accounts.accounts[0]
   const disabledForCurrent = isAntigravityProvider(group?.id)
-    ? getDisabledModelsForAccount(activeAgAccount?.id)
+    ? getDisabledModelsForAccount(activeAgAccount?.id, activeAgAccount?.email)
     : isCodexProvider(group?.id)
-      ? getDisabledModelsForAccount(activeCodexAccount?.id)
+      ? getDisabledModelsForAccount(activeCodexAccount?.id, activeCodexAccount?.email)
       : disabledModels
   const allModels = group?.models ?? []
   const models = allModels.filter(model => !disabledForCurrent.has(model.id))

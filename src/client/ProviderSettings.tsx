@@ -786,7 +786,8 @@ export function ProviderSettings({
                                   ) : (
                                     <ul className={css.models}>
                                       {antigravity.models.models.map(model => {
-                                        const isModelDisabled = accountDisabledMap[account.id]?.includes(model.id)
+                                        const isModelDisabled = (accountDisabledMap[account.id]?.includes(model.id)
+                                          || (account.email ? accountDisabledMap[account.email]?.includes(model.id) : false)) === true
                                         return (
                                           <li key={model.id}>
                                             <span className={css.modelName}>{model.name}</span>
@@ -1029,7 +1030,8 @@ export function ProviderSettings({
                                     ) : (
                                       <ul className={css.models}>
                                         {antigravity.models.models.map(model => {
-                                          const isModelDisabled = accountDisabledMap[account.id]?.includes(model.id)
+                                          const isModelDisabled = (accountDisabledMap[account.id]?.includes(model.id)
+                                            || (account.email ? accountDisabledMap[account.email]?.includes(model.id) : false)) === true
                                           return (
                                             <li key={model.id}>
                                               <span className={css.modelName}>{model.name}</span>
