@@ -104,7 +104,17 @@ export declare const en: {
     readonly providerOpenAi: "OpenAI API";
     readonly providerOpenAiDesc: "Direct OpenAI API key and custom proxy endpoints, coming soon.";
     readonly providerOpenCode: "OpenCode";
-    readonly providerOpenCodeDesc: "Open weights models and custom endpoint integration, coming soon.";
+    readonly providerOpenCodeDesc: "OpenCode Go subscription and gateway models integration.";
+    readonly opencodeApiKey: "API Key";
+    readonly opencodeApiKeyPlaceholder: "Enter OpenCode Go API Key (opencode.ai)";
+    readonly opencodeBaseUrl: "Gateway URL";
+    readonly opencodeConfigured: "Configured";
+    readonly opencodeNotConfigured: "Not configured";
+    readonly opencodeSave: "Save Configuration";
+    readonly opencodeResetDefault: "Reset Default";
+    readonly opencodeModels: "Available Models";
+    readonly opencodeUsage: "Quota & Usage Monitoring";
+    readonly opencodeSaved: "Configuration saved";
     readonly roadmapNotice: "This provider is on the roadmap and will be supported in an upcoming release.";
     readonly contextWindow: "Context window";
     readonly reload: "Reload";

@@ -11,6 +11,7 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { isCodexProvider, maskedEmail, type CodexAccountsState } from './providers/codex.ts'
 import { isAntigravityProvider, type AntigravityState } from './providers/antigravity.ts'
+import { isOpencodeProvider, type OpencodeState } from './providers/opencode.ts'
 import {
   accentFor, activeGroup, effortIndex, isCurrentModel, resolveModelEffort, restingEffort,
   selectionForRow, type ProviderPanelModel, loadDisabledModels, getDisabledModelsForAccount, MODELS_VISIBILITY_EVENT,
@@ -45,6 +46,10 @@ export interface ProviderPanelInjected {
   selectAntigravityAccount?: (id: string) => Promise<void>
   /** Read Antigravity quota for specific or active account. */
   readAntigravityQuota?: (id?: string) => Promise<void>
+  /** OpenCode reactive snapshot. */
+  useOpencode?: <T>(selector: (state: OpencodeState) => T) => T
+  /** Read OpenCode usage. */
+  readOpencodeUsage?: () => Promise<void>
 }
 
 /** Complete replacement-seat props, including the composer's lock state. */
@@ -121,12 +126,14 @@ function formatRemaining(isoTime?: string, pct?: number): string {
 export function ProviderPanel({
   locked, available, useDirectory, useAccounts, useAntigravity,
   loadDirectory, loadAccounts, selectAccount, readQuota, select,
-  loadAntigravity, selectAntigravityAccount, readAntigravityQuota, t,
+  loadAntigravity, selectAntigravityAccount, readAntigravityQuota,
+  useOpencode, readOpencodeUsage, t,
 }: ProviderPanelProps): ReactNode {
   const directory = useDirectory(snapshot => snapshot)
   const accounts = useAccounts(snapshot => snapshot)
   const fallbackAgState: AntigravityState = { status: 'idle', accounts: [], usage: {} }
   const antigravity: AntigravityState = useAntigravity ? useAntigravity(snapshot => snapshot) : fallbackAgState
+  const opencode = useOpencode ? useOpencode(snapshot => snapshot) : undefined
   const [open, setOpen] = useState<OpenPane>(null)
   const [providerDraft, setProviderDraft] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
@@ -533,10 +540,12 @@ export function ProviderPanel({
         void readAntigravityQuota?.(activeAgAccount.id).catch(() => {})
       } else if (isCodexProvider(group?.id) && activeAccount) {
         void readQuota?.(activeAccount.id).catch(() => {})
+      } else if (isOpencodeProvider(group?.id)) {
+        void readOpencodeUsage?.().catch(() => {})
       }
     }, 60_000)
     return () => clearInterval(timer)
-  }, [group?.id, activeAgAccount?.id, activeAccount?.id, readAntigravityQuota, readQuota])
+  }, [group?.id, activeAgAccount?.id, activeAccount?.id, readAntigravityQuota, readQuota, readOpencodeUsage])
 
   const fiveHourPct = fiveHourWin !== undefined ? Math.round(fiveHourWin.remainingFraction * 100) : undefined
   const weeklyPct = weeklyWin !== undefined ? Math.round(weeklyWin.remainingFraction * 100) : undefined
@@ -559,6 +568,8 @@ export function ProviderPanel({
   const codexPillText = isCodexPro
     ? (codexWeekly !== undefined ? t('weeklyQuota', { value: codexWeekly }) : (codex5h !== undefined ? t('fiveHourQuota', { value: codex5h }) : '周 100%'))
     : (codex5h !== undefined ? t('fiveHourQuota', { value: codex5h }) : (codexWeekly !== undefined ? t('weeklyQuota', { value: codexWeekly }) : '5h 100%'))
+
+  const isOpencode = isOpencodeProvider(group?.id)
 
   const quotaBadge = isAg ? (
     <div className={css.quotaWrapper}>
@@ -612,6 +623,36 @@ export function ProviderPanel({
             {codexWeeklyReset ? <span className={css.quotaTooltipReset}>({codexWeeklyReset})</span> : null}
           </div>
         </div>
+      </div>
+    </div>
+  ) : isOpencode && (opencode?.usage?.weekly || opencode?.usage?.rolling) ? (
+    <div className={css.quotaWrapper}>
+      <button
+        type="button"
+        className={css.quotaTrigger}
+        onClick={() => { void readOpencodeUsage?.().catch(() => {}) }}
+      >
+        {opencode.usage.weekly ? t('weeklyQuota', { value: opencode.usage.weekly.percent }) : `${opencode.usage.rolling?.percent ?? 100}%`}
+      </button>
+      <div className={css.quotaTooltip} role="tooltip">
+        {opencode.usage.rolling && (
+          <div className={css.quotaTooltipRow}>
+            <span className={css.quotaTooltipName}>5小时额度:</span>
+            <div>
+              <span className={css.quotaTooltipValue}>{opencode.usage.rolling.percent}%</span>
+              {opencode.usage.rolling.resetsAt ? <span className={css.quotaTooltipReset}>({formatRemaining(opencode.usage.rolling.resetsAt, opencode.usage.rolling.percent)})</span> : null}
+            </div>
+          </div>
+        )}
+        {opencode.usage.weekly && (
+          <div className={css.quotaTooltipRow}>
+            <span className={css.quotaTooltipName}>周额度:</span>
+            <div>
+              <span className={css.quotaTooltipValue}>{opencode.usage.weekly.percent}%</span>
+              {opencode.usage.weekly.resetsAt ? <span className={css.quotaTooltipReset}>({formatRemaining(opencode.usage.weekly.resetsAt, opencode.usage.weekly.percent)})</span> : null}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   ) : null

@@ -6,6 +6,13 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import { maskedEmail, type CodexAccountsState } from './providers/codex.ts'
 import { type AntigravityState } from './providers/antigravity.ts'
 import {
+  type OpencodeState,
+  DEFAULT_OPENCODE_BASE_URL,
+  DEFAULT_OPENCODE_MODELS,
+  OPENCODE_API_KEY_STORAGE_KEY,
+  OPENCODE_BASE_URL_STORAGE_KEY,
+} from './providers/opencode.ts'
+import {
   loadDisabledModels, saveDisabledModels, loadAccountDisabledModels,
   saveAccountDisabledModels, type AccountDisabledModelsMap, MODELS_VISIBILITY_EVENT,
 } from './selection.ts'
@@ -34,6 +41,10 @@ export interface ProviderSettingsInjected {
   renameAntigravityAccount?: (id: string, label: string) => Promise<void>
   removeAntigravityAccount?: (id: string) => Promise<void>
   readAntigravityQuota?: (id?: string) => Promise<void>
+  useOpencode?: <T>(selector: (state: OpencodeState) => T) => T
+  saveOpencodeConfig?: (apiKey: string, baseURL?: string) => void
+  readOpencodeUsage?: () => Promise<void>
+  refreshOpencodeModels?: () => Promise<void>
 }
 
 /** Settings-section props: the shell lends `close`, the plugin injects the rest. */
@@ -165,10 +176,48 @@ function formatResetSeconds(epochSeconds?: number): string {
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
 export function ProviderSettings({
   useAccounts, useAntigravity, loadAccounts, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, resetCodexQuota,
-  loadAntigravity, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, t,
+  loadAntigravity, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota,
+  useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, t,
 }: ProviderSettingsProps): ReactNode {
   const accounts = useAccounts(snapshot => snapshot)
   const antigravity = useAntigravity(snapshot => snapshot)
+  const opencodeState = useOpencode ? useOpencode(s => s) : {
+    apiKey: '',
+    baseURL: DEFAULT_OPENCODE_BASE_URL,
+    configured: false,
+    usageStatus: 'idle' as const,
+    models: DEFAULT_OPENCODE_MODELS,
+    modelsStatus: 'idle' as const,
+  }
+
+  const [stagedOpencodeKey, setStagedOpencodeKey] = useState<string>(() => {
+    try {
+      return typeof window !== 'undefined' ? window.localStorage.getItem(OPENCODE_API_KEY_STORAGE_KEY) || '' : ''
+    } catch { return '' }
+  })
+  const [stagedOpencodeURL, setStagedOpencodeURL] = useState<string>(() => {
+    try {
+      return typeof window !== 'undefined' ? window.localStorage.getItem(OPENCODE_BASE_URL_STORAGE_KEY) || DEFAULT_OPENCODE_BASE_URL : DEFAULT_OPENCODE_BASE_URL
+    } catch { return DEFAULT_OPENCODE_BASE_URL }
+  })
+  const [showOpencodeKey, setShowOpencodeKey] = useState<boolean>(false)
+  const [opencodeSaveMsg, setOpencodeSaveMsg] = useState<string | null>(null)
+
+  const handleSaveOpencode = () => {
+    if (saveOpencodeConfig) {
+      saveOpencodeConfig(stagedOpencodeKey, stagedOpencodeURL)
+    } else {
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(OPENCODE_API_KEY_STORAGE_KEY, stagedOpencodeKey.trim())
+          window.localStorage.setItem(OPENCODE_BASE_URL_STORAGE_KEY, stagedOpencodeURL.trim())
+        }
+      } catch {}
+    }
+    setOpencodeSaveMsg(t('opencodeSaved'))
+    setTimeout(() => setOpencodeSaveMsg(null), 3000)
+  }
+
   const [selectedProvider, setSelectedProvider] = useState<ProviderId | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [disabledModels, setDisabledModels] = useState<Set<string>>(() => loadDisabledModels())
@@ -810,7 +859,157 @@ export function ProviderSettings({
           </article>
         )}
 
-        {selectedProvider !== 'codex' && selectedProvider !== 'antigravity' && (
+        {selectedProvider === 'opencode' && (
+          <article className={css.card}>
+            <div className={css.cardHead}>
+              <div className={css.cardTitleRow}>
+                <div className={css.providerIcon} data-provider="opencode">OC</div>
+                <div className={css.cardTitles}>
+                  <span className={css.cardTitle}>{t('providerOpenCode')}</span>
+                  <span className={css.cardSubtitle}>{t('providerOpenCodeDesc')}</span>
+                </div>
+              </div>
+              <span className={css.providerBadge} data-status={opencodeState.configured ? 'ready' : 'idle'}>
+                {opencodeState.configured ? t('opencodeConfigured') : t('opencodeNotConfigured')}
+              </span>
+            </div>
+
+            {/* 1. API 密钥与网关配置 */}
+            <div className={css.opencodeConfigSection}>
+              <div className={css.fieldGroup}>
+                <label className={css.fieldLabel}>{t('opencodeApiKey')}</label>
+                <div className={css.inputWithAction}>
+                  <input
+                    type={showOpencodeKey ? 'text' : 'password'}
+                    className={css.input}
+                    placeholder={t('opencodeApiKeyPlaceholder')}
+                    value={stagedOpencodeKey}
+                    onChange={e => setStagedOpencodeKey(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className={css.action}
+                    onClick={() => setShowOpencodeKey(!showOpencodeKey)}
+                  >
+                    {showOpencodeKey ? '隐藏' : '显示'}
+                  </button>
+                </div>
+              </div>
+
+              <div className={css.fieldGroup}>
+                <label className={css.fieldLabel}>{t('opencodeBaseUrl')}</label>
+                <div className={css.inputWithAction}>
+                  <input
+                    type="text"
+                    className={css.input}
+                    value={stagedOpencodeURL}
+                    onChange={e => setStagedOpencodeURL(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className={css.action}
+                    onClick={() => setStagedOpencodeURL(DEFAULT_OPENCODE_BASE_URL)}
+                  >
+                    {t('opencodeResetDefault')}
+                  </button>
+                </div>
+              </div>
+
+              <div className={css.saveActionRow}>
+                <button
+                  type="button"
+                  className={`${css.action} ${css.primary}`}
+                  onClick={handleSaveOpencode}
+                >
+                  {t('opencodeSave')}
+                </button>
+                {opencodeSaveMsg && (
+                  <span className={css.saveSuccessMsg}>{opencodeSaveMsg}</span>
+                )}
+              </div>
+            </div>
+
+            {/* 2. 配额与用量监控 */}
+            {opencodeState.usage && (
+              <div className={css.cockpitPanel}>
+                <div className={css.blockHeadRow}>
+                  <span className={css.quotaGroupTitle}>{t('opencodeUsage')}</span>
+                  <button
+                    type="button"
+                    className={css.action}
+                    onClick={() => { void readOpencodeUsage?.() }}
+                  >
+                    {t('providerRefresh')}
+                  </button>
+                </div>
+                {opencodeState.usage.rolling && (
+                  <div className={css.cockpitQuotaSection}>
+                    <div className={css.cockpitQuotaHeader}>
+                      <span className={css.cockpitQuotaTitle}>5h</span>
+                      <span className={css.cockpitQuotaVal5h}>{opencodeState.usage.rolling.percent}%</span>
+                    </div>
+                    <div className={css.cockpitTrack}>
+                      <div
+                        className={css.cockpitFill5h}
+                        style={{ width: `${Math.min(100, Math.max(0, opencodeState.usage.rolling.percent))}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {opencodeState.usage.weekly && (
+                  <div className={css.cockpitQuotaSection}>
+                    <div className={css.cockpitQuotaHeader}>
+                      <span className={css.cockpitQuotaTitle}>Weekly</span>
+                      <span className={css.cockpitQuotaValWeekly}>{opencodeState.usage.weekly.percent}%</span>
+                    </div>
+                    <div className={css.cockpitTrack}>
+                      <div
+                        className={css.cockpitFillWeekly}
+                        style={{ width: `${Math.min(100, Math.max(0, opencodeState.usage.weekly.percent))}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 3. 可用模型管理与独立开关 */}
+            <div className={css.accountModelsBlock}>
+              <div className={css.blockHeadRow}>
+                <span className={css.quotaGroupTitle}>{t('opencodeModels')}</span>
+                <button
+                  type="button"
+                  className={css.action}
+                  onClick={() => { void refreshOpencodeModels?.() }}
+                >
+                  {t('providerRefresh')}
+                </button>
+              </div>
+              <ul className={css.models}>
+                {opencodeState.models.map(model => {
+                  const isModelDisabled = disabledModels.has(model.id)
+                  return (
+                    <li key={model.id}>
+                      <span className={css.modelName}>{model.name}</span>
+                      <div className={css.modelToggleRow}>
+                        <label className={css.switch} title={t('modelToggle')}>
+                          <input
+                            type="checkbox"
+                            checked={!isModelDisabled}
+                            onChange={() => toggleModel(model.id)}
+                          />
+                          <span className={css.switchSlider} />
+                        </label>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          </article>
+        )}
+
+        {selectedProvider !== 'codex' && selectedProvider !== 'antigravity' && selectedProvider !== 'opencode' && (
           <article className={css.card}>
             <div className={css.cardHead}>
               <span className={css.cardTitle}>{providerTitles[selectedProvider]}</span>
@@ -1381,17 +1580,24 @@ export function ProviderSettings({
 
         {/* 4. OpenCode */}
         <article className={css.providerCard}>
-          <div className={css.providerCardHead}>
-            <div className={css.providerMain} onClick={() => toggleExpand('opencode')}>
+          <div
+            className={css.providerCardHead}
+            onClick={() => toggleExpand('opencode')}
+          >
+            <div className={css.providerMain}>
               <div className={css.providerIcon} data-provider="opencode">OC</div>
               <div className={css.providerTitles}>
                 <span className={css.providerTitle}>{t('providerOpenCode')}</span>
-                <span className={css.providerSubtitle}>{t('providerOpenCodeDesc')}</span>
+                <span className={css.providerSubtitle}>
+                  {opencodeState.configured
+                    ? (opencodeState.models.length > 0 ? `${t('opencodeConfigured')} · ${opencodeState.models.length} 个模型` : t('opencodeConfigured'))
+                    : t('providerOpenCodeDesc')}
+                </span>
               </div>
             </div>
-            <div className={css.providerRight}>
-              <span className={css.providerBadge} data-status="roadmap">
-                {t('providerStatusRoadmap')}
+            <div className={css.providerRight} onClick={e => e.stopPropagation()}>
+              <span className={css.providerBadge} data-status={opencodeState.configured ? 'ready' : 'idle'}>
+                {opencodeState.configured ? t('opencodeConfigured') : t('opencodeNotConfigured')}
               </span>
               <button
                 type="button"
@@ -1400,8 +1606,48 @@ export function ProviderSettings({
               >
                 {t('providerManage')} →
               </button>
+              <span
+                className={css.accountChevron}
+                data-open={expanded.opencode}
+                onClick={() => toggleExpand('opencode')}
+              >▼</span>
             </div>
           </div>
+          {expanded.opencode && (
+            <div className={css.quickView}>
+              <div className={css.opencodeConfigSection}>
+                <div className={css.fieldGroup}>
+                  <label className={css.fieldLabel}>{t('opencodeApiKey')}</label>
+                  <div className={css.inputWithAction}>
+                    <input
+                      type={showOpencodeKey ? 'text' : 'password'}
+                      className={css.input}
+                      placeholder={t('opencodeApiKeyPlaceholder')}
+                      value={stagedOpencodeKey}
+                      onChange={e => setStagedOpencodeKey(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className={css.action}
+                      onClick={() => setShowOpencodeKey(!showOpencodeKey)}
+                    >
+                      {showOpencodeKey ? '隐藏' : '显示'}
+                    </button>
+                    <button
+                      type="button"
+                      className={`${css.action} ${css.primary}`}
+                      onClick={handleSaveOpencode}
+                    >
+                      {t('opencodeSave')}
+                    </button>
+                  </div>
+                </div>
+                {opencodeSaveMsg && (
+                  <span className={css.saveSuccessMsg}>{opencodeSaveMsg}</span>
+                )}
+              </div>
+            </div>
+          )}
         </article>
       </div>
     </section>

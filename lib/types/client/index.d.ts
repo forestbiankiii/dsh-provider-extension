@@ -10,6 +10,8 @@ export { CodexAccountsController, decodeQuota, isCodexProvider, maskedEmail } fr
 export type { CodexAccountView, CodexAccountsState, CodexQuotaView, CodexUsageState } from './providers/codex.ts';
 export { AntigravityController, decodeModels, decodeStatus, isAntigravityProvider } from './providers/antigravity.ts';
 export type { AntigravityModelCatalog, AntigravityState, AntigravityStatus } from './providers/antigravity.ts';
+export { OpencodeController, isOpencodeProvider } from './providers/opencode.ts';
+export type { OpencodeModelView, OpencodeState, OpencodeUsageData, OpencodeUsageWindow } from './providers/opencode.ts';
 export { accentFor, activeGroup, effortIndex, isCurrentModel, restingEffort, selectionForRow } from './selection.ts';
 export type { ProviderPanelGroup, ProviderPanelModel } from './selection.ts';
 export type { ProviderPanelKey } from './locales.ts';

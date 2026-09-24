@@ -6,6 +6,7 @@ import { apply as applyAntigravitySearch } from './antigravity/search.ts'
 import { apply as applyAntigravityImage } from './antigravity/image.ts'
 import { apply as applyAntigravityVideo } from './antigravity/video.ts'
 import { apply as applyCodexSubscription } from './codex/index.js'
+import { apply as applyOpenCode } from './opencode/index.js'
 
 export const name = 'provider-extension'
 export const inject = [
@@ -40,6 +41,13 @@ export function apply(ctx: Context): void {
 
   // 5. Mount ChatGPT / Codex subscription service, LLM adapter, account RPC, and tools
   applyCodexSubscription(ctx)
+
+  // 6. Mount OpenCode Go adapter, live catalog, usage service, and remotes
+  try {
+    applyOpenCode(ctx)
+  } catch (error) {
+    ctx.logger?.warn(`Failed to mount OpenCode Go: ${String(error)}`)
+  }
 }
 
 export * from './antigravity/index.ts'

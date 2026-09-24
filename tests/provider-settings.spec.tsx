@@ -175,4 +175,18 @@ describe('provider settings surface', () => {
     fireEvent.click(screen.getByRole('button', { name: en.quotaHide }))
     expect(screen.queryByText(en.quotaBalance)).toBeNull()
   })
+
+  it('navigates to OpenCode settings and saves configuration', () => {
+    bench({ status: 'ready' })
+    expect(screen.getByText(en.providerOpenCode)).toBeTruthy()
+    const manageButtons = screen.getAllByRole('button', { name: new RegExp(en.providerManage) })
+    fireEvent.click(manageButtons[3]!)
+    expect(screen.getByTestId('provider-settings-detail')).toBeTruthy()
+    expect(screen.getByText(en.opencodeApiKey)).toBeTruthy()
+    expect(screen.getByText(en.opencodeBaseUrl)).toBeTruthy()
+    expect(screen.getByText(en.opencodeModels)).toBeTruthy()
+    expect(screen.getByText('DeepSeek V4.1 Flash')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.opencodeSave }))
+    expect(screen.getByText(en.opencodeSaved)).toBeTruthy()
+  })
 })

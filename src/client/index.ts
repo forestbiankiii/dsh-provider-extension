@@ -16,6 +16,7 @@ import { cssText } from './ProviderPanel.module.css'
 import { cssText as settingsCssText } from './ProviderSettings.module.css'
 import { CodexAccountsController } from './providers/codex.ts'
 import { AntigravityController, isAntigravityProvider } from './providers/antigravity.ts'
+import { OpencodeController, isOpencodeProvider } from './providers/opencode.ts'
 import { en, zh, type ProviderPanelKey } from './locales.ts'
 
 export { ProviderPanel } from './ProviderPanel.tsx'
@@ -26,6 +27,8 @@ export { CodexAccountsController, decodeQuota, isCodexProvider, maskedEmail } fr
 export type { CodexAccountView, CodexAccountsState, CodexQuotaView, CodexUsageState } from './providers/codex.ts'
 export { AntigravityController, decodeModels, decodeStatus, isAntigravityProvider } from './providers/antigravity.ts'
 export type { AntigravityModelCatalog, AntigravityState, AntigravityStatus } from './providers/antigravity.ts'
+export { OpencodeController, isOpencodeProvider } from './providers/opencode.ts'
+export type { OpencodeModelView, OpencodeState, OpencodeUsageData, OpencodeUsageWindow } from './providers/opencode.ts'
 export { accentFor, activeGroup, effortIndex, isCurrentModel, restingEffort, selectionForRow } from './selection.ts'
 export type { ProviderPanelGroup, ProviderPanelModel } from './selection.ts'
 export type { ProviderPanelKey } from './locales.ts'
@@ -56,8 +59,10 @@ export function apply(ctx: ClientContext): void {
   const connection = ctx.get('connection') as unknown as ConnectionHandle
   const codexAccounts = new CodexAccountsController(connection.rpc)
   const antigravity = new AntigravityController(connection.rpc)
+  const opencode = new OpencodeController()
   ctx.effect(() => () => { codexAccounts.dispose() }, 'dsh-provider-extension: Codex account controller')
   ctx.effect(() => () => { antigravity.dispose() }, 'dsh-provider-extension: Antigravity controller')
+  ctx.effect(() => () => { opencode.dispose() }, 'dsh-provider-extension: OpenCode controller')
   ctx.effect(() => ctx.on('connection/reset', () => {
     codexAccounts.invalidate()
     antigravity.invalidate()
@@ -104,6 +109,10 @@ export function apply(ctx: ClientContext): void {
       renameAntigravityAccount: async (id, label) => { await antigravity.renameAccount(id, label) },
       removeAntigravityAccount: async (id) => { await antigravity.removeAccount(id) },
       readAntigravityQuota: async (id) => { await antigravity.readQuota(id) },
+      useOpencode: (selector) => selector(opencode.store.getSnapshot()),
+      saveOpencodeConfig: (apiKey, baseURL) => { opencode.saveConfig(apiKey, baseURL) },
+      readOpencodeUsage: async () => { await opencode.readUsage() },
+      refreshOpencodeModels: async () => { await opencode.refreshModels() },
     }),
   }, ProviderSettings))
 
@@ -138,6 +147,8 @@ export function apply(ctx: ClientContext): void {
         readAntigravityQuota: async (id) => {
           await antigravity.readQuota(id)
         },
+        useOpencode: (selector) => selector(opencode.store.getSnapshot()),
+        readOpencodeUsage: async () => { await opencode.readUsage() },
         select: async (selection) => { await directory.select(selection) },
       }
     },
