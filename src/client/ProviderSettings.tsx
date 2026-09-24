@@ -224,13 +224,14 @@ export function ProviderSettings({
     }
   }, [selectedProvider, expanded.codex, accounts.accounts, accounts.switchingId, readQuota])
 
-  const toggleAccountModel = (accountId: string, modelId: string) => {
+  const toggleAccountModel = (accountId: string, modelId: string, email?: string) => {
     setAccountDisabledMap(prev => {
-      const currentList = prev[accountId] ?? []
+      const currentList = prev[accountId] ?? (email ? prev[email] : undefined) ?? []
       const nextList = currentList.includes(modelId)
         ? currentList.filter(id => id !== modelId)
         : [...currentList, modelId]
       const nextMap = { ...prev, [accountId]: nextList }
+      if (email) nextMap[email] = nextList
       saveAccountDisabledModels(nextMap)
       return nextMap
     })
@@ -545,7 +546,8 @@ export function ProviderSettings({
                             </div>
                             <ul className={css.models}>
                               {CODEX_MODELS.map(model => {
-                                const isModelDisabled = accountDisabledMap[account.id]?.includes(model.id)
+                                const isModelDisabled = (accountDisabledMap[account.id]?.includes(model.id)
+                                  || (account.email ? accountDisabledMap[account.email]?.includes(model.id) : false)) === true
                                 return (
                                   <li key={model.id}>
                                     <span className={css.modelName}>{model.name}</span>
@@ -554,7 +556,7 @@ export function ProviderSettings({
                                         <input
                                           type="checkbox"
                                           checked={!isModelDisabled}
-                                          onChange={() => toggleAccountModel(account.id, model.id)}
+                                          onChange={() => toggleAccountModel(account.id, model.id, account.email)}
                                         />
                                         <span className={css.switchSlider} />
                                       </label>
@@ -798,7 +800,7 @@ export function ProviderSettings({
                                                 <input
                                                   type="checkbox"
                                                   checked={!isModelDisabled}
-                                                  onChange={() => toggleAccountModel(account.id, model.id)}
+                                                  onChange={() => toggleAccountModel(account.id, model.id, account.email)}
                                                 />
                                                 <span className={css.switchSlider} />
                                               </label>
@@ -1041,7 +1043,7 @@ export function ProviderSettings({
                                                   <input
                                                     type="checkbox"
                                                     checked={!isModelDisabled}
-                                                    onChange={() => toggleAccountModel(account.id, model.id)}
+                                                    onChange={() => toggleAccountModel(account.id, model.id, account.email)}
                                                   />
                                                   <span className={css.switchSlider} />
                                                 </label>
@@ -1323,7 +1325,8 @@ export function ProviderSettings({
                               </div>
                               <ul className={css.models}>
                                 {CODEX_MODELS.map(model => {
-                                  const isModelDisabled = accountDisabledMap[account.id]?.includes(model.id)
+                                  const isModelDisabled = (accountDisabledMap[account.id]?.includes(model.id)
+                                    || (account.email ? accountDisabledMap[account.email]?.includes(model.id) : false)) === true
                                   return (
                                     <li key={model.id}>
                                       <span className={css.modelName}>{model.name}</span>
@@ -1332,7 +1335,7 @@ export function ProviderSettings({
                                           <input
                                             type="checkbox"
                                             checked={!isModelDisabled}
-                                            onChange={() => toggleAccountModel(account.id, model.id)}
+                                            onChange={() => toggleAccountModel(account.id, model.id, account.email)}
                                           />
                                           <span className={css.switchSlider} />
                                         </label>

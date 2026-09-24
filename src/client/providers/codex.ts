@@ -2,6 +2,7 @@
 
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client'
 import { createLocalStore, failureMessage, record } from '../store.ts'
+import { getCustomAccountLabel, saveCustomAccountLabel } from '../selection.ts'
 
 export interface CodexAccountView {
   readonly id: string
@@ -106,11 +107,14 @@ function decodeAccount(value: unknown): CodexAccountView | undefined {
   if (typeof candidate.id !== 'string' || candidate.id.length === 0) return undefined
   if (typeof candidate.label !== 'string' || candidate.label.length === 0) return undefined
   if (typeof candidate.active !== 'boolean') return undefined
+  const email = typeof candidate.email === 'string' && candidate.email.length > 0 ? candidate.email : undefined
+  const customLabel = getCustomAccountLabel(candidate.id, email)
+  const label = customLabel || candidate.label
   return Object.freeze({
     id: candidate.id,
-    label: candidate.label,
+    label,
     active: candidate.active,
-    ...typeof candidate.email === 'string' && candidate.email.length > 0 ? { email: candidate.email } : {},
+    ...email !== undefined ? { email } : {},
     ...typeof candidate.expiresAt === 'number' ? { expiresAt: candidate.expiresAt } : {},
     ...typeof candidate.planType === 'string' ? { planType: candidate.planType } : { planType: 'PLUS' },
     ...typeof candidate.accountId === 'string' ? { accountId: candidate.accountId } : {},
@@ -411,6 +415,9 @@ export class CodexAccountsController {
   /** Rename one saved ChatGPT account. */
   async renameAccount(id: string, label: string): Promise<void> {
     const current = this.store.getSnapshot()
+    const target = current.accounts.find(acc => acc.id === id)
+    saveCustomAccountLabel(id, target?.email, label)
+
     const nextAccounts = current.accounts.map(acc => acc.id === id ? { ...acc, label } : acc)
     const nextState = Object.freeze({ ...current, accounts: nextAccounts })
     this.store.set(nextState)

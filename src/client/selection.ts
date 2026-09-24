@@ -71,9 +71,37 @@ export function activeGroup(state: ModelDirectoryState): ProviderPanelGroup | un
 
 export const DISABLED_MODELS_STORAGE_KEY = 'dsh-provider-extension:disabled-models'
 export const ACCOUNT_DISABLED_MODELS_STORAGE_KEY = 'dsh-provider-extension:account-disabled-models'
+export const CUSTOM_ACCOUNT_LABELS_STORAGE_KEY = 'dsh-provider-extension:custom-account-labels'
 export const MODELS_VISIBILITY_EVENT = 'dsh-provider-extension:models-visibility-changed'
 
 export type AccountDisabledModelsMap = Record<string, string[]>
+
+export function loadCustomAccountLabels(): Record<string, string> {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(CUSTOM_ACCOUNT_LABELS_STORAGE_KEY)
+      if (raw) return JSON.parse(raw) as Record<string, string>
+    }
+  } catch {}
+  return {}
+}
+
+export function saveCustomAccountLabel(id: string, email: string | undefined, label: string): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const map = loadCustomAccountLabels()
+      map[id] = label
+      if (email) map[email] = label
+      window.localStorage.setItem(CUSTOM_ACCOUNT_LABELS_STORAGE_KEY, JSON.stringify(map))
+      window.dispatchEvent(new Event(MODELS_VISIBILITY_EVENT))
+    }
+  } catch {}
+}
+
+export function getCustomAccountLabel(id: string, email?: string): string | undefined {
+  const map = loadCustomAccountLabels()
+  return map[id] ?? (email ? map[email] : undefined)
+}
 
 export function loadAccountDisabledModels(): AccountDisabledModelsMap {
   try {
@@ -94,10 +122,13 @@ export function saveAccountDisabledModels(map: AccountDisabledModelsMap): void {
   } catch {}
 }
 
-export function getDisabledModelsForAccount(accountId?: string): Set<string> {
+export function getDisabledModelsForAccount(accountId?: string, email?: string): Set<string> {
   const map = loadAccountDisabledModels()
   if (accountId && Array.isArray(map[accountId])) {
     return new Set(map[accountId])
+  }
+  if (email && Array.isArray(map[email])) {
+    return new Set(map[email])
   }
   return loadDisabledModels()
 }

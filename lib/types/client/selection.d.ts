@@ -21,10 +21,14 @@ export declare function selectionForRow(model: ProviderPanelModel, provider: str
 export declare function activeGroup(state: ModelDirectoryState): ProviderPanelGroup | undefined;
 export declare const DISABLED_MODELS_STORAGE_KEY = "dsh-provider-extension:disabled-models";
 export declare const ACCOUNT_DISABLED_MODELS_STORAGE_KEY = "dsh-provider-extension:account-disabled-models";
+export declare const CUSTOM_ACCOUNT_LABELS_STORAGE_KEY = "dsh-provider-extension:custom-account-labels";
 export declare const MODELS_VISIBILITY_EVENT = "dsh-provider-extension:models-visibility-changed";
 export type AccountDisabledModelsMap = Record<string, string[]>;
+export declare function loadCustomAccountLabels(): Record<string, string>;
+export declare function saveCustomAccountLabel(id: string, email: string | undefined, label: string): void;
+export declare function getCustomAccountLabel(id: string, email?: string): string | undefined;
 export declare function loadAccountDisabledModels(): AccountDisabledModelsMap;
 export declare function saveAccountDisabledModels(map: AccountDisabledModelsMap): void;
-export declare function getDisabledModelsForAccount(accountId?: string): Set<string>;
+export declare function getDisabledModelsForAccount(accountId?: string, email?: string): Set<string>;
 export declare function loadDisabledModels(): Set<string>;
 export declare function saveDisabledModels(disabled: Set<string>): void;
