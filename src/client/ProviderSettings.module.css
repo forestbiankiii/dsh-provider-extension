@@ -588,12 +588,14 @@
 }
 
 .switch {
+  box-sizing: border-box;
   position: relative;
+  flex: 0 0 auto;
   display: inline-block;
   width: 36px;
   height: 20px;
-  flex: none;
   cursor: pointer;
+  user-select: none;
 }
 
 .switch input {
@@ -604,40 +606,44 @@
 }
 
 .switchSlider {
+  box-sizing: border-box;
   position: absolute;
   cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--dsw-alias-bg-layer-3, rgba(255, 255, 255, 0.08));
-  border: 1px solid var(--dsw-alias-border-l2);
-  transition: background-color 160ms ease, border-color 160ms ease;
-  border-radius: 20px;
-  box-sizing: border-box;
+  inset: 0;
+  border: 0;
+  border-radius: 999px;
+  corner-shape: round;
+  background-color: var(--dsw-alias-border-l3, rgba(125, 125, 125, 0.3));
+  transition: background-color 140ms ease;
 }
 
 .switchSlider:before {
+  box-sizing: border-box;
   position: absolute;
   content: "";
-  height: 14px;
-  width: 14px;
+  height: 16px;
+  width: 16px;
   left: 2px;
-  bottom: 2px;
-  background-color: var(--dsw-alias-label-tertiary);
-  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 160ms ease;
+  top: 2px;
+  background-color: var(--dsw-alias-label-primary-foreground, #ffffff);
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  corner-shape: round;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.switch:focus-visible .switchSlider {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
 }
 
 .switch input:checked + .switchSlider {
-  background-color: #10a37f;
-  border-color: #10a37f;
+  background-color: var(--dsw-alias-brand-primary, #0f0f11);
 }
 
 .switch input:checked + .switchSlider:before {
   transform: translateX(16px);
-  background-color: #ffffff;
+  background-color: var(--dsw-alias-label-primary-foreground, #ffffff);
 }
 
 /* ------------------------------------------------------------- Account Customization & Per-Account Quota */
