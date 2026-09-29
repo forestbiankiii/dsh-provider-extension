@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProviderSettings, type ProviderSettingsProps } from '../src/client/ProviderSettings.tsx'
 import { en } from '../src/client/locales.ts'
 import type { AntigravityState } from '../src/client/providers/antigravity.ts'
 import type { CodexAccountsState } from '../src/client/providers/codex.ts'
+import { codexEnabledModels } from '../src/client/codex-visibility.ts'
 
-afterEach(cleanup)
+afterEach(() => { cleanup(); localStorage.clear() })
 
 const emptyAccounts: CodexAccountsState = { status: 'ready', error: null, accounts: [], usage: {}, restoreFailed: false }
 const codexAccounts: CodexAccountsState = {
@@ -28,6 +29,7 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
     useAccounts: (selector: (state: CodexAccountsState) => unknown) => selector(accounts),
     useAntigravity: (selector: (state: AntigravityState) => unknown) => selector(antigravity),
     loadAccounts,
+    loadCodexModels: async () => [{ id: 'host-model', name: 'Host Model' }, { id: 'gpt-6-astra', name: 'GPT-6 Astra' }],
     readQuota: vi.fn(async () => {}),
     loginCodex,
     renameCodexAccount,
@@ -174,6 +176,27 @@ describe('provider settings surface', () => {
     // Clicking the card collapses the quota
     fireEvent.click(screen.getByRole('button', { name: en.quotaHide }))
     expect(screen.queryByText(en.quotaBalance)).toBeNull()
+  })
+
+  it.each(['quick', 'detail'])('uses the Host catalog and account-specific whitelist in %s settings', async (mode) => {
+    bench({ status: 'ready' }, codexAccounts)
+    if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
+    else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
+    fireEvent.click(screen.getByRole('button', { name: en.quotaView }))
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Host Model' })).toBeTruthy())
+    expect(screen.queryByRole('checkbox', { name: 'GPT-6 Sol' })).toBeNull()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Host Model' }))
+    expect([...codexEnabledModels('work')!]).toEqual(['gpt-6-astra'])
+    expect(codexEnabledModels('personal')).toBeUndefined()
+    expect((screen.getByRole('checkbox', { name: 'Host Model' }) as HTMLInputElement).checked).toBe(false)
+  })
+
+  it('does not present the active account catalog as another account’s available models', () => {
+    bench({ status: 'ready' }, { ...codexAccounts, accounts: [{ ...codexAccounts.accounts[0]!, active: false }] })
+    fireEvent.click(screen.getByText(en.providerCodex))
+    fireEvent.click(screen.getByRole('button', { name: en.quotaView }))
+    expect(screen.getByText(en.codexModelsInactive)).toBeTruthy()
+    expect(screen.queryByRole('checkbox')).toBeNull()
   })
 
   it('navigates to OpenCode settings and saves configuration', () => {

@@ -14,11 +14,12 @@ import { ProviderSettings } from './ProviderSettings.tsx'
 import type { ProviderSettingsInjected } from './ProviderSettings.tsx'
 import { cssText } from './ProviderPanel.module.css'
 import { cssText as settingsCssText } from './ProviderSettings.module.css'
-import { CodexAccountsController } from './providers/codex.ts'
+import { CodexAccountsController, isCodexProvider } from './providers/codex.ts'
 import { AntigravityController, isAntigravityProvider } from './providers/antigravity.ts'
 import { OpencodeController, isOpencodeProvider } from './providers/opencode.ts'
 import { en, zh, type ProviderPanelKey } from './locales.ts'
 import { accountRpcFallback } from './account-rpc.ts'
+import { forceCatalogReload } from './catalog-refresh.ts'
 
 export { ProviderPanel } from './ProviderPanel.tsx'
 export type { ProviderPanelInjected, ProviderPanelProps } from './ProviderPanel.tsx'
@@ -109,6 +110,14 @@ export function apply(ctx: ClientContext): void {
     inject: (): ProviderSettingsInjected => ({
       hooks: { accounts: codexAccounts.store, antigravity: antigravity.store },
       loadAccounts: async () => { await codexAccounts.load() },
+      loadCodexModels: async () => {
+        await codexAccounts.refreshModels()
+        const result = await ctx.remote.session.modelCatalog()
+        if (!result.ok) throw new Error(result.error.message)
+        const failure = result.value.failures.find(entry => entry.id === 'openai-codex')
+        if (failure) throw new Error(failure.message)
+        return result.value.groups.find(group => group.id === 'openai-codex')?.models ?? []
+      },
       readQuota: readCodexQuota,
       loginCodex: async () => { await codexAccounts.login() },
       selectCodexAccount: async (id) => { await codexAccounts.select(id) },
@@ -142,16 +151,23 @@ export function apply(ctx: ClientContext): void {
       return {
         available: (ctx.sessions as unknown as { subagentAddress?: (id: SessionId) => unknown }).subagentAddress?.(sessionId as SessionId) === undefined,
         hooks: { directory: directory.store, accounts: codexAccounts.store, antigravity: antigravity.store },
-        loadDirectory: async () => { await directory.load() },
+        loadDirectory: async () => {
+          if (isCodexProvider(directory.store.getSnapshot().current?.provider)) await codexAccounts.refreshModels()
+          forceCatalogReload(ctx.modelDirectories)
+          await directory.load()
+        },
         loadAccounts: async () => { await codexAccounts.load() },
         loadAntigravity: async () => { await antigravity.load() },
         selectAccount: async (id) => {
           await codexAccounts.select(id)
           window.dispatchEvent(new Event('dsh-codex-subscription:refresh-quick-quota'))
+          await codexAccounts.refreshModels()
+          forceCatalogReload(ctx.modelDirectories)
           await directory.load()
         },
         selectAntigravityAccount: async (id) => {
           await antigravity.selectAccount(id)
+          forceCatalogReload(ctx.modelDirectories)
           await directory.load()
         },
         readQuota: async (id) => {

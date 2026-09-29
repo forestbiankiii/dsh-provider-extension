@@ -76,6 +76,8 @@ export declare class CodexAccountsController {
      * @param generation - operation allowed to publish the result.
      */
     loadUsage(generation?: number): Promise<void>;
+    /** Wait for the Host's online catalog before a surface reads its directory. */
+    refreshModels(): Promise<void>;
     /** Permanently switch the active account and read its quota. */
     select(id: string): Promise<void>;
     /**

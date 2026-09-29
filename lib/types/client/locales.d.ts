@@ -50,7 +50,10 @@ export declare const en: {
     readonly antigravitySignOut: "Sign out";
     readonly antigravityModels: "Models reported for this account";
     readonly antigravityNoModels: "No model catalog yet. Sign in first.";
-    readonly codexModels: "Available models for this account";
+    readonly codexModels: "Models in the current Host catalog";
+    readonly codexModelsInactive: "Switch to this account in the provider picker to load and configure its models. Other accounts’ switches do not apply here.";
+    readonly codexModelsScope: "These switches only control this account’s picker. They do not grant model access.";
+    readonly codexModelsMissing: "Saved selections not in the current catalog (preferences retained): {models}";
     readonly antigravityAccounts: "Google accounts";
     readonly antigravityNoAccounts: "No Google account connected yet. Sign in to add an account.";
     readonly antigravityAddAccount: "Add Google account";

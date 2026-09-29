@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import { ProviderPanel, sliderIndexFromPoint, type ProviderPanelProps } from '../src/client/ProviderPanel.tsx'
 import { en } from '../src/client/locales.ts'
+import css from '../src/client/ProviderPanel.module.css'
+import { saveCodexEnabledModels, CODEX_ENABLED_MODELS_KEY } from '../src/client/codex-visibility.ts'
 import type { CodexAccountsState } from '../src/client/providers/codex.ts'
 afterEach(cleanup)
 function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean; provider?: string } = {}) {
@@ -33,7 +35,7 @@ function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean; prov
     t: (key: keyof typeof en, args?: Record<string, unknown>) => en[key].replace(/\{(\w+)\}/g, (_, k: string) => String(args?.[k] ?? '')) } as unknown as ProviderPanelProps
   const view = render(<ProviderPanel {...props} />)
   fireEvent.click(screen.getByRole('button', { name: en.title }))
-  return { select, selectAccount, readQuota, loadDirectory, loadAccounts, view }
+  return { select, selectAccount, readQuota, loadDirectory, loadAccounts, view, state, props }
 }
 describe('model panel component', () => {
   it('renders separate provider and model triggers, then scopes models to the chosen provider', async () => {
@@ -135,6 +137,66 @@ describe('model panel component', () => {
     expect(sliderIndexFromPoint(900, rect, 4)).toBe(3)
     expect(sliderIndexFromPoint(150, rect, 1)).toBe(0)
     expect(sliderIndexFromPoint(150, rect, 0)).toBe(-1)
+  })
+  it('keeps remembered inactive efforts neutral and renders progress only for the active row', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    b.state.groups[0]!.models.push({ id: 'luna', name: 'Luna', reasoning: {
+      defaultEffort: 'high', efforts: [{ id: 'low', name: 'Low' }, { id: 'high', name: 'High' }],
+    } })
+    b.view.rerender(<ProviderPanel {...b.props} />)
+    const other = document.querySelector('[data-provider-panel-model="luna"]')!
+    expect((other.querySelector('input') as HTMLInputElement).value).toBe('1')
+    expect(other.querySelector('[data-active="true"]')).toBeNull()
+    expect(other.querySelector(`.${css.fill}`)).toBeNull()
+    expect(other.querySelector(`.${css.thumb}`)).toBeNull()
+    expect(other.querySelectorAll('[data-edge]')).toHaveLength(2)
+    const dialog = screen.getByRole('dialog', { name: en.title })
+    expect(dialog.querySelectorAll(`.${css.thumb}`)).toHaveLength(1)
+    expect(dialog.querySelectorAll('[data-current="true"]')).toHaveLength(1)
+  })
+  it('uses hysteresis around boundaries without delaying clicks or skipping endpoints', () => {
+    const rect = { left: 0, width: 420 }
+    // Five stops: 10, 110, 210, 310, 410; boundary at 160.
+    expect(sliderIndexFromPoint(161, rect, 5)).toBe(2)
+    expect(sliderIndexFromPoint(161, rect, 5, 1)).toBe(1)
+    expect(sliderIndexFromPoint(166, rect, 5, 1)).toBe(2)
+    expect(sliderIndexFromPoint(159, rect, 5, 2)).toBe(2)
+    expect(sliderIndexFromPoint(154, rect, 5, 2)).toBe(1)
+    expect(sliderIndexFromPoint(410, rect, 5, 1)).toBe(4)
+    expect(sliderIndexFromPoint(10, rect, 5, 4)).toBe(0)
+  })
+  it('keeps pointer preview stable at a boundary and commits once without a release flash', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    const track = document.querySelector('[data-provider-panel-track]') as HTMLElement
+    vi.spyOn(track, 'getBoundingClientRect').mockReturnValue({ left: 0, width: 220 } as DOMRect)
+    let finish!: () => void
+    b.select.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve }))
+    const pointer = (type: string, x: number) => fireEvent(track, new MouseEvent(type, {
+      bubbles: true, clientX: x, clientY: 20, button: 0,
+    }))
+    const slider = screen.getByRole('slider') as HTMLInputElement
+    pointer('pointerdown', 10)
+    for (const x of [109, 111, 109, 112]) pointer('pointermove', x)
+    expect(slider.value).toBe('0')
+    pointer('pointermove', 116)
+    expect(slider.value).toBe('1')
+    pointer('pointermove', 109)
+    expect(slider.value).toBe('1')
+    pointer('pointermove', 104)
+    expect(slider.value).toBe('0')
+    pointer('pointerup', 104)
+    await waitFor(() => expect(b.select).toHaveBeenCalledTimes(1))
+    expect(slider.value).toBe('0')
+    // Pointer movement after release must not alter the pending preview.
+    pointer('pointermove', 210)
+    expect(slider.value).toBe('0')
+    b.state.current = { provider: 'a', model: 'sol', reasoningEffort: 'low' }
+    finish()
+    await waitFor(() => expect(slider.disabled).toBe(false))
+    expect(slider.value).toBe('0')
+    expect(b.select).toHaveBeenCalledTimes(1)
   })
   it('transfers the active highlight to the hovered model during vertical drag and dims the initial model', async () => {
     const b = bench()
@@ -250,6 +312,26 @@ describe('model panel component', () => {
       localStorage.removeItem('dsh-provider-extension:account-disabled-models')
     }
   })
+  it('shows only the active account’s enabled models and reacts to settings changes', async () => {
+    try {
+      saveCodexEnabledModels('work', undefined, new Set(['gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna']))
+      saveCodexEnabledModels('personal', undefined, new Set(['gpt-5.4']))
+      const b = bench({ codex: true, provider: 'openai-codex' })
+      await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+      b.state.groups.find(group => group.id === 'openai-codex')!.models = [
+        { id: 'gpt-6-astra', name: 'GPT-6 Astra' }, { id: 'gpt-5.4', name: 'GPT-5.4' },
+      ]
+      b.view.rerender(<ProviderPanel {...b.props} />)
+      expect(screen.getByRole('button', { name: 'Select GPT-6 Astra' })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: 'Select GPT-5.4' })).toBeNull()
+      // Enabled but absent from the Host catalog must not be fabricated.
+      expect(screen.queryByRole('button', { name: 'Select GPT-6 Sol' })).toBeNull()
+      act(() => saveCodexEnabledModels('work', undefined, new Set(['gpt-5.4'])))
+      expect(screen.getByRole('button', { name: 'Select GPT-5.4' })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: 'Select GPT-6 Astra' })).toBeNull()
+    } finally { localStorage.removeItem(CODEX_ENABLED_MODELS_KEY) }
+  })
+
   it('closes on outside click', () => {
     bench()
     fireEvent.mouseDown(document.body)

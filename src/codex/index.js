@@ -1806,6 +1806,7 @@ function createOfficialModelCatalog(options = {}) {
 			metadata = new Map(remote.map((model) => [model.id, model]));
 			etag = nonEmpty$2(response.headers.get("etag")) ?? etag;
 			revision += 1;
+			options.onChange?.();
 			outcome = "ok";
 			return true;
 		})();
@@ -1855,6 +1856,7 @@ function createOfficialModelCatalog(options = {}) {
 			etag = void 0;
 			refreshStatus = "idle";
 			revision += 1;
+			options.onChange?.();
 		}
 	});
 }
@@ -3959,7 +3961,9 @@ function apply(ctx) {
 	});
 	const baseProvider = createOpenAICodexProvider();
 	let resolveAuth = async () => void 0;
+	let notifyCatalogChanged = () => {};
 	const modelCatalog = createOfficialModelCatalog({
+		onChange: () => notifyCatalogChanged(),
 		getAuth: (options) => resolveAuth(options),
 		readCredential: (options) => store.read(PROVIDER, options),
 		baseModels: () => baseProvider.getModels(),
@@ -4059,7 +4063,14 @@ function apply(ctx) {
 		auth: adapterAuth,
 		resolveAttachments: () => ctx.get?.("attachments")
 	});
-	ctx.llm.registerAdapter([PROVIDER], adapter);
+	const adapterRegistration = ctx.llm.registerAdapter([PROVIDER], adapter);
+	// Re-publish the owned route atomically after its advertised models change.
+	// This notifies the official directory cache without fabricating model entries.
+	notifyCatalogChanged = () => adapterRegistration.replace?.([PROVIDER]);
+	ctx.effect(() => () => {
+		notifyCatalogChanged = () => {};
+		modelCatalog.clear();
+	}, "codex-subscription: catalog invalidation lifecycle");
 	const currentAgent = () => ctx.get?.("agents")?.currentInitiator?.();
 	const codexSearch = createCodexSearchProvider({
 		resolvePreferences: () => readCapabilitySettings(settings.get()),

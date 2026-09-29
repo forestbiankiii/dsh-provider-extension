@@ -3,6 +3,7 @@ import { type ReactNode } from 'react';
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store';
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
 import { type CodexAccountsState } from './providers/codex.ts';
+import type { ModelCatalogModel } from '@deepseek-ai/dsh-api-session-controller/types';
 import { type AntigravityState } from './providers/antigravity.ts';
 import { type OpencodeState } from './providers/opencode.ts';
 /** Per-surface actions and stores injected by the client plugin. */
@@ -14,6 +15,8 @@ export interface ProviderSettingsInjected {
         antigravity: SnapshotStore<AntigravityState>;
     };
     loadAccounts: () => Promise<void>;
+    /** Same authoritative Host catalog used by the composer, not a hardcoded product list. */
+    loadCodexModels?: () => Promise<readonly ModelCatalogModel[]>;
     readQuota: (id: string) => Promise<void>;
     loginCodex: () => Promise<void>;
     selectCodexAccount?: (id: string) => Promise<void>;
@@ -38,35 +41,7 @@ export interface ProviderSettingsInjected {
 }
 /** Settings-section props: the shell lends `close`, the plugin injects the rest. */
 export type ProviderSettingsProps = PropsRuntime<'settings.section'> & PropsLocale<'providerExtension'> & InjectFace<ProviderSettingsInjected>;
-export declare const CODEX_MODELS: readonly [{
-    readonly id: "gpt-6-astra";
-    readonly name: "GPT-6 Astra";
-}, {
-    readonly id: "gpt-6-sol";
-    readonly name: "GPT-6 Sol";
-}, {
-    readonly id: "gpt-6-luna";
-    readonly name: "GPT-6 Luna";
-}, {
-    readonly id: "gpt-reserve";
-    readonly name: "GPT Reserve";
-}, {
-    readonly id: "gpt-5.6-sol";
-    readonly name: "GPT-5.6 Sol";
-}, {
-    readonly id: "gpt-5.6-terra";
-    readonly name: "GPT-5.6 Terra";
-}, {
-    readonly id: "gpt-5.6-luna";
-    readonly name: "GPT-5.6 Luna";
-}, {
-    readonly id: "gpt-5.5";
-    readonly name: "GPT-5.5";
-}, {
-    readonly id: "codex-auto-review";
-    readonly name: "Codex Auto Review";
-}];
 export declare const GEMINI_TIERS: readonly ["Free", "Pro", "Ultra"];
 export type GeminiTier = typeof GEMINI_TIERS[number];
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
-export declare function ProviderSettings({ useAccounts, useAntigravity, loadAccounts, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, resetCodexQuota, loadAntigravity, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, t, }: ProviderSettingsProps): ReactNode;
+export declare function ProviderSettings({ useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, resetCodexQuota, loadAntigravity, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, t, }: ProviderSettingsProps): ReactNode;

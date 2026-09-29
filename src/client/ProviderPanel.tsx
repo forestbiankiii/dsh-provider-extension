@@ -15,6 +15,7 @@ import {
   accentFor, activeGroup, effortIndex, isCurrentModel, resolveModelEffort, restingEffort,
   selectionForRow, type ProviderPanelModel, loadDisabledModels, getDisabledModelsForAccount, MODELS_VISIBILITY_EVENT,
 } from './selection.ts'
+import { codexEnabledModels } from './codex-visibility.ts'
 import css from './ProviderPanel.module.css'
 
 /** Per-session injected seat dependencies. */
@@ -98,13 +99,19 @@ function saveEffortMemory(memory: Record<string, string>): void {
   } catch {}
 }
 
-/** Convert one horizontal pointer coordinate into a discrete effort index. */
-export function sliderIndexFromPoint(clientX: number, rect: { left: number; width: number }, count: number): number {
+/** Snap clicks directly; during a drag, use a small dead band to prevent boundary jitter. */
+export function sliderIndexFromPoint(
+  clientX: number, rect: { left: number; width: number }, count: number, previous?: number,
+): number {
   if (count <= 0) return -1
   if (count === 1) return 0
   const usable = Math.max(1, rect.width - 20)
   const ratio = Math.min(1, Math.max(0, (clientX - (rect.left + 10)) / usable))
-  return Math.round(ratio * (count - 1))
+  const position = ratio * (count - 1)
+  const margin = Math.min(0.12, 5 * (count - 1) / usable)
+  if (previous !== undefined && previous >= 0 && previous < count
+    && Math.abs(position - previous) <= 0.5 + margin) return previous
+  return Math.round(position)
 }
 
 function formatRemaining(isoTime?: string, pct?: number): string {
@@ -208,14 +215,17 @@ export function ProviderPanel({
   const authoritativeGroup = activeGroup(directory)
   const group = directory.groups.find(candidate => candidate.id === providerDraft) ?? authoritativeGroup
   const activeAgAccount = antigravity.accounts.find(account => account.active) ?? antigravity.accounts[0]
-  const activeCodexAccount = accounts.accounts.find(account => account.active) ?? accounts.accounts[0]
+  const activeCodexAccount = accounts.accounts.find(account => account.active)
   const disabledForCurrent = isAntigravityProvider(group?.id)
     ? getDisabledModelsForAccount(activeAgAccount?.id, activeAgAccount?.email)
     : isCodexProvider(group?.id)
       ? getDisabledModelsForAccount(activeCodexAccount?.id, activeCodexAccount?.email)
       : disabledModels
   const allModels = group?.models ?? []
-  const models = allModels.filter(model => !disabledForCurrent.has(model.id))
+  const codexEnabled = isCodexProvider(group?.id)
+    ? codexEnabledModels(activeCodexAccount?.id, activeCodexAccount?.email) : undefined
+  const models = allModels.filter(model => codexEnabled !== undefined
+    ? codexEnabled.has(model.id) : !disabledForCurrent.has(model.id))
   const currentModel = group === undefined || group.id !== directory.current?.provider ? undefined
     : models.find(model => isCurrentModel(directory.current, group.id, model))
   const efforts = currentModel?.reasoning?.efforts ?? []
@@ -283,11 +293,11 @@ export function ProviderPanel({
     const next = open === pane ? null : pane
     setOpen(next)
     if (next !== null) reload()
-    if (next === 'provider') {
-      if (directory.groups.some(candidate => isCodexProvider(candidate.id))) {
+    if (next !== null) {
+      if ((next === 'provider' || isCodexProvider(group?.id)) && directory.groups.some(candidate => isCodexProvider(candidate.id))) {
         void loadAccounts()
       }
-      if (directory.groups.some(candidate => isAntigravityProvider(candidate.id))) {
+      if ((next === 'provider' || isAntigravityProvider(group?.id)) && directory.groups.some(candidate => isAntigravityProvider(candidate.id))) {
         void loadAntigravity?.()
       }
     }
@@ -306,21 +316,23 @@ export function ProviderPanel({
     run('selectFailed', () => select(selectionForRow(model, group.id, effortId)))
   }
 
-  const commitDrag = (drag: SliderDrag | null): void => {
-    if (drag === null || group === undefined || drag.provider !== group.id || selecting.current || pending) return
+  const commitDrag = (drag: SliderDrag | null): boolean => {
+    if (drag === null || group === undefined || drag.provider !== group.id || selecting.current || pending) return false
     const ladder = drag.model.reasoning?.efforts ?? []
     const effortId = drag.index < 0 ? undefined : ladder[drag.index]?.id
     if (
       directory.current?.provider === drag.provider
       && directory.current.model === drag.model.id
       && directory.current.reasoningEffort === effortId
-    ) return
+    ) return false
     submit(drag.model, effortId)
+    return true
   }
 
   const dragAtPointer = (
     event: ReactPointerEvent<HTMLDivElement>,
     fallback: ProviderPanelModel,
+    previous?: SliderDrag,
   ): SliderDrag => {
     const locate = document.elementFromPoint
     const element = typeof locate === 'function' ? locate.call(document, event.clientX, event.clientY) : null
@@ -335,19 +347,23 @@ export function ProviderPanel({
       ? models.find(entry => entry.id === row.dataset.providerPanelModel)
       : undefined
     const target = candidate ?? fallback
-    const track = candidate === undefined ? originTrack : candidateTrack ?? originTrack
+    const fallbackRow = Array.from(root.current?.querySelectorAll<HTMLElement>('[data-provider-panel-model]') ?? [])
+      .find(entry => entry.dataset.providerPanelModel === target.id)
+    const track = (candidate === undefined ? null : candidateTrack)
+      ?? fallbackRow?.querySelector<HTMLElement>('[data-provider-panel-track]') ?? originTrack
     const count = target.reasoning?.efforts.length ?? 0
+    const previousIndex = previous?.model.id === target.id && previous.provider === group!.id ? previous.index : undefined
     return {
       model: target,
       provider: group!.id,
-      index: sliderIndexFromPoint(event.clientX, track.getBoundingClientRect(), count),
+      index: sliderIndexFromPoint(event.clientX, track.getBoundingClientRect(), count, previousIndex),
       source: 'pointer',
       pointerId: event.pointerId,
     }
   }
 
   const startPointerDrag = (event: ReactPointerEvent<HTMLDivElement>, model: ProviderPanelModel): void => {
-    if (pending || (event.button !== undefined && event.button !== 0)) return
+    if (selecting.current || pending || (event.button !== undefined && event.button !== 0)) return
     event.preventDefault()
     if (typeof event.currentTarget.setPointerCapture === 'function') {
       event.currentTarget.setPointerCapture(event.pointerId)
@@ -358,8 +374,9 @@ export function ProviderPanel({
 
   const movePointerDrag = (event: ReactPointerEvent<HTMLDivElement>): void => {
     const drag = dragRef.current
-    if (drag?.source !== 'pointer' || (drag.pointerId !== undefined && event.pointerId !== undefined && drag.pointerId !== event.pointerId)) return
-    setDrag(dragAtPointer(event, drag.model))
+    if (selecting.current || pending || drag?.source !== 'pointer' || (drag.pointerId !== undefined && event.pointerId !== undefined && drag.pointerId !== event.pointerId)) return
+    const next = dragAtPointer(event, drag.model, drag)
+    if (next.model.id !== drag.model.id || next.index !== drag.index) setDrag(next)
   }
 
   const finishPointerDrag = (event: ReactPointerEvent<HTMLDivElement>, shouldCommit: boolean): void => {
@@ -368,15 +385,14 @@ export function ProviderPanel({
     if (typeof event.currentTarget.hasPointerCapture === 'function' && event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
-    setDrag(null)
-    if (shouldCommit) commitDrag(drag)
+    // Keep the preview until the selection settles, rather than flashing the old effort.
+    if (!shouldCommit || !commitDrag(drag)) setDrag(null)
   }
 
   const finishKeyboardDrag = (): void => {
     const drag = dragRef.current
-    if (drag?.source !== 'keyboard') return
-    setDrag(null)
-    commitDrag(drag)
+    if (selecting.current || drag?.source !== 'keyboard') return
+    if (!commitDrag(drag)) setDrag(null)
   }
 
   const renderRow = (model: ProviderPanelModel, index: number): ReactNode => {
@@ -443,12 +459,12 @@ export function ProviderPanel({
                 key={effort.id}
                 className={css.stop}
                 aria-hidden="true"
-                data-active={stop === position}
+                data-active={isRowActive && stop === position}
                 data-edge={stop === 0 ? 'start' : stop === count - 1 ? 'end' : 'middle'}
                 style={{ left: `calc(10px + (100% - 20px) * ${count > 1 ? stop / (count - 1) : 0})` }}
               ><span className={css.stopLabel}>{effort.name}</span></span>
             ))}
-            {position < 0 ? null : <>
+            {!isRowActive || position < 0 ? null : <>
               <span className={css.fill} aria-hidden="true" style={{ width: `calc((100% - 20px) * ${ratio})` }} />
               <span className={css.thumb} aria-hidden="true" style={{ left: `calc(10px + (100% - 20px) * ${ratio})` }} />
             </>}
@@ -463,7 +479,7 @@ export function ProviderPanel({
               aria-label={t('adjustEffort', { model: model.name })}
               aria-valuetext={effortName}
               onChange={(event) => {
-                if (selecting.current || pending) return
+                if (selecting.current || pending || dragRef.current?.source === 'pointer') return
                 setDrag({ model, provider, index: Number(event.target.value), source: 'keyboard' })
               }}
               onKeyUp={(event: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -885,6 +901,13 @@ export function ProviderPanel({
             <span className={css.headTitle}>{group?.name ?? t('title')}</span>
             <button type="button" className={css.reload} disabled={pending || fetching} onClick={reload}>{t('reload')}</button>
           </div>
+          {isCodexProvider(group?.id) && activeCodexAccount ? <p className={css.note}>
+            {t('accountCurrent')}: {activeCodexAccount.label}
+          </p> : null}
+          {!fetching && codexEnabled !== undefined && [...codexEnabled].some(id => !allModels.some(model => model.id === id))
+            ? <p className={css.note}>{t('codexModelsMissing', {
+              models: [...codexEnabled].filter(id => !allModels.some(model => model.id === id)).join(', '),
+            })}</p> : null}
           {error !== null
             ? <p className={css.error} role="alert">{t(error.kind, { message: error.message })}</p>
             : directory.error === null ? null : <p className={css.error} role="alert">{directory.error}</p>}

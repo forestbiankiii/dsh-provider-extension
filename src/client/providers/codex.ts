@@ -181,7 +181,7 @@ export function decodeQuota(value: unknown): CodexQuotaView {
 
 async function call(
   rpc: ClientConnectionRpc,
-  endpoint: 'status' | 'account/select' | 'account/remove' | 'account/rename' | 'usage' | 'login/start' | 'login/status' | 'login/cancel',
+  endpoint: 'status' | 'account/select' | 'account/remove' | 'account/rename' | 'usage' | 'login/start' | 'login/status' | 'login/cancel' | 'preferences/models',
   payload: unknown,
   timeoutMs = 10_000,
 ): Promise<unknown> {
@@ -282,6 +282,11 @@ export class CodexAccountsController {
       if (this.disposed || generation !== this.generation) return
       this.setUsage(active.id, { status: 'error', message: failureMessage(error) })
     }
+  }
+
+  /** Wait for the Host's online catalog before a surface reads its directory. */
+  async refreshModels(): Promise<void> {
+    await call(this.rpc, 'preferences/models', {}, 15_000)
   }
 
   /** Permanently switch the active account and read its quota. */

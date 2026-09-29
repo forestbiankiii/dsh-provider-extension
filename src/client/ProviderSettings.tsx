@@ -1,9 +1,11 @@
 /** Settings page: Level 1 hub with expandable quick views, and Level 2 provider-only detail view. */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { maskedEmail, type CodexAccountsState } from './providers/codex.ts'
+import { maskedEmail, type CodexAccountsState, type CodexAccountView } from './providers/codex.ts'
+import type { ModelCatalogModel } from '@deepseek-ai/dsh-api-session-controller/types'
+import { codexEnabledModels, saveCodexEnabledModels } from './codex-visibility.ts'
 import { type AntigravityState } from './providers/antigravity.ts'
 import {
   type OpencodeState,
@@ -14,7 +16,7 @@ import {
 } from './providers/opencode.ts'
 import {
   loadDisabledModels, saveDisabledModels, loadAccountDisabledModels,
-  saveAccountDisabledModels, type AccountDisabledModelsMap, MODELS_VISIBILITY_EVENT,
+  saveAccountDisabledModels, getDisabledModelsForAccount, type AccountDisabledModelsMap, MODELS_VISIBILITY_EVENT,
 } from './selection.ts'
 import css from './ProviderSettings.module.css'
 
@@ -27,6 +29,8 @@ export interface ProviderSettingsInjected {
     antigravity: SnapshotStore<AntigravityState>
   }
   loadAccounts: () => Promise<void>
+  /** Same authoritative Host catalog used by the composer, not a hardcoded product list. */
+  loadCodexModels?: () => Promise<readonly ModelCatalogModel[]>
   readQuota: (id: string) => Promise<void>
   loginCodex: () => Promise<void>
   selectCodexAccount?: (id: string) => Promise<void>
@@ -88,18 +92,6 @@ function formatResetTime(iso: string): string {
     return ''
   }
 }
-
-export const CODEX_MODELS = [
-  { id: 'gpt-6-astra', name: 'GPT-6 Astra' },
-  { id: 'gpt-6-sol', name: 'GPT-6 Sol' },
-  { id: 'gpt-6-luna', name: 'GPT-6 Luna' },
-  { id: 'gpt-reserve', name: 'GPT Reserve' },
-  { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol' },
-  { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra' },
-  { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna' },
-  { id: 'gpt-5.5', name: 'GPT-5.5' },
-  { id: 'codex-auto-review', name: 'Codex Auto Review' },
-] as const
 
 export const GEMINI_TIERS = ['Free', 'Pro', 'Ultra'] as const
 export type GeminiTier = typeof GEMINI_TIERS[number]
@@ -175,7 +167,7 @@ function formatResetSeconds(epochSeconds?: number): string {
 
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
 export function ProviderSettings({
-  useAccounts, useAntigravity, loadAccounts, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, resetCodexQuota,
+  useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, resetCodexQuota,
   loadAntigravity, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota,
   useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, t,
 }: ProviderSettingsProps): ReactNode {
@@ -272,17 +264,62 @@ export function ProviderSettings({
     return () => { window.removeEventListener(MODELS_VISIBILITY_EVENT, handleVisibilityChange) }
   }, [])
 
-  const fetchedCodexRef = useRef<Set<string>>(new Set())
+  const [catalogRefresh, setCatalogRefresh] = useState(0)
+  const [codexCatalog, setCodexCatalog] = useState<{
+    accountId?: string; models: readonly ModelCatalogModel[]; error?: string
+  }>({ models: [] })
+  const activeCodexId = accounts.accounts.find(account => account.active)?.id
+  const codexOpen = selectedProvider === 'codex' || expanded.codex === true
   useEffect(() => {
-    if (selectedProvider === 'codex' || expanded.codex) {
-      for (const acc of accounts.accounts) {
-        if (!acc.active && !fetchedCodexRef.current.has(acc.id) && accounts.switchingId === undefined) {
-          fetchedCodexRef.current.add(acc.id)
-          void readQuota(acc.id).catch(() => {})
-        }
-      }
+    if (!codexOpen || !activeCodexId || accounts.switchingId !== undefined || !loadCodexModels) return
+    let cancelled = false
+    setCodexCatalog({ models: [] })
+    void loadCodexModels().then(models => {
+      if (!cancelled) setCodexCatalog({ accountId: activeCodexId, models })
+    }).catch((error: unknown) => {
+      if (!cancelled) setCodexCatalog({ accountId: activeCodexId, models: [], error: String(error) })
+    })
+    return () => { cancelled = true }
+  }, [codexOpen, activeCodexId, accounts.switchingId, loadCodexModels, catalogRefresh])
+
+  const refreshCodex = (): void => {
+    void loadAccounts()
+    setCatalogRefresh(value => value + 1)
+  }
+
+  const renderCodexModels = (account: CodexAccountView): ReactNode => {
+    if (!account.active) return <p className={css.note}>{t('codexModelsInactive')}</p>
+    if (accounts.switchingId !== undefined || codexCatalog.accountId !== account.id) {
+      return <p className={css.note}>{t('providerChecking')}</p>
     }
-  }, [selectedProvider, expanded.codex, accounts.accounts, accounts.switchingId, readQuota])
+    if (codexCatalog.error) return <p className={css.error} role="alert">{codexCatalog.error}</p>
+    const enabled = codexEnabledModels(account.id, account.email)
+    const disabled = getDisabledModelsForAccount(account.id, account.email)
+    const missing = [...enabled ?? []].filter(id => !codexCatalog.models.some(model => model.id === id))
+    return <>
+      <p className={css.note}>{t('codexModelsScope')}</p>
+      {missing.length > 0 ? <p className={css.note}>{t('codexModelsMissing', { models: missing.join(', ') })}</p> : null}
+      {codexCatalog.models.length === 0 ? <p className={css.note}>{t('empty')}</p> : null}
+      <ul className={css.models}>
+        {codexCatalog.models.map(model => <li key={model.id}>
+          <span className={css.modelName}>{model.name}</span>
+          <div className={css.modelToggleRow}>
+            <label className={css.switch} title={t('modelToggle')}>
+              <input type="checkbox" aria-label={model.name}
+                checked={enabled ? enabled.has(model.id) : !disabled.has(model.id)}
+                onChange={() => {
+                  const next = enabled ?? new Set(codexCatalog.models.filter(entry => !disabled.has(entry.id)).map(entry => entry.id))
+                  if (next.has(model.id)) next.delete(model.id)
+                  else next.add(model.id)
+                  saveCodexEnabledModels(account.id, account.email, next)
+                }} />
+              <span className={css.switchSlider} />
+            </label>
+          </div>
+        </li>)}
+      </ul>
+    </>
+  }
 
   const toggleAccountModel = (accountId: string, modelId: string, email?: string) => {
     setAccountDisabledMap(prev => {
@@ -397,7 +434,7 @@ export function ProviderSettings({
                   {t('codexOpenLink')}
                 </a>
               ) : null}
-              <button type="button" className={css.action} onClick={() => { fetchedCodexRef.current.clear(); void loadAccounts() }}>{t('providerRefresh')}</button>
+              <button type="button" className={css.action} onClick={refreshCodex}>{t('providerRefresh')}</button>
             </div>
 
             {accounts.accounts.length === 0 ? (
@@ -595,27 +632,7 @@ export function ProviderSettings({
                             <div className={css.blockHeadRow}>
                               <span className={css.quotaGroupTitle}>{t('codexModels')}</span>
                             </div>
-                            <ul className={css.models}>
-                              {CODEX_MODELS.map(model => {
-                                const isModelDisabled = (accountDisabledMap[account.id]?.includes(model.id)
-                                  || (account.email ? accountDisabledMap[account.email]?.includes(model.id) : false)) === true
-                                return (
-                                  <li key={model.id}>
-                                    <span className={css.modelName}>{model.name}</span>
-                                    <div className={css.modelToggleRow}>
-                                      <label className={css.switch} title={t('modelToggle')}>
-                                        <input
-                                          type="checkbox"
-                                          checked={!isModelDisabled}
-                                          onChange={() => toggleAccountModel(account.id, model.id, account.email)}
-                                        />
-                                        <span className={css.switchSlider} />
-                                      </label>
-                                    </div>
-                                  </li>
-                                )
-                              })}
-                            </ul>
+                            {renderCodexModels(account)}
                           </div>
 
                           {usage?.status === 'error' && (
@@ -1307,7 +1324,7 @@ export function ProviderSettings({
                     {t('codexOpenLink')}
                   </a>
                 ) : null}
-                <button type="button" className={css.action} onClick={() => { fetchedCodexRef.current.clear(); void loadAccounts() }}>{t('providerRefresh')}</button>
+                <button type="button" className={css.action} onClick={refreshCodex}>{t('providerRefresh')}</button>
               </div>
 
               {accounts.accounts.length === 0 ? (
@@ -1505,27 +1522,7 @@ export function ProviderSettings({
                               <div className={css.blockHeadRow}>
                                 <span className={css.quotaGroupTitle}>{t('codexModels')}</span>
                               </div>
-                              <ul className={css.models}>
-                                {CODEX_MODELS.map(model => {
-                                  const isModelDisabled = (accountDisabledMap[account.id]?.includes(model.id)
-                                    || (account.email ? accountDisabledMap[account.email]?.includes(model.id) : false)) === true
-                                  return (
-                                    <li key={model.id}>
-                                      <span className={css.modelName}>{model.name}</span>
-                                      <div className={css.modelToggleRow}>
-                                        <label className={css.switch} title={t('modelToggle')}>
-                                          <input
-                                            type="checkbox"
-                                            checked={!isModelDisabled}
-                                            onChange={() => toggleAccountModel(account.id, model.id, account.email)}
-                                          />
-                                          <span className={css.switchSlider} />
-                                        </label>
-                                      </div>
-                                    </li>
-                                  )
-                                })}
-                              </ul>
+                              {renderCodexModels(account)}
                             </div>
 
                             {usage?.status === 'error' && (
