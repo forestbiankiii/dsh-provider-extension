@@ -32,7 +32,7 @@ const host = await readFile(resolve(root, 'lib/index.js'), 'utf8')
 if (!host.includes('typeof schema.volatile === "function" ? schema.volatile() : schema')) {
   throw new Error('OpenCode config must support the installed Schemastery API')
 }
-if (!host.includes('init_opencode(), opencode_exports')) {
+if (!host.includes('Failed to mount OpenCode Go')) {
   throw new Error('OpenCode must load inside the guarded optional integration')
 }
 if (!client.startsWith('window.__ModuleLoader__.load({id:"dsh-provider-extension"')) {

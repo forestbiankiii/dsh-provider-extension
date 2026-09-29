@@ -11,7 +11,7 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { isCodexProvider, maskedEmail, type CodexAccountsState } from './providers/codex.ts'
 import { isAntigravityProvider, type AntigravityState } from './providers/antigravity.ts'
-import { isOpencodeProvider, type OpencodeState } from './providers/opencode.ts'
+import { isOpencodeProvider, type OpencodeState, DEFAULT_OPENCODE_MODELS } from './providers/opencode.ts'
 import {
   accentFor, activeGroup, effortIndex, isCurrentModel, resolveModelEffort, restingEffort,
   selectionForRow, type ProviderPanelModel, loadDisabledModels, getDisabledModelsForAccount, MODELS_VISIBILITY_EVENT,
@@ -505,7 +505,11 @@ export function ProviderPanel({
   if (!available) return null
 
   const activeAccount = accounts.accounts.find(account => account.active)
-  const baseProviderLabel = group?.name ?? directory.current?.provider ?? t('providerTrigger')
+  const cleanGroupName = (id?: string, name?: string): string => {
+    if (isOpencodeProvider(id)) return t('providerOpenCode')
+    return name ?? t('providerTrigger')
+  }
+  const baseProviderLabel = cleanGroupName(group?.id, group?.name ?? directory.current?.provider)
   const providerLabel = isCodexProvider(group?.id) && activeAccount !== undefined
     ? `${baseProviderLabel} · ${activeAccount.label}`
     : isAntigravityProvider(group?.id) && activeAgAccount !== undefined
@@ -717,95 +721,117 @@ export function ProviderPanel({
           {fetching ? <p className={css.note} role="status">{t('loading')}</p> : null}
           {directory.groups.length === 0 && !fetching ? <p className={css.note}>{t('providerEmpty')}</p> : null}
           <div className={css.providerList} role="listbox" aria-label={t('providerTitle')}>
-            {directory.groups.map(candidate => {
-              const selected = candidate.id === group?.id
-              if (isAntigravityProvider(candidate.id) && antigravity.accounts.length > 0) {
-                return (
-                  <div key={candidate.id} className={css.providerFamily} role="group" aria-label={candidate.name}>
-                    <div className={css.providerFamilyHead}>
-                      <span>{candidate.name}</span>
-                      <span className={css.providerCount}>{t('accountCount', { count: antigravity.accounts.length })}</span>
-                    </div>
-                    {antigravity.accounts.map(account => {
-                      const email = maskedEmail(account.email)
-                      return (
-                        <div key={account.id} className={css.accountRow}>
-                          <button
-                            type="button"
-                            role="option"
-                            aria-selected={selected && account.active}
-                            className={selected && account.active
-                              ? `${css.accountOption} ${css.providerCurrent}` : css.accountOption}
-                            disabled={pending}
-                            onClick={() => {
-                              setProviderDraft(candidate.id)
-                              if (!account.active && selectAntigravityAccount) {
-                                void selectAntigravityAccount(account.id)
-                              }
-                              setOpen(null)
-                              queueMicrotask(() => { providerTrigger.current?.focus() })
-                            }}
-                          >
-                            <span className={css.accountIdentity}>
-                              <span className={css.accountLabel}>{account.label}</span>
-                              {email === undefined ? null : <span className={css.accountEmail}>{email}</span>}
-                            </span>
-                            <span className={css.accountMeta}>
-                              <span className={css.accountState} data-active={account.active}>
-                                {antigravity.switchingId === account.id ? t('accountSwitching')
-                                  : account.active ? t('accountActive') : t('accountUse')}
+            {(() => {
+              const opencodeGroup = directory.groups.find(g => isOpencodeProvider(g.id))
+              const opencodeModels = opencode?.models?.map(m => ({
+                id: m.id,
+                name: m.name,
+                provider: 'opencode-go',
+                inputModalities: ['text', 'image'],
+              })) ?? DEFAULT_OPENCODE_MODELS.map(m => ({
+                id: m.id,
+                name: m.name,
+                provider: 'opencode-go',
+                inputModalities: ['text', 'image'],
+              }))
+              const effectiveGroups = opencodeGroup !== undefined ? directory.groups : [
+                ...directory.groups,
+                {
+                  id: 'opencode-go',
+                  name: t('providerOpenCode'),
+                  models: opencodeModels,
+                } as any,
+              ]
+              return effectiveGroups.map(candidate => {
+                const selected = candidate.id === group?.id
+                const displayName = cleanGroupName(candidate.id, candidate.name)
+                if (isAntigravityProvider(candidate.id) && antigravity.accounts.length > 0) {
+                  return (
+                    <div key={candidate.id} className={css.providerFamily} role="group" aria-label={displayName}>
+                      <div className={css.providerFamilyHead}>
+                        <span>{displayName}</span>
+                        <span className={css.providerCount}>{t('accountCount', { count: antigravity.accounts.length })}</span>
+                      </div>
+                      {antigravity.accounts.map(account => {
+                        const email = maskedEmail(account.email)
+                        return (
+                          <div key={account.id} className={css.accountRow}>
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={selected && account.active}
+                              className={selected && account.active
+                                ? `${css.accountOption} ${css.providerCurrent}` : css.accountOption}
+                              disabled={pending}
+                              onClick={() => {
+                                setProviderDraft(candidate.id)
+                                if (!account.active && selectAntigravityAccount) {
+                                  void selectAntigravityAccount(account.id)
+                                }
+                                setOpen(null)
+                                queueMicrotask(() => { providerTrigger.current?.focus() })
+                              }}
+                            >
+                              <span className={css.accountIdentity}>
+                                <span className={css.accountLabel}>{account.label}</span>
+                                {email === undefined ? null : <span className={css.accountEmail}>{email}</span>}
                               </span>
-                            </span>
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              }
-              if (!isCodexProvider(candidate.id) || accounts.status === 'error' || accounts.accounts.length === 0) {
+                              <span className={css.accountMeta}>
+                                <span className={css.accountState} data-active={account.active}>
+                                  {antigravity.switchingId === account.id ? t('accountSwitching')
+                                    : account.active ? t('accountActive') : t('accountUse')}
+                                </span>
+                              </span>
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                }
+                if (!isCodexProvider(candidate.id) || accounts.status === 'error' || accounts.accounts.length === 0) {
+                  return (
+                    <div key={candidate.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        className={selected ? `${css.providerOption} ${css.providerCurrent}` : css.providerOption}
+                        disabled={pending}
+                        onClick={() => {
+                          setProviderDraft(candidate.id)
+                          setOpen(null)
+                          queueMicrotask(() => { providerTrigger.current?.focus() })
+                        }}
+                      >
+                        <span>{displayName}</span>
+                        <span className={css.providerCount}>{candidate.models.length}</span>
+                      </button>
+                      {isCodexProvider(candidate.id) && accounts.status === 'error'
+                        ? <p className={css.accountNote}>{t('accountLoadFailed', { message: accounts.error ?? t('accountUnavailable') })}</p>
+                        : isCodexProvider(candidate.id) && (accounts.status === 'idle' || accounts.status === 'loading')
+                          ? <p className={css.accountNote}>{t('accountsLoading')}</p> : null}
+                    </div>
+                  )
+                }
                 return (
-                  <div key={candidate.id}>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      className={selected ? `${css.providerOption} ${css.providerCurrent}` : css.providerOption}
-                      disabled={pending}
-                      onClick={() => {
-                        setProviderDraft(candidate.id)
-                        setOpen(null)
-                        queueMicrotask(() => { providerTrigger.current?.focus() })
-                      }}
-                    >
-                      <span>{candidate.name}</span>
-                      <span className={css.providerCount}>{candidate.models.length}</span>
-                    </button>
-                    {isCodexProvider(candidate.id) && accounts.status === 'error'
-                      ? <p className={css.accountNote}>{t('accountLoadFailed', { message: accounts.error ?? t('accountUnavailable') })}</p>
-                      : isCodexProvider(candidate.id) && (accounts.status === 'idle' || accounts.status === 'loading')
-                        ? <p className={css.accountNote}>{t('accountsLoading')}</p> : null}
-                  </div>
-                )
-              }
-              return (
-                <div key={candidate.id} className={css.providerFamily} role="group" aria-label={candidate.name}>
-                  <div className={css.providerFamilyHead}>
-                    <span>{candidate.name}</span>
-                    <span className={css.providerCount}>{t('accountCount', { count: accounts.accounts.length })}</span>
-                  </div>
-                  {accountError === null ? null : <p className={css.accountError} role="alert">{t('accountSwitchFailed', { message: accountError })}</p>}
-                  {accounts.restoreFailed === true ? <p className={css.accountError} role="alert">{t('quotaRestoreFailed')}</p> : null}
-                  {accounts.accounts.map(account => {
-                    const email = maskedEmail(account.email)
-                    const usage = accounts.usage[account.id]
-                    const weekly = usage?.status === 'ready' ? usage.value.weeklyPercent : undefined
-                    const quotaText = usage?.status === 'loading' ? t('quotaReading')
-                      : usage?.status === 'error' ? t('quotaFailedShort')
-                        : usage?.status === 'ready'
-                          ? weekly === undefined ? t('quotaNoWeekly') : t('weeklyQuota', { value: weekly })
-                          : undefined
-                    const canRead = !account.active && (usage === undefined || usage.status === 'error')
+                  <div key={candidate.id} className={css.providerFamily} role="group" aria-label={displayName}>
+                    <div className={css.providerFamilyHead}>
+                      <span>{displayName}</span>
+                      <span className={css.providerCount}>{t('accountCount', { count: accounts.accounts.length })}</span>
+                    </div>
+                    {accountError === null ? null : <p className={css.accountError} role="alert">{t('accountSwitchFailed', { message: accountError })}</p>}
+                    {accounts.restoreFailed === true ? <p className={css.accountError} role="alert">{t('quotaRestoreFailed')}</p> : null}
+                    {accounts.accounts.map(account => {
+                      const email = maskedEmail(account.email)
+                      const usage = accounts.usage[account.id]
+                      const weekly = usage?.status === 'ready' ? usage.value.weeklyPercent : undefined
+                      const quotaText = usage?.status === 'loading' ? t('quotaReading')
+                        : usage?.status === 'error' ? t('quotaFailedShort')
+                          : usage?.status === 'ready'
+                            ? weekly === undefined ? t('quotaNoWeekly') : t('weeklyQuota', { value: weekly })
+                            : undefined
+                      const canRead = !account.active && (usage === undefined || usage.status === 'error')
                     return (
                       <div key={account.id} className={css.accountRow}>
                         <button
@@ -842,7 +868,8 @@ export function ProviderPanel({
                   })}
                 </div>
               )
-            })}
+            })
+            })()}
           </div>
         </div>
       )}

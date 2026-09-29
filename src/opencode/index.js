@@ -970,7 +970,7 @@ async function readJsonResponse(response, maxBytes) {
 
 // src/catalog.ts
 var PROVIDER_ID = "opencode-go";
-var DISPLAY_NAME = "OpenCode Go";
+var DISPLAY_NAME = "OpenCode";
 var DEFAULT_BASE_URL = "https://opencode.ai/zen/go/v1";
 var MODELS_FETCH_TIMEOUT_MS = 1e4;
 var MODEL_LISTING_MAX_BYTES = 1024 * 1024;
@@ -1604,10 +1604,13 @@ function apply(ctx, raw) {
   const resolveApiKey = async () => {
     const ref = current().apiKeyEnv;
     const credentials = ctx.get("credentials");
-    const hit = credentials !== void 0 ? (await credentials.resolve(credentialRef(ref)))?.value : launchEnvironmentOf(ctx).get(ref)?.value;
+    let hit = credentials !== void 0 ? (await credentials.resolve(credentialRef(ref)))?.value : launchEnvironmentOf(ctx).get(ref)?.value;
+    if (!hit && typeof process !== "undefined" && process.env) {
+      hit = process.env.OPENCODE_API_KEY || process.env[ref];
+    }
     if (hit !== void 0 && hit.length > 0) return assertUsableApiKey(hit, name, ref);
     throw new LlmError7(
-      `llm-opencode-go: no credential; the profile resolves ${ref}, which is not set \u2014 store ${ref} through the credentials service or export it`,
+      `OpenCode API Key 未配置，请前往设置中心填入 API 密钥 (${ref})`,
       "MISSING_CREDENTIAL"
     );
   };
@@ -1647,14 +1650,14 @@ function apply(ctx, raw) {
   });
   const pickerVisibilityOf = () => JSON.stringify(current().modelVisibility ?? {});
   let pickerVisibility = pickerVisibilityOf();
-  const applyRoute = (configured) => {
-    if (configured && current().enabled && registration === void 0) {
+  const applyRoute = (_configured) => {
+    if (current().enabled && registration === void 0) {
       try {
         registration = ctx.llm.registerAdapter([PROVIDER_ID], adapter);
       } catch (error) {
         ctx.logger.error(`llm-opencode-go: not registering the "${PROVIDER_ID}" route (${String(error)})`);
       }
-    } else if ((!configured || !current().enabled) && registration !== void 0) {
+    } else if (!current().enabled && registration !== void 0) {
       registration();
       registration = void 0;
       if (!current().enabled) {
