@@ -64,7 +64,7 @@ export function apply(ctx: Context): void {
     enabled: () => runtime.llm?.registerAdapter !== undefined,
     register: () => {
       if (runtime.llm?.registerAdapter === undefined) return undefined
-      if (runtime.llm.listProviders?.().some(provider => provider.id === ANTIGRAVITY_PROVIDER)) return undefined
+      if (runtime.llm.listProviders?.().some(provider => provider.id === ANTIGRAVITY_PROVIDER)) return 'retry'
       const dispose = runtime.llm.registerAdapter([ANTIGRAVITY_PROVIDER], adapter)
       return () => {
         try { dispose() } finally { adapter.invalidateModelCatalog() }
