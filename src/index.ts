@@ -6,7 +6,6 @@ import { apply as applyAntigravitySearch } from './antigravity/search.ts'
 import { apply as applyAntigravityImage } from './antigravity/image.ts'
 import { apply as applyAntigravityVideo } from './antigravity/video.ts'
 import { apply as applyCodexSubscription } from './codex/index.js'
-import { apply as applyOpenCode } from './opencode/index.js'
 
 export const name = 'provider-extension'
 export const inject = [
@@ -20,7 +19,7 @@ export const inject = [
 ]
 
 /** Mount Host-side Antigravity and Codex services, LLM adapters, RPC routes, and tools. */
-export function apply(ctx: Context): void {
+export async function apply(ctx: Context): Promise<void> {
   // 1. Mount Antigravity auth service, LLM adapter, loopback RPC, and /antigravity command
   applyAntigravityAuth(ctx)
 
@@ -44,6 +43,7 @@ export function apply(ctx: Context): void {
 
   // 6. Mount OpenCode Go adapter, live catalog, usage service, and remotes
   try {
+    const { apply: applyOpenCode } = await import('./opencode/index.js')
     applyOpenCode(ctx)
   } catch (error) {
     ctx.logger?.warn(`Failed to mount OpenCode Go: ${String(error)}`)

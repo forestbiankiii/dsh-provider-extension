@@ -1179,6 +1179,13 @@ async function discoverSettingsModels(catalog) {
 // src/config.ts
 import { MAX_TIMER_DELAY_MS } from "@deepseek-ai/dsh-timeout";
 import z from "@deepseek-ai/schemastery";
+try {
+  const sample = typeof z?.string === "function" ? z.string() : null;
+  const proto = sample ? Object.getPrototypeOf(sample) : null;
+  if (proto && typeof proto.volatile !== "function") {
+    proto.volatile = function() { return this; };
+  }
+} catch {}
 var DEFAULT_API_KEY_ENV = "OPENCODE_API_KEY";
 var DEFAULT_REFRESH_MINUTES = 60;
 var DEFAULT_STREAM_IDLE_TIMEOUT_MS = 3e5;
@@ -1202,10 +1209,10 @@ var fields = {
 };
 var PlainConfig = z.object(fields);
 var Config = z.object(Object.fromEntries(
-  Object.entries(fields).map(([key, schema]) => [key, schema.volatile()])
+  Object.entries(fields).map(([key, schema]) => [key, typeof schema.volatile === "function" ? schema.volatile() : schema])
 ));
 function readConfig(config) {
-  return Object.fromEntries(Object.keys(fields).map((key) => [key, config[key].get()]));
+  return Object.fromEntries(Object.keys(fields).map((key) => [key, typeof config[key]?.get === "function" ? config[key].get() : config[key]]));
 }
 function assertBaseURL(raw) {
   let url;
