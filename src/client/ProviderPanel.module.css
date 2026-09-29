@@ -465,12 +465,12 @@
 }
 
 .accountState[data-active="true"] {
-  color: #10b981;
+  color: var(--dsw-alias-state-success-primary);
   font-weight: 500;
 }
 
 .accountQuota {
-  color: #38bdf8;
+  color: var(--dsw-alias-state-business-primary);
   font-size: 11px;
   line-height: 16px;
   font-weight: 500;

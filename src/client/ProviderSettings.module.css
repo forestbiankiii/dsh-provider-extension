@@ -995,7 +995,7 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  color: #10b981;
+  color: var(--dsw-alias-state-success-primary);
   background: rgba(16, 185, 129, 0.15);
   border: 1px solid rgba(16, 185, 129, 0.35);
   line-height: 16px;
@@ -1042,16 +1042,16 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: var(--dsw-alias-state-business-primary);
+  background: transparent;
+  border: 1px solid transparent;
   cursor: pointer;
   transition: all 140ms ease;
 }
 
 .cockpitResetBtn:hover {
-  background: rgba(56, 189, 248, 0.22);
-  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
 }
 
 .cockpitResetBtn:disabled {
@@ -1095,13 +1095,13 @@
 .cockpitQuotaVal5h {
   font-size: 13px;
   font-weight: 700;
-  color: #f59e0b;
+  color: var(--dwh-alias-label-primary, var(--dsw-alias-label-primary));
 }
 
 .cockpitQuotaValWeekly {
   font-size: 13px;
   font-weight: 700;
-  color: #10b981;
+  color: var(--dsw-alias-label-primary);
 }
 
 .cockpitTrack {
@@ -1114,14 +1114,14 @@
 .cockpitFill5h {
   height: 100%;
   border-radius: 999px;
-  background: #f59e0b;
+  background: var(--dsw-alias-label-primary);
   transition: width 240ms ease;
 }
 
 .cockpitFillWeekly {
   height: 100%;
   border-radius: 999px;
-  background: #10b981;
+  background: var(--dsw-alias-label-primary);
   transition: width 240ms ease;
 }
 
@@ -1138,8 +1138,8 @@
   gap: 8px;
   padding: 10px 14px;
   border-radius: 8px;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: var(--dsw-alias-interactive-bg-hover);
+  border: 1px solid var(--dsw-alias-border-l1);
   font-size: 12px;
 }
 
@@ -1147,7 +1147,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #10b981;
+  color: var(--dsw-alias-label-primary);
   font-weight: 600;
 }
 
@@ -1195,5 +1195,5 @@
 
 .saveSuccessMsg {
   font-size: 12px;
-  color: #10b981;
+  color: var(--dsw-alias-state-success-primary);
 }
