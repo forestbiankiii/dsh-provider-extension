@@ -679,37 +679,6 @@
   user-select: none;
 }
 
-/* Rounded endpoint markers make the track limits explicit. */
-.track::before,
-.track::after {
-  content: '';
-  position: absolute;
-  top: 18px;
-  z-index: 2;
-  width: 10px;
-  height: 10px;
-  box-sizing: border-box;
-  border: 2px solid var(--dsw-alias-border-l2);
-  border-radius: 50%;
-  corner-shape: round;
-  background: var(--dsw-alias-bg-layer-2);
-  transform: translateY(-50%);
-  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
-}
-
-.track::before {
-  left: 5px;
-}
-
-.track::after {
-  right: 5px;
-}
-
-.rowCurrent .track::before,
-.rowCurrent .track::after {
-  border-color: var(--dpe-accent, var(--dsw-alias-label-primary));
-}
-
 .rail {
   position: absolute;
   top: 18px;
@@ -747,21 +716,9 @@
   position: absolute;
   top: 18px;
   z-index: 3;
-  width: 8px;
-  height: 8px;
-  box-sizing: border-box;
-  border: 2px solid var(--dsw-alias-border-l2);
-  border-radius: 50%;
-  corner-shape: round;
-  background: var(--dsw-alias-bg-layer-2);
-  transform: translate(-50%, -50%);
-  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
-}
-
-.stop[data-active='true'] {
-  border-color: var(--dpe-accent, var(--dsw-alias-label-primary));
-  background: var(--dpe-accent, var(--dsw-alias-label-primary));
-  transform: translate(-50%, -50%) scale(1.2);
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
 
 .stopLabel {
@@ -900,9 +857,7 @@
   .fill,
   .stop,
   .stopLabel,
-  .thumb,
-  .track::before,
-  .track::after {
+  .thumb {
     transition: none;
   }
 
