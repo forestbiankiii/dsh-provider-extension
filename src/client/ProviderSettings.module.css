@@ -386,11 +386,30 @@
   gap: 12px;
 }
 
+.cardTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cardTitles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .cardTitle {
   color: var(--dsw-alias-label-primary);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 20px;
   font-weight: 600;
+}
+
+.cardSubtitle {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
 }
 
 .badge {

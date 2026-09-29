@@ -60,6 +60,7 @@ export function apply(ctx: ClientContext): void {
   const codexAccounts = new CodexAccountsController(connection.rpc)
   const antigravity = new AntigravityController(connection.rpc)
   const opencode = new OpencodeController()
+  opencode.setRpc(connection.rpc)
   ctx.effect(() => () => { codexAccounts.dispose() }, 'dsh-provider-extension: Codex account controller')
   ctx.effect(() => () => { antigravity.dispose() }, 'dsh-provider-extension: Antigravity controller')
   ctx.effect(() => () => { opencode.dispose() }, 'dsh-provider-extension: OpenCode controller')

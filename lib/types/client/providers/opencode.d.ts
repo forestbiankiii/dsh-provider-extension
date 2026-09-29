@@ -33,7 +33,10 @@ export declare function isOpencodeProvider(provider?: string): boolean;
 export declare class OpencodeController {
     readonly store: import("../store.ts").WritableSnapshotStore<OpencodeState>;
     private disposed;
+    private rpc?;
     constructor();
+    setRpc(rpc: any): void;
+    syncToHost(apiKey: string, baseURL?: string): Promise<void>;
     dispose(): void;
     private initFromStorage;
     saveConfig(apiKey: string, baseURL?: string): void;

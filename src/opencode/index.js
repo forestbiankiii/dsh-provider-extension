@@ -1608,6 +1608,19 @@ function apply(ctx, raw) {
     if (!hit && typeof process !== "undefined" && process.env) {
       hit = process.env.OPENCODE_API_KEY || process.env[ref];
     }
+    if (!hit) {
+      try {
+        const fs = await import("node:fs");
+        const os = await import("node:os");
+        const path = await import("node:path");
+        const credPath = path.join(os.homedir(), ".dsh", ".credentials.yaml");
+        if (fs.existsSync(credPath)) {
+          const content = fs.readFileSync(credPath, "utf8");
+          const match = content.match(/OPENCODE_API_KEY:\s*['"]?([^'"\r\n]+)['"]?/);
+          if (match && match[1]) hit = match[1].trim();
+        }
+      } catch {}
+    }
     if (hit !== void 0 && hit.length > 0) return assertUsableApiKey(hit, name, ref);
     throw new LlmError7(
       `OpenCode API Key 未配置，请前往设置中心填入 API 密钥 (${ref})`,

@@ -70,9 +70,25 @@ export class OpencodeController {
   })
 
   private disposed = false
+  private rpc?: any
 
   constructor() {
     this.initFromStorage()
+  }
+
+  setRpc(rpc: any): void {
+    this.rpc = rpc
+    const current = this.store.getSnapshot()
+    if (current.apiKey) {
+      void this.syncToHost(current.apiKey, current.baseURL)
+    }
+  }
+
+  async syncToHost(apiKey: string, baseURL = DEFAULT_OPENCODE_BASE_URL): Promise<void> {
+    if (!this.rpc) return
+    try {
+      await this.rpc.call('/api', 'opencode/config/save', { apiKey, baseURL })
+    } catch {}
   }
 
   dispose(): void {
@@ -90,6 +106,9 @@ export class OpencodeController {
           baseURL,
           configured: apiKey.trim().length > 0,
         }))
+        if (apiKey.trim().length > 0) {
+          void this.syncToHost(apiKey.trim(), baseURL)
+        }
       }
     } catch {}
   }
@@ -110,6 +129,8 @@ export class OpencodeController {
       baseURL: trimmedURL,
       configured: trimmedKey.length > 0,
     }))
+
+    void this.syncToHost(trimmedKey, trimmedURL)
 
     if (trimmedKey.length > 0) {
       void this.readUsage()

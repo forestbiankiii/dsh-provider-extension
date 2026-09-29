@@ -7,6 +7,8 @@ import { apply as applyAntigravityImage } from './antigravity/image.ts'
 import { apply as applyAntigravityVideo } from './antigravity/video.ts'
 import { apply as applyCodexSubscription } from './codex/index.js'
 import { apply as applyOpenCode } from './opencode/index.js'
+import { registerAccountRoutes } from './antigravity/account-routes.ts'
+import { credentialRef } from '@deepseek-ai/dsh-credentials'
 
 export const name = 'provider-extension'
 export const inject = [
@@ -48,6 +50,48 @@ export function apply(ctx: Context): void {
   } catch (error) {
     ctx.logger?.warn(`Failed to mount OpenCode Go: ${String(error)}`)
   }
+
+  // 7. Mount OpenCode config RPC to sync API keys to credentials and disk
+  ctx.inject(['connection'], (connectionCtx) => {
+    return registerAccountRoutes(
+      connectionCtx.connection,
+      'opencode',
+      ['config/save', 'config/get'],
+      async (endpoint, payload) => {
+        const credentials = ctx.get('credentials')
+        if (endpoint === 'config/save') {
+          const data = payload as { apiKey?: string; baseURL?: string }
+          if (typeof data?.apiKey === 'string') {
+            const key = data.apiKey.trim()
+            if (key.length > 0) {
+              if (credentials) {
+                try { await credentials.set(credentialRef('OPENCODE_API_KEY'), key) } catch {}
+              }
+              if (typeof process !== 'undefined' && process.env) {
+                process.env.OPENCODE_API_KEY = key
+              }
+              try {
+                const fs = await import('node:fs/promises')
+                const os = await import('node:os')
+                const path = await import('node:path')
+                const credPath = path.join(os.homedir(), '.dsh', '.credentials.yaml')
+                const raw = await fs.readFile(credPath, 'utf8')
+                if (!raw.includes('OPENCODE_API_KEY:')) {
+                  const updated = raw.replace(/^refs:\r?\n/m, `refs:\n  OPENCODE_API_KEY: '${key.replace(/'/g, "''")}'\n`)
+                  await fs.writeFile(credPath, updated, 'utf8')
+                } else {
+                  const updated = raw.replace(/OPENCODE_API_KEY:\s*['"]?[^'"\r\n]+['"]?/, `OPENCODE_API_KEY: '${key.replace(/'/g, "''")}'`)
+                  await fs.writeFile(credPath, updated, 'utf8')
+                }
+              } catch {}
+            }
+          }
+          return { ok: true, value: true }
+        }
+        return { ok: true, value: true }
+      },
+    )
+  })
 }
 
 export * from './antigravity/index.ts'
