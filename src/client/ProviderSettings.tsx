@@ -1570,7 +1570,7 @@ export function ProviderSettings({
               </span>
               <button
                 type="button"
-                className={css.action}
+                className={`${css.action} ${css.primary}`}
                 onClick={() => setSelectedProvider('claude')}
               >
                 {t('providerManage')} →
@@ -1612,7 +1612,7 @@ export function ProviderSettings({
               </span>
               <button
                 type="button"
-                className={css.action}
+                className={`${css.action} ${css.primary}`}
                 onClick={() => setSelectedProvider('opencode')}
               >
                 {t('providerManage')} →
