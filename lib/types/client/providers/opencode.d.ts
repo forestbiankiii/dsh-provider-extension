@@ -36,6 +36,7 @@ export declare class OpencodeController {
     private rpc?;
     constructor();
     setRpc(rpc: any): void;
+    fetchConfigFromHost(): Promise<void>;
     syncToHost(apiKey: string, baseURL?: string): Promise<void>;
     dispose(): void;
     private initFromStorage;

@@ -78,10 +78,45 @@ export class OpencodeController {
 
   setRpc(rpc: any): void {
     this.rpc = rpc
-    const current = this.store.getSnapshot()
-    if (current.apiKey) {
-      void this.syncToHost(current.apiKey, current.baseURL)
-    }
+    void this.fetchConfigFromHost()
+  }
+
+  async fetchConfigFromHost(): Promise<void> {
+    if (!this.rpc) return
+    try {
+      const res = await this.rpc.call('/api', 'opencode/config/get', {}) as {
+        ok?: boolean
+        value?: { configured?: boolean; apiKey?: string; baseURL?: string }
+      }
+      if (res?.ok && res?.value) {
+        const hostKey = res.value.apiKey || ''
+        const hostURL = res.value.baseURL || DEFAULT_OPENCODE_BASE_URL
+        const currentKey = this.store.getSnapshot().apiKey
+        const effectiveKey = hostKey || currentKey
+        const isConfigured = Boolean(res.value.configured || effectiveKey.trim().length > 0)
+
+        if (effectiveKey && typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(OPENCODE_API_KEY_STORAGE_KEY, effectiveKey)
+          window.localStorage.setItem(OPENCODE_BASE_URL_STORAGE_KEY, hostURL)
+        }
+
+        this.store.set(Object.freeze({
+          ...this.store.getSnapshot(),
+          apiKey: effectiveKey,
+          baseURL: hostURL,
+          configured: isConfigured,
+        }))
+
+        if (!hostKey && currentKey) {
+          void this.syncToHost(currentKey, hostURL)
+        }
+
+        if (isConfigured) {
+          void this.readUsage()
+          void this.refreshModels()
+        }
+      }
+    } catch {}
   }
 
   async syncToHost(apiKey: string, baseURL = DEFAULT_OPENCODE_BASE_URL): Promise<void> {

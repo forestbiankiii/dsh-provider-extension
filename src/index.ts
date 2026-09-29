@@ -92,6 +92,35 @@ export function apply(ctx: Context): void {
           }
           return { ok: true, value: true }
         }
+        if (endpoint === 'config/get') {
+          let key: string | undefined
+          if (credentials) {
+            try { key = (await credentials.resolve(credentialRef('OPENCODE_API_KEY')))?.value } catch {}
+          }
+          if (!key && typeof process !== 'undefined' && process.env) {
+            key = process.env.OPENCODE_API_KEY
+          }
+          if (!key) {
+            try {
+              const fs = await import('node:fs/promises')
+              const os = await import('node:os')
+              const path = await import('node:path')
+              const credPath = path.join(os.homedir(), '.dsh', '.credentials.yaml')
+              const raw = await fs.readFile(credPath, 'utf8')
+              const match = raw.match(/OPENCODE_API_KEY:\s*['"]?([^'"\r\n]+)['"]?/)
+              if (match && match[1]) key = match[1].trim()
+            } catch {}
+          }
+          const configured = Boolean(key && key.length > 0)
+          return {
+            ok: true,
+            value: {
+              configured,
+              apiKey: key || '',
+              baseURL: (typeof process !== 'undefined' && process.env.OPENCODE_BASE_URL) || 'https://opencode.ai/zen/go/v1',
+            },
+          }
+        }
         return { ok: true, value: true }
       },
     )

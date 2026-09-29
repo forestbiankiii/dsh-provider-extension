@@ -203,6 +203,17 @@ export function ProviderSettings({
   const [showOpencodeKey, setShowOpencodeKey] = useState<boolean>(false)
   const [opencodeSaveMsg, setOpencodeSaveMsg] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (opencodeState.apiKey && (!stagedOpencodeKey || stagedOpencodeKey !== opencodeState.apiKey)) {
+      setStagedOpencodeKey(opencodeState.apiKey)
+    }
+    if (opencodeState.baseURL && stagedOpencodeURL === DEFAULT_OPENCODE_BASE_URL && opencodeState.baseURL !== DEFAULT_OPENCODE_BASE_URL) {
+      setStagedOpencodeURL(opencodeState.baseURL)
+    }
+  }, [opencodeState.apiKey, opencodeState.baseURL])
+
+  const isOpencodeConfigured = Boolean(opencodeState.configured || stagedOpencodeKey.trim().length > 0)
+
   const handleSaveOpencode = () => {
     if (saveOpencodeConfig) {
       saveOpencodeConfig(stagedOpencodeKey, stagedOpencodeURL)
@@ -869,8 +880,8 @@ export function ProviderSettings({
                   <span className={css.cardSubtitle}>{t('providerOpenCodeDesc')}</span>
                 </div>
               </div>
-              <span className={css.providerBadge} data-status={opencodeState.configured ? 'ready' : 'idle'}>
-                {opencodeState.configured ? t('opencodeConfigured') : t('opencodeNotConfigured')}
+              <span className={css.providerBadge} data-status={isOpencodeConfigured ? 'ready' : 'idle'}>
+                {isOpencodeConfigured ? t('opencodeConfigured') : t('opencodeNotConfigured')}
               </span>
             </div>
 
@@ -1589,15 +1600,15 @@ export function ProviderSettings({
               <div className={css.providerTitles}>
                 <span className={css.providerTitle}>{t('providerOpenCode')}</span>
                 <span className={css.providerSubtitle}>
-                  {opencodeState.configured
+                  {isOpencodeConfigured
                     ? (opencodeState.models.length > 0 ? `${t('opencodeConfigured')} · ${opencodeState.models.length} 个模型` : t('opencodeConfigured'))
                     : t('providerOpenCodeDesc')}
                 </span>
               </div>
             </div>
             <div className={css.providerRight} onClick={e => e.stopPropagation()}>
-              <span className={css.providerBadge} data-status={opencodeState.configured ? 'ready' : 'idle'}>
-                {opencodeState.configured ? t('opencodeConfigured') : t('opencodeNotConfigured')}
+              <span className={css.providerBadge} data-status={isOpencodeConfigured ? 'ready' : 'idle'}>
+                {isOpencodeConfigured ? t('opencodeConfigured') : t('opencodeNotConfigured')}
               </span>
               <button
                 type="button"
