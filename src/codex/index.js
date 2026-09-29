@@ -3929,9 +3929,20 @@ function apply(ctx) {
 		}));
 	} else {
 		let memorySettings = { ...defaultSettings };
+		const listeners = /* @__PURE__ */ new Set();
 		settings = {
 			get: () => memorySettings,
-			update: (patch) => { Object.assign(memorySettings, patch); return memorySettings; }
+			update: (patch) => {
+				Object.assign(memorySettings, patch);
+				for (const listener of listeners) {
+					try { listener(memorySettings); } catch {}
+				}
+				return memorySettings;
+			},
+			watch: (listener) => {
+				listeners.add(listener);
+				return () => { listeners.delete(listener); };
+			}
 		};
 	}
 	const searchProvider = createSearchProviderSwitcher(ctx.loader);
