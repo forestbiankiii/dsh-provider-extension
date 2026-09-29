@@ -3892,27 +3892,48 @@ function createSearchProviderSwitcher(loader) {
 	});
 }
 function apply(ctx) {
-	const settings = ctx.settings.register(SETTINGS_NAMESPACE, z.object({
-		...Object.fromEntries(Object.entries(PREFERENCE_FIELDS).map(([field, rule]) => [field, rule.default === void 0 ? z.union(rule.choices) : z.union(rule.choices).default(rule.default)])),
-		imageModel: z.union(Object.keys(IMAGE_MODELS)).default(DEFAULT_IMAGE_MODEL),
-		imageQuality: z.union([
-			"auto",
-			"low",
-			"medium",
-			"high",
-			"xhigh",
-			"max"
-		]).default("auto"),
-		...Object.fromEntries(Object.entries(IMAGE_FEATURE_DEFAULTS).map(([key, value]) => [key, z.boolean().default(value)])),
-		[CUSTOM_CONTEXT_OVERRIDES_FIELD]: z.dict(z.number().step(1).min(1).max(MAX_CONTEXT_BUDGET)).default({}),
-		[SEARCH_MODE_FIELD]: z.union(SEARCH_MODES).default("live"),
-		[SEARCH_DOMAINS_FIELD]: z.transform(z.array(z.string()).max(20), (value) => readCapabilitySettings({ searchDomains: value }).searchDomains).default([]),
-		...Object.fromEntries(QUOTA_THRESHOLD_FIELDS.map((key) => [key, z.number().step(1).min(1).max(100).default(20)])),
-		[QUOTA_ALERTS_FIELD]: z.union(QUOTA_ALERT_MODES).default("important"),
-		[LEGACY_QUICK_QUOTA_FIELD]: z.boolean(),
-		[CUSTOM_CONTEXT_WINDOW_FIELD]: z.number().step(1).min(128e3).max(1e6).default(DEFAULT_CUSTOM_CONTEXT_WINDOW),
-		...Object.fromEntries(Object.entries(CUSTOM_CONTEXT_MODEL_FIELDS).map(([modelKey, field]) => [field, z.number().step(1).min(128e3).max(CUSTOM_CONTEXT_MODEL_CAPS[modelKey]).default(CUSTOM_CONTEXT_MODEL_DEFAULTS[modelKey])]))
-	}));
+	let settings;
+	const defaultSettings = {
+		imageModel: DEFAULT_IMAGE_MODEL,
+		imageQuality: "auto",
+		...IMAGE_FEATURE_DEFAULTS,
+		[CUSTOM_CONTEXT_OVERRIDES_FIELD]: {},
+		[SEARCH_MODE_FIELD]: "live",
+		[SEARCH_DOMAINS_FIELD]: [],
+		[QUOTA_ALERTS_FIELD]: "important",
+		[CUSTOM_CONTEXT_WINDOW_FIELD]: DEFAULT_CUSTOM_CONTEXT_WINDOW,
+		...Object.fromEntries(QUOTA_THRESHOLD_FIELDS.map((key) => [key, 20])),
+		...Object.fromEntries(Object.entries(CUSTOM_CONTEXT_MODEL_FIELDS).map(([modelKey, field]) => [field, CUSTOM_CONTEXT_MODEL_DEFAULTS[modelKey]]))
+	};
+	if (ctx.settings && typeof ctx.settings.register === "function") {
+		settings = ctx.settings.register(SETTINGS_NAMESPACE, z.object({
+			...Object.fromEntries(Object.entries(PREFERENCE_FIELDS).map(([field, rule]) => [field, rule.default === void 0 ? z.union(rule.choices) : z.union(rule.choices).default(rule.default)])),
+			imageModel: z.union(Object.keys(IMAGE_MODELS)).default(DEFAULT_IMAGE_MODEL),
+			imageQuality: z.union([
+				"auto",
+				"low",
+				"medium",
+				"high",
+				"xhigh",
+				"max"
+			]).default("auto"),
+			...Object.fromEntries(Object.entries(IMAGE_FEATURE_DEFAULTS).map(([key, value]) => [key, z.boolean().default(value)])),
+			[CUSTOM_CONTEXT_OVERRIDES_FIELD]: z.dict(z.number().step(1).min(1).max(MAX_CONTEXT_BUDGET)).default({}),
+			[SEARCH_MODE_FIELD]: z.union(SEARCH_MODES).default("live"),
+			[SEARCH_DOMAINS_FIELD]: z.transform(z.array(z.string()).max(20), (value) => readCapabilitySettings({ searchDomains: value }).searchDomains).default([]),
+			...Object.fromEntries(QUOTA_THRESHOLD_FIELDS.map((key) => [key, z.number().step(1).min(1).max(100).default(20)])),
+			[QUOTA_ALERTS_FIELD]: z.union(QUOTA_ALERT_MODES).default("important"),
+			[LEGACY_QUICK_QUOTA_FIELD]: z.boolean(),
+			[CUSTOM_CONTEXT_WINDOW_FIELD]: z.number().step(1).min(128e3).max(1e6).default(DEFAULT_CUSTOM_CONTEXT_WINDOW),
+			...Object.fromEntries(Object.entries(CUSTOM_CONTEXT_MODEL_FIELDS).map(([modelKey, field]) => [field, z.number().step(1).min(128e3).max(CUSTOM_CONTEXT_MODEL_CAPS[modelKey]).default(CUSTOM_CONTEXT_MODEL_DEFAULTS[modelKey])]))
+		}));
+	} else {
+		let memorySettings = { ...defaultSettings };
+		settings = {
+			get: () => memorySettings,
+			update: (patch) => { Object.assign(memorySettings, patch); return memorySettings; }
+		};
+	}
 	const searchProvider = createSearchProviderSwitcher(ctx.loader);
 	const network = createCodexNetworkTransport();
 	const originalImages = new OriginalImageStore();
@@ -3961,7 +3982,7 @@ function apply(ctx) {
 			catalogStatus: modelCatalog.status(),
 			verbosityModels: provider.getModels().filter((model) => modelCatalog.metadata(model.id)?.supportVerbosity ?? model.id !== "gpt-5.3-codex-spark").map((model) => model.id),
 			fastModels: provider.getModels().filter((model) => modelCatalog.metadata(model.id)?.supportsFast ?? supportsCodexFastMode(model.id)).map((model) => model.id),
-			writable: ctx.settings.writable
+			writable: ctx.settings?.writable ?? false
 		}),
 		update: (patch) => settings.update(patch)
 	};

@@ -42,7 +42,11 @@ export function apply(ctx: Context): void {
   })
 
   // 5. Mount ChatGPT / Codex subscription service, LLM adapter, account RPC, and tools
-  applyCodexSubscription(ctx)
+  try {
+    applyCodexSubscription(ctx)
+  } catch (error) {
+    ctx.logger?.warn(`Failed to mount Codex subscription: ${String(error)}`)
+  }
 
   // 6. Mount OpenCode Go adapter, live catalog, usage service, and remotes
   try {

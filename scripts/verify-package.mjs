@@ -39,7 +39,7 @@ if (!client.startsWith('window.__ModuleLoader__.load({id:"dsh-provider-extension
   throw new Error('Client artifact is not wrapped for the DSH module loader')
 }
 const requires = [...new Set([...client.matchAll(/require\("([^"]+)"\)/g)].map(match => match[1]))].sort()
-const expected = ['@deepseek-ai/dsh-client-ui-primitives', 'react', 'react/jsx-runtime']
+const expected = ['react', 'react/jsx-runtime']
 if (JSON.stringify(requires) !== JSON.stringify(expected)) {
   throw new Error(`Unexpected runtime requires: ${requires.join(', ')}`)
 }

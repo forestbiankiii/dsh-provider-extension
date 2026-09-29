@@ -138,6 +138,7 @@ export function apply(ctx?: Context, config: Config = { enabled: true, model: AN
   let current = (): AntigravitySearchSettings => config
   let lifecycle: CapabilityLifecycle | undefined
   ctx.inject(['settings'], (settingsCtx) => {
+    if (typeof settingsCtx.settings.installSection !== 'function') return
     settingsCtx.settings.installSection(ctx, ANTIGRAVITY_SEARCH_SETTINGS_NAMESPACE, Config, config, {
       setSource: source => { current = source; lifecycle?.sync() },
       onChange: () => { lifecycle?.sync() },

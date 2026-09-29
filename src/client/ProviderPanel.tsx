@@ -8,7 +8,6 @@ import type { ModelSelection } from '@deepseek-ai/dsh-api-session-controller/typ
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { isCodexProvider, maskedEmail, type CodexAccountsState } from './providers/codex.ts'
 import { isAntigravityProvider, type AntigravityState } from './providers/antigravity.ts'
 import { isOpencodeProvider, type OpencodeState, DEFAULT_OPENCODE_MODELS } from './providers/opencode.ts'
@@ -59,6 +58,12 @@ export type ProviderPanelProps =
   & InjectFace<ProviderPanelInjected>
 
 type OpenPane = 'provider' | 'model' | null
+
+function ChevronDown({ className }: { className?: string | undefined }): ReactNode {
+  return <svg className={className} width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+    <path d="m3.5 5.25 3.5 3.5 3.5-3.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+}
 
 type SliderDrag = {
   model: ProviderPanelModel
@@ -688,7 +693,7 @@ export function ProviderPanel({
         onClick={() => { toggle('provider') }}
       >
         <span className={css.providerLabel}>{providerLabel}</span>
-        <span aria-hidden="true"><IconChevronDownOutline14 className={css.chevron} /></span>
+        <span aria-hidden="true"><ChevronDown className={css.chevron} /></span>
       </button>
 
       <button
@@ -705,7 +710,7 @@ export function ProviderPanel({
         <span className={css.dot} aria-hidden="true" style={{ background: accentFor(currentModel?.id ?? modelLabel, 0) }} />
         <span className={css.triggerLabel}>{modelLabel}</span>
         {currentEffortName === undefined ? null : <span className={css.triggerEffort}>{currentEffortName}</span>}
-        <span aria-hidden="true"><IconChevronDownOutline14 className={css.chevron} /></span>
+        <span aria-hidden="true"><ChevronDown className={css.chevron} /></span>
       </button>
 
       {open === 'provider' && (

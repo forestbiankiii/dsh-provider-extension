@@ -1,7 +1,7 @@
 /** Provider Extension client plugin: owns the composer provider seat and hosts one module per provider. */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type { ClientConnectionRpc, ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -18,6 +18,7 @@ import { CodexAccountsController } from './providers/codex.ts'
 import { AntigravityController, isAntigravityProvider } from './providers/antigravity.ts'
 import { OpencodeController, isOpencodeProvider } from './providers/opencode.ts'
 import { en, zh, type ProviderPanelKey } from './locales.ts'
+import { accountRpcFallback } from './account-rpc.ts'
 
 export { ProviderPanel } from './ProviderPanel.tsx'
 export type { ProviderPanelInjected, ProviderPanelProps } from './ProviderPanel.tsx'
@@ -51,16 +52,28 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 export const NS = 'providerExtension'
-export const inject = ['slots', 'locale', 'connection', 'modelDirectories', 'sessions', 'remote', 'remote.session']
+export const inject = ['slots', 'locale', 'modelDirectories', 'sessions', 'remote', 'remote.session']
 
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-provider-extension: dictionaries')
 
-  const connection = ctx.get('connection') as unknown as ConnectionHandle
-  const codexAccounts = new CodexAccountsController(connection.rpc)
-  const antigravity = new AntigravityController(connection.rpc)
+  // The model seat must not disappear when the legacy connection service is absent.
+  // Resolve its RPC lazily, falling back to the same authenticated /api routes.
+  let connectionRpc: ClientConnectionRpc | undefined
+  ctx.inject(['connection'], (scope: ClientContext) => {
+    connectionRpc = (scope.get('connection') as unknown as ConnectionHandle).rpc
+    return () => { connectionRpc = undefined }
+  })
+  const rpc = {
+    call: (...args: unknown[]) => {
+      const activeRpc = connectionRpc ?? accountRpcFallback
+      return (activeRpc.call as (...params: unknown[]) => Promise<unknown>)(...args)
+    },
+  } as ClientConnectionRpc
+  const codexAccounts = new CodexAccountsController(rpc)
+  const antigravity = new AntigravityController(rpc)
   const opencode = new OpencodeController()
-  opencode.setRpc(connection.rpc)
+  opencode.setRpc(rpc)
   ctx.effect(() => () => { codexAccounts.dispose() }, 'dsh-provider-extension: Codex account controller')
   ctx.effect(() => () => { antigravity.dispose() }, 'dsh-provider-extension: Antigravity controller')
   ctx.effect(() => () => { opencode.dispose() }, 'dsh-provider-extension: OpenCode controller')
