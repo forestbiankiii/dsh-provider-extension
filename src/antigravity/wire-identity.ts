@@ -18,7 +18,10 @@ import { attributionHeaders as dshAttributionHeaders } from '@deepseek-ai/dsh-ll
 
 export const DSH_ATTRIBUTION_HEADER = 'X-DeepSeek-Harness-Attribution' as const
 export const AGY_PROVIDER_USER_AGENT = buildAntigravityHarnessUserAgent()
+
 export const ANTIGRAVITY_WIRE_ORIGIN = new URL(ANTIGRAVITY_ENDPOINT).origin
+/** The prod gateway serves the current model set; the daily gateway 404s it. */
+export const ANTIGRAVITY_PROD_WIRE_ORIGIN = new URL(ANTIGRAVITY_ENDPOINT_PROD).origin
 export const ANTIGRAVITY_WIRE_ORIGINS = Object.freeze([
   new URL(ANTIGRAVITY_ENDPOINT).origin,
   new URL(ANTIGRAVITY_ENDPOINT_PROD).origin,

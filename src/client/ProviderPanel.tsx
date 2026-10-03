@@ -1,7 +1,7 @@
 /** Provider and model/reasoning controls that replace the shipped model seat. */
 
 import {
-  useEffect, useRef, useState,
+  useEffect, useMemo, useRef, useState,
   type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode,
 } from 'react'
 import type { ModelSelection } from '@deepseek-ai/dsh-api-session-controller/types'
@@ -13,7 +13,7 @@ import { isAntigravityProvider, type AntigravityState } from './providers/antigr
 import { isOpencodeProvider, type OpencodeState, DEFAULT_OPENCODE_MODELS } from './providers/opencode.ts'
 import {
   accentFor, activeGroup, effortIndex, isCurrentModel, resolveModelEffort, restingEffort,
-  selectionForRow, type ProviderPanelModel, loadDisabledModels, getDisabledModelsForAccount, MODELS_VISIBILITY_EVENT,
+  selectionForRow, sameSelection, type ProviderPanelModel, loadDisabledModels, getDisabledModelsForAccount, MODELS_VISIBILITY_EVENT,
 } from './selection.ts'
 import { codexEnabledModels } from './codex-visibility.ts'
 import css from './ProviderPanel.module.css'
@@ -31,7 +31,7 @@ export interface ProviderPanelInjected {
     antigravity?: SnapshotStore<AntigravityState>
   }
   /** Load the session's shared model directory. */
-  loadDirectory: () => Promise<void>
+  loadDirectory: (force?: boolean) => Promise<void>
   /** Load the optional Codex subscription account roster. */
   loadAccounts: () => Promise<void>
   /** Select the real active Codex account used for subsequent quota and requests. */
@@ -149,6 +149,10 @@ export function ProviderPanel({
   const [open, setOpen] = useState<OpenPane>(null)
   const [providerDraft, setProviderDraft] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
+  const [optimistic, setOptimistic] = useState<ModelSelection | null>(null)
+  const queuedSelection = useRef<ModelSelection | null>(null)
+  const confirmedSelection = useRef(directory.current)
+  const current = optimistic ?? directory.current
   const [loading, setLoading] = useState(false)
   const [accountError, setAccountError] = useState<string | null>(null)
   const [error, setError] = useState<{ kind: 'loadFailed' | 'selectFailed'; message: string } | null>(null)
@@ -170,6 +174,7 @@ export function ProviderPanel({
   const generation = useRef(0)
   const mounted = useRef(false)
   const selecting = useRef(false)
+  const lastDirectoryLoad = useRef(0)
 
   const setDrag = (next: SliderDrag | null): void => {
     dragRef.current = next
@@ -181,6 +186,10 @@ export function ProviderPanel({
     mounted.current = true
     generation.current++
     selecting.current = false
+    queuedSelection.current = null
+    confirmedSelection.current = directory.current
+    setOptimistic(null)
+    lastDirectoryLoad.current = 0
     setOpen(null)
     setProviderDraft(undefined)
     setBusy(false)
@@ -212,35 +221,47 @@ export function ProviderPanel({
     }
   }, [directory.current?.provider, directory.current?.model, directory.current?.reasoningEffort])
 
-  const authoritativeGroup = activeGroup(directory)
+  useEffect(() => {
+    if (!busy && optimistic !== null && sameSelection(optimistic, directory.current)) setOptimistic(null)
+    if (!busy && optimistic === null) confirmedSelection.current = directory.current
+  }, [busy, optimistic, directory.current])
+
+  const authoritativeGroup = activeGroup({ ...directory, current })
   const group = directory.groups.find(candidate => candidate.id === providerDraft) ?? authoritativeGroup
   const activeAgAccount = antigravity.accounts.find(account => account.active) ?? antigravity.accounts[0]
   const activeCodexAccount = accounts.accounts.find(account => account.active)
-  const disabledForCurrent = isAntigravityProvider(group?.id)
-    ? getDisabledModelsForAccount(activeAgAccount?.id, activeAgAccount?.email)
+  // Storage is synchronous: read only when the account or visibility settings change,
+  // not on each pointer preview / quota update.
+  // Native DeepSeek models are managed by DSH's Models page, not this plugin's
+  // Antigravity/OpenCode visibility switches (which can share the same model ids).
+  const disabledForCurrent = useMemo(() => group?.id === 'deepseek-official' || group?.id === 'deepseek-account'
+    ? new Set<string>()
+    : isAntigravityProvider(group?.id)
+      ? getDisabledModelsForAccount(activeAgAccount?.id, activeAgAccount?.email)
     : isCodexProvider(group?.id)
       ? getDisabledModelsForAccount(activeCodexAccount?.id, activeCodexAccount?.email)
-      : disabledModels
+      : disabledModels,
+  [group?.id, activeAgAccount?.id, activeAgAccount?.email, activeCodexAccount?.id, activeCodexAccount?.email, disabledModels])
   const allModels = group?.models ?? []
-  const codexEnabled = isCodexProvider(group?.id)
-    ? codexEnabledModels(activeCodexAccount?.id, activeCodexAccount?.email) : undefined
+  const codexEnabled = useMemo(() => isCodexProvider(group?.id)
+    ? codexEnabledModels(activeCodexAccount?.id, activeCodexAccount?.email) : undefined,
+  [group?.id, activeCodexAccount?.id, activeCodexAccount?.email, disabledModels])
+  useEffect(() => { lastDirectoryLoad.current = 0 }, [activeAgAccount?.id, activeCodexAccount?.id])
   const models = allModels.filter(model => codexEnabled !== undefined
     ? codexEnabled.has(model.id) : !disabledForCurrent.has(model.id))
-  const currentModel = group === undefined || group.id !== directory.current?.provider ? undefined
-    : models.find(model => isCurrentModel(directory.current, group.id, model))
+  const currentModel = group === undefined || group.id !== current?.provider ? undefined
+    : models.find(model => isCurrentModel(current, group.id, model))
   const efforts = currentModel?.reasoning?.efforts ?? []
-  const currentEffort = currentModel === undefined ? undefined : directory.current?.reasoningEffort
+  const currentEffort = currentModel === undefined ? undefined : current?.reasoningEffort
   const currentEffortName = efforts.find(effort => effort.id === currentEffort)?.name
 
   const previewModel = dragging !== null && group !== undefined && dragging.provider === group.id
     ? dragging.model
     : currentModel
-  const previewEfforts = previewModel?.reasoning?.efforts ?? []
-  const previewEffortId = dragging !== null && group !== undefined && dragging.provider === group.id
-    ? (dragging.index >= 0 ? previewEfforts[dragging.index]?.id : undefined)
-    : (currentEffort ?? (currentModel && group ? resolveModelEffort(currentModel, effortMemory[`${group.id}/${currentModel.id}`] ?? effortMemory[currentModel.id]) : undefined))
   const pending = locked || busy || accounts.switchingId !== undefined || directory.status === 'selecting'
-  const fetching = loading || directory.status === 'loading'
+  const modelLocked = locked || accounts.switchingId !== undefined || !available
+  // Automatic catalog reconciliation is not an explicit user reload.
+  const fetching = loading || (directory.status === 'loading' && models.length === 0)
 
   useEffect(() => {
     if (open === null) return
@@ -262,37 +283,28 @@ export function ProviderPanel({
     }
   }, [open])
 
-  const run = (kind: 'loadFailed' | 'selectFailed', operation: () => Promise<void>): void => {
-    const request = ++generation.current
-    const isSelection = kind === 'selectFailed'
-    selecting.current = isSelection
-    setBusy(isSelection)
-    setLoading(!isSelection)
+  const reload = (force = true): void => {
+    if (selecting.current || pending || fetching) return
+    const request = generation.current
+    setLoading(force || models.length === 0)
     setError(null)
-    void Promise.resolve().then(operation)
-      .catch((cause: unknown) => {
-        if (!mounted.current || request !== generation.current) return
-        setError({ kind, message: cause instanceof Error ? cause.message : String(cause) })
-      })
-      .finally(() => {
-        if (!mounted.current || request !== generation.current) return
-        selecting.current = false
-        setBusy(false)
-        setLoading(false)
-        setDrag(null)
-      })
-  }
-
-  const reload = (): void => {
-    if (selecting.current || pending) return
-    run('loadFailed', loadDirectory)
+    void loadDirectory(force).then(() => {
+      if (mounted.current && request === generation.current) lastDirectoryLoad.current = Date.now()
+    }).catch((cause: unknown) => {
+      if (mounted.current && request === generation.current && !selecting.current) {
+        setError({ kind: 'loadFailed', message: cause instanceof Error ? cause.message : String(cause) })
+      }
+    }).finally(() => {
+      if (mounted.current && request === generation.current) setLoading(false)
+    })
   }
 
   const toggle = (pane: Exclude<OpenPane, null>): void => {
-    if (pending) return
+    if (modelLocked || (pane === 'provider' && pending)) return
     const next = open === pane ? null : pane
     setOpen(next)
-    if (next !== null) reload()
+    // Reopening a warm picker should not force an account catalog RPC or shift its layout.
+    if (next !== null && (lastDirectoryLoad.current === 0 || Date.now() - lastDirectoryLoad.current >= 30_000)) reload(false)
     if (next !== null) {
       if ((next === 'provider' || isCodexProvider(group?.id)) && directory.groups.some(candidate => isCodexProvider(candidate.id))) {
         void loadAccounts()
@@ -304,26 +316,61 @@ export function ProviderPanel({
   }
 
   const submit = (model: ProviderPanelModel | undefined, effortId: string | undefined): void => {
-    if (group === undefined || model === undefined || selecting.current || pending) return
-    if (effortId !== undefined) {
-      const key = `${group.id}/${model.id}`
-      setEffortMemory(prev => {
-        const next = { ...prev, [key]: effortId }
-        saveEffortMemory(next)
-        return next
-      })
-    }
-    run('selectFailed', () => select(selectionForRow(model, group.id, effortId)))
+    if (group === undefined || model === undefined || modelLocked) return
+    const next = selectionForRow(model, group.id, effortId)
+    if (sameSelection(next, current)) return
+    queuedSelection.current = next
+    setOptimistic(next)
+    setDrag(null)
+    setError(null)
+    if (selecting.current) return
+    selecting.current = true
+    setBusy(true)
+    const request = generation.current
+    // One RPC at a time; rapid changes replace the queued intent, never vanish
+    // behind disabled controls or race an older response onto a newer selection.
+    void (async () => {
+      try {
+        while (queuedSelection.current !== null && mounted.current && request === generation.current) {
+          const selection = queuedSelection.current
+          queuedSelection.current = null
+          try {
+            await select(selection)
+            if (!mounted.current || request !== generation.current) return
+            confirmedSelection.current = selection
+            if (selection.reasoningEffort !== undefined) {
+              const key = selection.provider + '/' + selection.model
+              setEffortMemory(prev => {
+                const nextMemory = { ...prev, [key]: selection.reasoningEffort! }
+                saveEffortMemory(nextMemory)
+                return nextMemory
+              })
+            }
+          } catch (cause: unknown) {
+            if (!mounted.current || request !== generation.current) return
+            if (queuedSelection.current === null) {
+              setOptimistic(confirmedSelection.current ?? null)
+              setError({ kind: 'selectFailed', message: cause instanceof Error ? cause.message : String(cause) })
+            }
+          }
+        }
+      } finally {
+        if (mounted.current && request === generation.current) {
+          selecting.current = false
+          setBusy(false)
+        }
+      }
+    })()
   }
 
   const commitDrag = (drag: SliderDrag | null): boolean => {
-    if (drag === null || group === undefined || drag.provider !== group.id || selecting.current || pending) return false
+    if (drag === null || group === undefined || drag.provider !== group.id || modelLocked) return false
     const ladder = drag.model.reasoning?.efforts ?? []
     const effortId = drag.index < 0 ? undefined : ladder[drag.index]?.id
     if (
-      directory.current?.provider === drag.provider
-      && directory.current.model === drag.model.id
-      && directory.current.reasoningEffort === effortId
+      current?.provider === drag.provider
+      && current.model === drag.model.id
+      && current.reasoningEffort === effortId
     ) return false
     submit(drag.model, effortId)
     return true
@@ -347,23 +394,25 @@ export function ProviderPanel({
       ? models.find(entry => entry.id === row.dataset.providerPanelModel)
       : undefined
     const target = candidate ?? fallback
-    const fallbackRow = Array.from(root.current?.querySelectorAll<HTMLElement>('[data-provider-panel-model]') ?? [])
-      .find(entry => entry.dataset.providerPanelModel === target.id)
-    const track = (candidate === undefined ? null : candidateTrack)
-      ?? fallbackRow?.querySelector<HTMLElement>('[data-provider-panel-track]') ?? originTrack
+    let track = candidate === undefined ? null : candidateTrack
+    if (track === null) {
+      const fallbackRow = Array.from(root.current?.querySelectorAll<HTMLElement>('[data-provider-panel-model]') ?? [])
+        .find(entry => entry.dataset.providerPanelModel === target.id)
+      track = fallbackRow?.querySelector<HTMLElement>('[data-provider-panel-track]') ?? originTrack
+    }
     const count = target.reasoning?.efforts.length ?? 0
     const previousIndex = previous?.model.id === target.id && previous.provider === group!.id ? previous.index : undefined
     return {
       model: target,
       provider: group!.id,
-      index: sliderIndexFromPoint(event.clientX, track.getBoundingClientRect(), count, previousIndex),
+      index: sliderIndexFromPoint(event.clientX, track === candidateTrack && band !== undefined ? band : track.getBoundingClientRect(), count, previousIndex),
       source: 'pointer',
       pointerId: event.pointerId,
     }
   }
 
   const startPointerDrag = (event: ReactPointerEvent<HTMLDivElement>, model: ProviderPanelModel): void => {
-    if (selecting.current || pending || (event.button !== undefined && event.button !== 0)) return
+    if (modelLocked || (event.button !== undefined && event.button !== 0)) return
     event.preventDefault()
     if (typeof event.currentTarget.setPointerCapture === 'function') {
       event.currentTarget.setPointerCapture(event.pointerId)
@@ -374,7 +423,7 @@ export function ProviderPanel({
 
   const movePointerDrag = (event: ReactPointerEvent<HTMLDivElement>): void => {
     const drag = dragRef.current
-    if (selecting.current || pending || drag?.source !== 'pointer' || (drag.pointerId !== undefined && event.pointerId !== undefined && drag.pointerId !== event.pointerId)) return
+    if (modelLocked || drag?.source !== 'pointer' || (drag.pointerId !== undefined && event.pointerId !== undefined && drag.pointerId !== event.pointerId)) return
     const next = dragAtPointer(event, drag.model, drag)
     if (next.model.id !== drag.model.id || next.index !== drag.index) setDrag(next)
   }
@@ -391,7 +440,7 @@ export function ProviderPanel({
 
   const finishKeyboardDrag = (): void => {
     const drag = dragRef.current
-    if (selecting.current || drag?.source !== 'keyboard') return
+    if (modelLocked || drag?.source !== 'keyboard') return
     if (!commitDrag(drag)) setDrag(null)
   }
 
@@ -399,7 +448,7 @@ export function ProviderPanel({
     const ladder = model.reasoning?.efforts ?? []
     const count = ladder.length
     const provider = group!.id
-    const isCurrent = isCurrentModel(directory.current, provider, model)
+    const isCurrent = isCurrentModel(current, provider, model)
     const isDragTarget = dragging !== null && dragging.model.id === model.id && dragging.provider === provider
     const isRowActive = dragging !== null ? isDragTarget : isCurrent
     const key = `${provider}/${model.id}`
@@ -423,8 +472,6 @@ export function ProviderPanel({
         data-provider-panel-model={model.id}
         style={{
           '--dpe-accent': accent,
-          '--dpe-accent-soft': `${accent}1f`,
-          '--dpe-accent-edge': `${accent}66`,
         } as CSSProperties}
         onClick={(event) => {
           if ((event.target as HTMLElement).closest('[data-provider-panel-track]')) return
@@ -437,7 +484,7 @@ export function ProviderPanel({
             className={css.rowName}
             aria-label={t('selectModel', { model: model.name })}
             aria-pressed={isRowActive}
-            disabled={pending}
+            disabled={modelLocked}
             onClick={(event) => {
               event.stopPropagation()
               submit(model, effectiveEffortId)
@@ -460,13 +507,16 @@ export function ProviderPanel({
                 className={css.stop}
                 aria-hidden="true"
                 data-active={isRowActive && stop === position}
+                data-filled={isRowActive && stop <= position}
                 data-edge={stop === 0 ? 'start' : stop === count - 1 ? 'end' : 'middle'}
                 style={{ left: `calc(10px + (100% - 20px) * ${count > 1 ? stop / (count - 1) : 0})` }}
               ><span className={css.stopLabel}>{effort.name}</span></span>
             ))}
             {!isRowActive || position < 0 ? null : <>
-              <span className={css.fill} aria-hidden="true" style={{ width: `calc((100% - 20px) * ${ratio})` }} />
-              <span className={css.thumb} aria-hidden="true" style={{ left: `calc(10px + (100% - 20px) * ${ratio})` }} />
+              <span className={css.fill} aria-hidden="true" style={{ transform: `scaleX(${ratio})` }} />
+              <span className={css.thumbPosition} aria-hidden="true" style={{ transform: `translateX(${ratio * 100}%)` }}>
+                <span className={css.thumb} />
+              </span>
             </>}
             <input
               className={css.input}
@@ -475,11 +525,11 @@ export function ProviderPanel({
               max={count - 1}
               step={1}
               value={position}
-              disabled={pending}
+              disabled={modelLocked}
               aria-label={t('adjustEffort', { model: model.name })}
               aria-valuetext={effortName}
               onChange={(event) => {
-                if (selecting.current || pending || dragRef.current?.source === 'pointer') return
+                if (modelLocked || dragRef.current?.source === 'pointer') return
                 setDrag({ model, provider, index: Number(event.target.value), source: 'keyboard' })
               }}
               onKeyUp={(event: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -527,6 +577,10 @@ export function ProviderPanel({
 
   const activeAccount = accounts.accounts.find(account => account.active)
   const cleanGroupName = (id?: string, name?: string): string => {
+    if (id === 'deepseek-official') return t('providerDeepseekApi')
+    if (id === 'deepseek-account') return t('providerDeepseekAccount')
+    if (isCodexProvider(id)) return t('providerCodex')
+    if (isAntigravityProvider(id)) return t('providerAntigravity')
     if (isOpencodeProvider(id)) return t('providerOpenCode')
     return name ?? t('providerTrigger')
   }
@@ -536,8 +590,8 @@ export function ProviderPanel({
     : isAntigravityProvider(group?.id) && activeAgAccount !== undefined
       ? `${baseProviderLabel} · ${activeAgAccount.label}`
       : baseProviderLabel
-  const modelLabel = currentModel?.name ?? (group?.id === directory.current?.provider
-    ? directory.current?.model ?? t('trigger') : t('trigger'))
+  const modelLabel = currentModel?.name ?? (group?.id === current?.provider
+    ? current?.model ?? t('trigger') : t('trigger'))
 
   const isAg = isAntigravityProvider(group?.id)
   const isCodex = isCodexProvider(group?.id)
@@ -719,11 +773,12 @@ export function ProviderPanel({
         aria-label={t('title')}
         aria-haspopup="dialog"
         aria-expanded={open === 'model'}
-        disabled={pending}
+        disabled={modelLocked}
         title={currentEffortName === undefined ? modelLabel : `${modelLabel} · ${currentEffortName}`}
+        style={{ '--dpe-accent': accentFor(currentModel?.id ?? modelLabel, 0) } as CSSProperties}
         onClick={() => { toggle('model') }}
       >
-        <span className={css.dot} aria-hidden="true" style={{ background: accentFor(currentModel?.id ?? modelLabel, 0) }} />
+        <span className={css.dot} aria-hidden="true" />
         <span className={css.triggerLabel}>{modelLabel}</span>
         {currentEffortName === undefined ? null : <span className={css.triggerEffort}>{currentEffortName}</span>}
         <span aria-hidden="true"><ChevronDown className={css.chevron} /></span>
@@ -896,14 +951,19 @@ export function ProviderPanel({
       )}
 
       {open === 'model' && (
-        <div className={css.menu} role="dialog" aria-label={t('title')} aria-busy={pending || fetching}>
+        <div className={css.menu} role="dialog" aria-label={t('title')} aria-busy={pending || fetching}
+          style={{ '--dpe-accent': accentFor(previewModel?.id ?? '', 0) } as CSSProperties}>
           <div className={css.head}>
-            <span className={css.headTitle}>{group?.name ?? t('title')}</span>
-            <button type="button" className={css.reload} disabled={pending || fetching} onClick={reload}>{t('reload')}</button>
+            <div className={css.heading}>
+              <span className={css.headTitle}>{group === undefined ? t('title') : cleanGroupName(group.id, group.name)}</span>
+              {isCodexProvider(group?.id) && activeCodexAccount ? <span className={css.accountCaption}>
+                {t('accountCurrent')}: {activeCodexAccount.label}
+              </span> : null}
+            </div>
+            <button type="button" className={css.reload} disabled={pending || fetching} onClick={() => { reload() }}>
+              {fetching ? t('loading') : t('reload')}
+            </button>
           </div>
-          {isCodexProvider(group?.id) && activeCodexAccount ? <p className={css.note}>
-            {t('accountCurrent')}: {activeCodexAccount.label}
-          </p> : null}
           {!fetching && codexEnabled !== undefined && [...codexEnabled].some(id => !allModels.some(model => model.id === id))
             ? <p className={css.note}>{t('codexModelsMissing', {
               models: [...codexEnabled].filter(id => !allModels.some(model => model.id === id)).join(', '),
@@ -912,35 +972,19 @@ export function ProviderPanel({
             ? <p className={css.error} role="alert">{t(error.kind, { message: error.message })}</p>
             : directory.error === null ? null : <p className={css.error} role="alert">{directory.error}</p>}
           {directory.failures.map(failure => (
-            <p key={failure.id} className={css.error} role="alert">{t('providerFailed', { provider: failure.name, message: failure.message })}</p>
+            <p key={failure.id} className={css.error} role="alert">{t('providerFailed', { provider: cleanGroupName(failure.id, failure.name), message: failure.message })}</p>
           ))}
-          {fetching ? <p className={css.note} role="status">{t('loading')}</p> : null}
+          {fetching && models.length === 0 ? <p className={css.note} role="status">{t('loading')}</p> : null}
           {directory.current !== null && group?.id === directory.current.provider && currentModel === undefined && !fetching
             ? <p className={css.note}>{t('missing', { provider: directory.current.provider, model: directory.current.model })}</p> : null}
-          {models.length === 0 && !fetching ? <p className={css.note}>{t('empty')}</p> : null}
-          {models.length === 0 ? null : <>
-            {previewModel === undefined ? null : previewEfforts.length === 0
-              ? <p className={css.note}>{t('noEffort')}</p>
-              : (
-                <div className={css.pills} role="group" aria-label={t('effort')}>
-                  {previewEfforts.map(effort => (
-                    <button
-                      key={effort.id}
-                      type="button"
-                      className={css.pill}
-                      aria-pressed={effort.id === previewEffortId}
-                      disabled={pending}
-                      onClick={() => { submit(previewModel, effort.id) }}
-                    >{effort.name}</button>
-                  ))}
-                </div>
-              )}
-            <div className={css.rows}>{models.map(renderRow)}</div>
-          </>}
-          <div className={css.foot}>
-            <span className={css.footLabel}>{t('contextWindow')}</span>
-            <span className={css.note}>{t('contextUnsupported')}</span>
-          </div>
+          {group?.id === 'deepseek-official' ? <p className={css.note}>{t('deepseekApiHint')}</p>
+            : group?.id === 'deepseek-account' ? <p className={css.note}>{t('deepseekAccountHint')}</p>
+              : models.length === 0 && !fetching ? <p className={css.note}>{t('empty')}</p> : null}
+          {models.length === 0 ? null : <div className={css.rows}>{models.map(renderRow)}</div>}
+          <details className={css.foot}>
+            <summary className={css.footLabel}>{t('contextWindow')}<ChevronDown /></summary>
+            <p className={css.note}>{t('contextUnsupported')}</p>
+          </details>
         </div>
       )}
     </div>

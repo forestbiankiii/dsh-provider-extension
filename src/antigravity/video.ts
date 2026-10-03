@@ -131,7 +131,7 @@ export function buildVideoPayload(
 ): Record<string, unknown> {
   const project = credential.projectId === 'inductive-dreamer-qrkws' || !credential.projectId ? undefined : credential.projectId
   const resolved = resolveModelWithTier(model, { cli_first: false })
-  const wireModel = resolved.actualModel.startsWith('gemini-3.7-flash') ? 'gemini-3-flash' : resolved.actualModel
+  const wireModel = resolved.actualModel
   return {
     ...(project === undefined ? {} : { project }),
     model: wireModel,

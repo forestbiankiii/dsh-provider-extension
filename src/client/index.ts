@@ -20,6 +20,7 @@ import { OpencodeController, isOpencodeProvider } from './providers/opencode.ts'
 import { en, zh, type ProviderPanelKey } from './locales.ts'
 import { accountRpcFallback } from './account-rpc.ts'
 import { forceCatalogReload } from './catalog-refresh.ts'
+import { assertSelectionSucceeded } from './selection.ts'
 
 export { ProviderPanel } from './ProviderPanel.tsx'
 export type { ProviderPanelInjected, ProviderPanelProps } from './ProviderPanel.tsx'
@@ -54,6 +55,44 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 export const NS = 'providerExtension'
 export const inject = ['slots', 'locale', 'modelDirectories', 'sessions', 'remote', 'remote.session']
+
+/** Upper bound on one authoritative catalog round-trip before the panel reports a failure. */
+const DIRECTORY_LOAD_TIMEOUT_MS = 20_000
+
+/** The shared catalog's in-flight load can be dropped; `invalidate()` is public at runtime. */
+interface InvalidatableCatalog {
+  invalidate(): void
+}
+
+function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${Math.round(DIRECTORY_LOAD_TIMEOUT_MS / 1000)}s; reload to retry`)),
+      DIRECTORY_LOAD_TIMEOUT_MS,
+    )
+    promise.then(
+      value => { clearTimeout(timer); resolve(value) },
+      cause => { clearTimeout(timer); reject(cause instanceof Error ? cause : new Error(String(cause))) },
+    )
+  })
+}
+
+/**
+ * A connection reset can leave the shared catalog awaiting a Host RPC that
+ * never settles, and every later `load()` reuses that wedged in-flight
+ * promise — which would pin the panel's loading state forever while the
+ * rendered list goes stale. Bound the wait, drop the wedged load, and retry
+ * once before failing loud.
+ */
+async function loadDirectoryBounded(directory: { load(): Promise<unknown>; catalog?: InvalidatableCatalog }): Promise<unknown> {
+  try {
+    return await withTimeout(directory.load(), 'Model directory load')
+  } catch (cause) {
+    if (!(cause instanceof Error) || !cause.message.includes('timed out') || directory.catalog === undefined) throw cause
+    directory.catalog.invalidate()
+    return withTimeout(directory.load(), 'Model directory load')
+  }
+}
 
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-provider-extension: dictionaries')
@@ -112,6 +151,7 @@ export function apply(ctx: ClientContext): void {
       loadAccounts: async () => { await codexAccounts.load() },
       loadCodexModels: async () => {
         await codexAccounts.refreshModels()
+        forceCatalogReload(ctx.modelDirectories)
         const result = await ctx.remote.session.modelCatalog()
         if (!result.ok) throw new Error(result.error.message)
         const failure = result.value.failures.find(entry => entry.id === 'openai-codex')
@@ -125,6 +165,10 @@ export function apply(ctx: ClientContext): void {
       removeCodexAccount: async (id) => { await codexAccounts.removeAccount(id) },
       resetCodexQuota: async (id) => { await codexAccounts.consumeResetCredit(id) },
       loadAntigravity: async () => { await antigravity.load() },
+      refreshAntigravityModels: async () => {
+        await antigravity.refreshModels()
+        forceCatalogReload(ctx.modelDirectories)
+      },
       loginAntigravity: async () => { await antigravity.login() },
       logoutAntigravity: async () => { await antigravity.logout() },
       selectAntigravityAccount: async (id) => { await antigravity.selectAccount(id) },
@@ -151,10 +195,12 @@ export function apply(ctx: ClientContext): void {
       return {
         available: (ctx.sessions as unknown as { subagentAddress?: (id: SessionId) => unknown }).subagentAddress?.(sessionId as SessionId) === undefined,
         hooks: { directory: directory.store, accounts: codexAccounts.store, antigravity: antigravity.store },
-        loadDirectory: async () => {
-          if (isCodexProvider(directory.store.getSnapshot().current?.provider)) await codexAccounts.refreshModels()
-          forceCatalogReload(ctx.modelDirectories)
-          await directory.load()
+        loadDirectory: async (force = false) => {
+          if (force) {
+            if (isCodexProvider(directory.store.getSnapshot().current?.provider)) await codexAccounts.refreshModels()
+            forceCatalogReload(ctx.modelDirectories)
+          }
+          await loadDirectoryBounded(directory as typeof directory & { catalog?: InvalidatableCatalog })
         },
         loadAccounts: async () => { await codexAccounts.load() },
         loadAntigravity: async () => { await antigravity.load() },
@@ -163,12 +209,12 @@ export function apply(ctx: ClientContext): void {
           window.dispatchEvent(new Event('dsh-codex-subscription:refresh-quick-quota'))
           await codexAccounts.refreshModels()
           forceCatalogReload(ctx.modelDirectories)
-          await directory.load()
+          await loadDirectoryBounded(directory as typeof directory & { catalog?: InvalidatableCatalog })
         },
         selectAntigravityAccount: async (id) => {
           await antigravity.selectAccount(id)
           forceCatalogReload(ctx.modelDirectories)
-          await directory.load()
+          await loadDirectoryBounded(directory as typeof directory & { catalog?: InvalidatableCatalog })
         },
         readQuota: async (id) => {
           await codexAccounts.readQuota(id)
@@ -179,7 +225,7 @@ export function apply(ctx: ClientContext): void {
         },
         useOpencode: (selector) => selector(opencode.store.getSnapshot()),
         readOpencodeUsage: async () => { await opencode.readUsage() },
-        select: async (selection) => { await directory.select(selection) },
+        select: async (selection) => { assertSelectionSucceeded(await directory.select(selection)) },
       }
     },
   }, ProviderPanel))

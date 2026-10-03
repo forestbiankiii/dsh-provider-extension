@@ -38,6 +38,7 @@ export interface ProviderSettingsInjected {
   removeCodexAccount: (id: string) => Promise<void>
   resetCodexQuota?: (id: string) => Promise<void>
   loadAntigravity: () => Promise<void>
+  refreshAntigravityModels: () => Promise<void>
   loginAntigravity: () => Promise<void>
   logoutAntigravity: () => Promise<void>
   selectAntigravityAccount?: (id: string) => Promise<void>
@@ -168,7 +169,7 @@ function formatResetSeconds(epochSeconds?: number): string {
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
 export function ProviderSettings({
   useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, resetCodexQuota,
-  loadAntigravity, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota,
+  loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota,
   useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, t,
 }: ProviderSettingsProps): ReactNode {
   const accounts = useAccounts(snapshot => snapshot)
@@ -282,9 +283,10 @@ export function ProviderSettings({
     return () => { cancelled = true }
   }, [codexOpen, activeCodexId, accounts.switchingId, loadCodexModels, catalogRefresh])
 
+  const refreshCodexModels = (): void => setCatalogRefresh(value => value + 1)
   const refreshCodex = (): void => {
     void loadAccounts()
-    setCatalogRefresh(value => value + 1)
+    refreshCodexModels()
   }
 
   const renderCodexModels = (account: CodexAccountView): ReactNode => {
@@ -435,6 +437,10 @@ export function ProviderSettings({
                 </a>
               ) : null}
               <button type="button" className={css.action} onClick={refreshCodex}>{t('providerRefresh')}</button>
+              <button type="button" className={css.action}
+                disabled={!codexConnected || accounts.switchingId !== undefined || codexCatalog.accountId !== activeCodexId}
+                onClick={refreshCodexModels}
+              >{codexConnected && codexCatalog.accountId !== activeCodexId ? t('codexModelsRefreshing') : t('codexFetchModels')}</button>
             </div>
 
             {accounts.accounts.length === 0 ? (
@@ -685,6 +691,12 @@ export function ProviderSettings({
                     </a>
                   ) : null}
                   <button type="button" className={css.action} onClick={() => { void loadAntigravity() }}>{t('providerRefresh')}</button>
+                  <button
+                    type="button"
+                    className={css.action}
+                    disabled={!antigravityConnected || antigravity.modelsRefreshing === true || antigravity.switchingId !== undefined}
+                    onClick={() => { void refreshAntigravityModels().catch(() => {}) }}
+                  >{antigravity.modelsRefreshing === true ? t('antigravityModelsRefreshing') : t('antigravityFetchModels')}</button>
                 </div>
 
                 {antigravity.error === undefined ? null : <p className={css.error} role="alert">{antigravity.error}</p>}
@@ -1116,6 +1128,12 @@ export function ProviderSettings({
                       </a>
                     ) : null}
                     <button type="button" className={css.action} onClick={() => { void loadAntigravity() }}>{t('providerRefresh')}</button>
+                    <button
+                      type="button"
+                      className={css.action}
+                      disabled={!antigravityConnected || antigravity.modelsRefreshing === true || antigravity.switchingId !== undefined}
+                      onClick={() => { void refreshAntigravityModels().catch(() => {}) }}
+                    >{antigravity.modelsRefreshing === true ? t('antigravityModelsRefreshing') : t('antigravityFetchModels')}</button>
                   </div>
 
                   {agAccounts.length > 0 ? (
@@ -1325,6 +1343,10 @@ export function ProviderSettings({
                   </a>
                 ) : null}
                 <button type="button" className={css.action} onClick={refreshCodex}>{t('providerRefresh')}</button>
+                <button type="button" className={css.action}
+                  disabled={!codexConnected || accounts.switchingId !== undefined || codexCatalog.accountId !== activeCodexId}
+                  onClick={refreshCodexModels}
+                >{codexConnected && codexCatalog.accountId !== activeCodexId ? t('codexModelsRefreshing') : t('codexFetchModels')}</button>
               </div>
 
               {accounts.accounts.length === 0 ? (

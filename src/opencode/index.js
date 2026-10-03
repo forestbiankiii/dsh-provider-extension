@@ -806,6 +806,15 @@ function thinkingLevels(metadata, known) {
       if (LEVELS.includes(level)) map[level] = String(value);
     }
   }
+  if (Array.isArray(metadata.reasoning_options) && metadata.reasoning_options.length === 0 && metadata.reasoning) {
+    // models.dev sometimes declares `reasoning: true` with an EMPTY options
+    // list (e.g. opencode-go mimo-v2.6-pro), which used to collapse to an
+    // Off-only ladder. The gateway still accepts an effort toggle for these
+    // models, so expose Off/High like other toggle-declared models; Off stays
+    // a param-free request because the adapter omits it.
+    map.off = "off";
+    map.high = "high";
+  }
   if (known?.reasoning && known.thinkingLevelMap?.off !== null) map.off ??= known.thinkingLevelMap?.off ?? "off";
   return map;
 }

@@ -9,15 +9,36 @@ export type ProviderPanelGroup = ModelDirectoryState['groups'][number]
 export type ProviderPanelModel = ProviderPanelGroup['models'][number]
 
 const FAMILY_ACCENTS: readonly (readonly [string, string])[] = [
-  ['sol', '#E3A552'], ['terra', '#CBD3E0'], ['luna', '#8F7BF2'],
+  ['astra', 'color-mix(in srgb, var(--dsw-alias-label-primary) 72%, var(--dsw-alias-label-secondary))'],
+  ['sol', 'var(--dsw-alias-state-error-primary)'],
+  ['terra', 'var(--dsw-alias-state-warn-primary)'],
+  ['luna', 'var(--dsw-alias-state-business-primary)'],
 ]
-const PALETTE: readonly string[] = ['#E3A552', '#CBD3E0', '#8F7BF2', '#6FB3C8', '#D98C8C', '#7FC8A9']
+const PALETTE: readonly string[] = [
+  'var(--dsw-alias-brand-primary)', 'var(--dsw-alias-label-secondary)',
+  'var(--dsw-alias-state-success-primary)', 'var(--dsw-alias-state-warn-primary)',
+]
 
 /** Resolve the product family accent, falling back to the provider's row order. */
 export function accentFor(modelId: string, index: number): string {
   const key = modelId.toLowerCase()
   for (const [family, accent] of FAMILY_ACCENTS) if (key.includes(family)) return accent
   return PALETTE[index % PALETTE.length] ?? PALETTE[0] ?? 'currentColor'
+}
+
+/** Old DSH resolves void; current DSH resolves a Result instead of throwing failures. */
+export function assertSelectionSucceeded(result: unknown): void {
+  if (typeof result !== 'object' || result === null || !('ok' in result) || result.ok !== false) return
+  const error = 'error' in result ? result.error : undefined
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const code = 'code' in error ? `${String(error.code)}: ` : ''
+    throw new Error(`${code}${String(error.message)}`)
+  }
+  throw new Error('Model selection was rejected')
+}
+
+export function sameSelection(a: ModelSelection | null | undefined, b: ModelSelection | null | undefined): boolean {
+  return a?.provider === b?.provider && a?.model === b?.model && a?.reasoningEffort === b?.reasoningEffort
 }
 
 /** Find a declared effort; missing and unknown values have no slider position. */

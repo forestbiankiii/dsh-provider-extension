@@ -56,14 +56,16 @@ import {
   createReplayState,
   type AntigravityReplayBlock,
 } from './replay.ts'
-import { ANTIGRAVITY_WIRE_ORIGIN } from './wire-identity.ts'
+import { ANTIGRAVITY_PROD_WIRE_ORIGIN } from './wire-identity.ts'
 import { classifyPrivateFailure, type PrivateFailureKind } from './private-failure.ts'
 import type { AntigravityModelCatalogState, AntigravityModelCatalogView } from './model-catalog.ts'
 
 export const ANTIGRAVITY_PROVIDER = 'google-antigravity' as const
-export const ANTIGRAVITY_STREAM_ENDPOINT = `${ANTIGRAVITY_WIRE_ORIGIN}/v1internal:streamGenerateContent?alt=sse` as const
-export const ANTIGRAVITY_GENERATE_ENDPOINT = `${ANTIGRAVITY_WIRE_ORIGIN}/v1internal:generateContent` as const
-export const ANTIGRAVITY_AVAILABLE_MODELS_ENDPOINT = `${ANTIGRAVITY_WIRE_ORIGIN}/v1internal:fetchAvailableModels` as const
+// Model discovery and generation use the same production gateway. The daily
+// catalog can advertise current models whose generation routes return 404.
+export const ANTIGRAVITY_STREAM_ENDPOINT = `${ANTIGRAVITY_PROD_WIRE_ORIGIN}/v1internal:streamGenerateContent?alt=sse` as const
+export const ANTIGRAVITY_GENERATE_ENDPOINT = `${ANTIGRAVITY_PROD_WIRE_ORIGIN}/v1internal:generateContent` as const
+export const ANTIGRAVITY_AVAILABLE_MODELS_ENDPOINT = `${ANTIGRAVITY_PROD_WIRE_ORIGIN}/v1internal:fetchAvailableModels` as const
 export const ANTIGRAVITY_LLM_ROUTE = ANTIGRAVITY_PROVIDER
 const MODEL_CATALOG_TTL_MS = 30_000
 const MAX_MODEL_CATALOG_BYTES = 256 * 1024
@@ -584,7 +586,7 @@ function parseLiveModelIds(
     live.add(canonicalWireModel(cleanId, aliases))
     live.add(cleanId)
     live.add(id)
-    if (cleanId === 'gemini-3-flash' || cleanId === 'gemini-3-flash-agent' || cleanId === 'gemini-3.7-flash-tiered' || cleanId.startsWith('gemini-3-flash') || cleanId.startsWith('gemini-3.7-flash')) {
+    if (cleanId.startsWith('gemini-3.7-flash')) {
       live.add('gemini-3.7-flash')
       live.add('gemini-3.7-flash-medium')
       live.add('gemini-3.7-flash-low')
@@ -616,13 +618,6 @@ function parseLiveModelIds(
       || live.has(cleanResolved)
       || live.has(resolved)
       || live.has(definition.id)
-      || (definition.id === 'antigravity-gemini-3.7-flash' && (
-        live.has('gemini-3-flash')
-        || live.has('gemini-3-flash-agent')
-        || live.has('gemini-3.7-flash-tiered')
-        || live.has('gemini-3.7-flash')
-        || live.has('gemini-3.7-flash-medium')
-      ))
     ) {
       available.add(definition.id)
     }
@@ -1069,7 +1064,10 @@ function requireToolCallId(value: unknown): string {
   if (typeof value !== 'string' || value.length === 0 || value.length > 512 || containsControl(value)) {
     throw new LlmError('The tool call id is invalid', 'INVALID_ARGS')
   }
-  return value
+  // The Claude wire rejects ids outside ^[a-zA-Z0-9_-]+$; shared-session ids
+  // inherited from other providers carry dots/colons. Map them onto the allowed
+  // set — paired calls and responses sanitize identically, so matching holds.
+  return value.replace(/[^a-zA-Z0-9_-]/g, '_')
 }
 
 function normalizeReasoningEffort(value: GenerateOptions['reasoningEffort']): string | undefined {
@@ -1078,19 +1076,13 @@ function normalizeReasoningEffort(value: GenerateOptions['reasoningEffort']): st
   return ['minimal', 'low', 'medium', 'high'].includes(normalized) ? normalized : undefined
 }
 
+/** Resolve the selected model's wire alias; never substitute a different model. */
 function resolveWireModel(model: string, reasoningEffort?: GenerateOptions['reasoningEffort']): string {
-  if (model === 'antigravity-gemini-3.7-flash' || model === 'gemini-3.7-flash') {
-    return 'gemini-3-flash'
-  }
   const effort = normalizeReasoningEffort(reasoningEffort)
-  const routeModel = effort !== undefined && (model === 'antigravity-gemini-3.8-flash' || model === 'gemini-3.8-flash')
+  const routeModel = effort !== undefined && /^(?:antigravity-)?gemini-3\.[78]-flash$/u.test(model)
     ? `${model}-${effort}`
     : model
-  const resolved = resolveModelWithTier(routeModel, { cli_first: false })
-  if (resolved.actualModel.startsWith('gemini-3.7-flash')) {
-    return 'gemini-3-flash'
-  }
-  return resolved.actualModel
+  return resolveModelWithTier(routeModel, { cli_first: false }).actualModel
 }
 
 function requestSessionKey(options: GenerateOptions): string {
@@ -1492,6 +1484,9 @@ function toLlmError(error: unknown): LlmError {
       upstream: `Antigravity upstream service is temporarily unavailable${error.status === undefined ? '' : ` (HTTP ${error.status})`}; please retry later.`,
       network: 'Antigravity network connection failed. Check the proxy route after switching Clash nodes or TUN mode; the request was not automatically retried.',
       timeout: 'Antigravity request timed out. Check network connectivity or retry later; the request was not automatically retried.',
+      'protocol-drift': error.status === 404
+        ? 'Antigravity could not find the requested model or endpoint (HTTP 404). Refresh the model list and check the provider gateway; no different model was substituted.'
+        : `Antigravity returned an unexpected protocol response${error.status === undefined ? '' : ` (HTTP ${error.status})`}.`,
     }
     const message = messages[kind] ?? 'The Antigravity private request failed safely'
     return error.status === undefined

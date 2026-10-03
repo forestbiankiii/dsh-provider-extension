@@ -62,6 +62,8 @@ export interface AntigravityState {
     readonly error?: string | undefined;
     /** True while a login or logout call is in flight. */
     readonly busy?: boolean | undefined;
+    /** True while the model catalog is being force-refreshed. */
+    readonly modelsRefreshing?: boolean | undefined;
     /** True while the Host reports a pending browser login. */
     readonly loginPending?: boolean | undefined;
     readonly switchingId?: string | undefined;
@@ -85,6 +87,8 @@ export declare class AntigravityController {
     constructor(rpc: ClientConnectionRpc);
     /** Read status, accounts, models, and quota. */
     load(): Promise<void>;
+    /** Force-refresh the companion's live model availability catalog. */
+    refreshModels(): Promise<void>;
     /** Switch active Google account by id. */
     selectAccount(id: string): Promise<void>;
     /** Remove one saved Google account. */

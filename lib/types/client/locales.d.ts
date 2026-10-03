@@ -25,8 +25,12 @@ export declare const en: {
     readonly providersIntro: "Create and manage the model providers this plugin integrates.";
     readonly createProvider: "Create provider";
     readonly providerCloseCatalog: "Close";
-    readonly providerAntigravity: "Antigravity";
-    readonly providerCodex: "Codex";
+    readonly providerAntigravity: "Google Antigravity";
+    readonly providerCodex: "OpenAI Codex";
+    readonly providerDeepseekApi: "DeepSeek API";
+    readonly providerDeepseekAccount: "DeepSeek Account";
+    readonly deepseekApiHint: "API key access. Configure a DeepSeek API key in Settings → Models; signing in to DSH does not configure this route.";
+    readonly deepseekAccountHint: "Account access. Sign in to your DeepSeek account in Settings → Account, then reload the model list. This route does not use your API key.";
     readonly providerInstalled: "Installed";
     readonly providerNotInstalled: "Not installed";
     readonly providerError: "Unavailable";
@@ -35,7 +39,7 @@ export declare const en: {
     readonly providerRefresh: "Refresh";
     readonly providerConnect: "Connect";
     readonly antigravityCatalogHint: "Sign in with a Google account to use Antigravity models and tools.";
-    readonly codexCatalogHint: "ChatGPT accounts are added in the Codex subscription settings page.";
+    readonly codexCatalogHint: "Sign in with an OpenAI account to use Codex models through your ChatGPT subscription.";
     readonly antigravityInstallHint: "Antigravity service is starting or unavailable.";
     readonly antigravityLoginState: "Sign-in";
     readonly antigravityProject: "Project";
@@ -50,6 +54,10 @@ export declare const en: {
     readonly antigravitySignOut: "Sign out";
     readonly antigravityModels: "Models reported for this account";
     readonly antigravityNoModels: "No model catalog yet. Sign in first.";
+    readonly antigravityFetchModels: "Reload model list";
+    readonly antigravityModelsRefreshing: "Fetching models…";
+    readonly codexFetchModels: "Reload model list";
+    readonly codexModelsRefreshing: "Fetching models…";
     readonly codexModels: "Models in the current Host catalog";
     readonly codexModelsInactive: "Switch to this account in the provider picker to load and configure its models. Other accounts’ switches do not apply here.";
     readonly codexModelsScope: "These switches only control this account’s picker. They do not grant model access.";
@@ -100,7 +108,7 @@ export declare const en: {
     readonly providerStatusConnected: "Connected";
     readonly providerStatusIdle: "Not signed in";
     readonly providerStatusRoadmap: "Planned";
-    readonly providerClaude: "Claude (Anthropic)";
+    readonly providerClaude: "Anthropic Claude";
     readonly providerClaudeDesc: "Official Anthropic Claude API & subscription integration, coming soon.";
     readonly providerGemini: "Google Gemini API";
     readonly providerGeminiDesc: "Google AI Studio / Gemini API direct access, coming soon.";

@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProviderSettings, type ProviderSettingsProps } from '../src/client/ProviderSettings.tsx'
-import { en } from '../src/client/locales.ts'
+import { en, zh } from '../src/client/locales.ts'
 import type { AntigravityState } from '../src/client/providers/antigravity.ts'
 import type { CodexAccountsState } from '../src/client/providers/codex.ts'
 import { codexEnabledModels } from '../src/client/codex-visibility.ts'
@@ -18,6 +18,8 @@ const codexAccounts: CodexAccountsState = {
 
 function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emptyAccounts) {
   const loadAccounts = vi.fn(async () => {})
+  const refreshAntigravityModels = vi.fn(async () => {})
+  const loadCodexModels = vi.fn(async () => [{ id: 'host-model', name: 'Host Model' }, { id: 'gpt-6-astra', name: 'GPT-6 Astra' }])
   const loginAntigravity = vi.fn(async () => {})
   const loginCodex = vi.fn(async () => {})
   const renameCodexAccount = vi.fn(async () => {})
@@ -29,12 +31,13 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
     useAccounts: (selector: (state: CodexAccountsState) => unknown) => selector(accounts),
     useAntigravity: (selector: (state: AntigravityState) => unknown) => selector(antigravity),
     loadAccounts,
-    loadCodexModels: async () => [{ id: 'host-model', name: 'Host Model' }, { id: 'gpt-6-astra', name: 'GPT-6 Astra' }],
+    loadCodexModels,
     readQuota: vi.fn(async () => {}),
     loginCodex,
     renameCodexAccount,
     removeCodexAccount,
     loadAntigravity: vi.fn(async () => {}),
+    refreshAntigravityModels,
     loginAntigravity,
     logoutAntigravity: vi.fn(async () => {}),
     renameAntigravityAccount,
@@ -43,10 +46,25 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
     t: (key: keyof typeof en, args?: Record<string, unknown>) => en[key].replace(/\{(\w+)\}/g, (_, name: string) => String(args?.[name] ?? '')),
   } as unknown as ProviderSettingsProps
   const view = render(<ProviderSettings {...props} />)
-  return { loadAccounts, loginAntigravity, loginCodex, renameCodexAccount, removeCodexAccount, renameAntigravityAccount, readAntigravityQuota, view }
+  return { loadAccounts, loadCodexModels, refreshAntigravityModels, loginAntigravity, loginCodex, renameCodexAccount, removeCodexAccount, renameAntigravityAccount, readAntigravityQuota, view }
 }
 
 describe('provider settings surface', () => {
+  it('keeps provider names parallel in both locales and all settings views', () => {
+    for (const copy of [en, zh]) {
+      expect(copy.providerCodex).toBe('OpenAI Codex')
+      expect(copy.providerAntigravity).toBe('Google Antigravity')
+      expect(copy.providerClaude).toBe('Anthropic Claude')
+    }
+    bench({ status: 'ready' }, codexAccounts)
+    expect(screen.getByText('OpenAI Codex')).toBeTruthy()
+    expect(screen.getByText('Google Antigravity')).toBeTruthy()
+    fireEvent.click(screen.getByText('OpenAI Codex'))
+    expect(screen.getByText('OpenAI Codex')).toBeTruthy()
+    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
+    expect(screen.getAllByText('OpenAI Codex').length).toBeGreaterThan(1)
+    expect(screen.queryByText('ChatGPT subscription')).toBeNull()
+  })
   it('renders the refreshed provider overview without redundant create catalog', () => {
     bench({ status: 'ready' }, codexAccounts)
     expect(screen.queryByTestId('provider-catalog')).toBeNull()
@@ -59,6 +77,41 @@ describe('provider settings surface', () => {
     bench({ status: 'absent' })
     fireEvent.click(screen.getByText(en.providerAntigravity))
     expect(screen.getByText(en.antigravityInstallHint)).toBeTruthy()
+  })
+
+  it('fetches Antigravity models from the provider overview action', () => {
+    const b = bench({
+      status: 'ready',
+      view: { riskAcknowledged: true, login: { phase: 'success', configured: true, projectAvailable: true } },
+    })
+    fireEvent.click(screen.getByText(en.providerAntigravity))
+    fireEvent.click(screen.getByRole('button', { name: en.antigravityFetchModels }))
+    expect(b.refreshAntigravityModels).toHaveBeenCalledOnce()
+  })
+
+  it.each(['quick', 'detail'])('re-fetches the active Codex model list in %s settings', async (mode) => {
+    const b = bench({ status: 'ready' }, codexAccounts)
+    if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
+    else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
+    fireEvent.click(screen.getByRole('button', { name: en.quotaView }))
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Host Model' })).toBeTruthy())
+    const accountLoads = b.loadAccounts.mock.calls.length
+    b.loadCodexModels.mockResolvedValue([{ id: 'gpt-6-sol', name: 'GPT-6 Sol' }])
+    fireEvent.click(screen.getByRole('button', { name: en.codexFetchModels }))
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'GPT-6 Sol' })).toBeTruthy())
+    expect(b.loadCodexModels).toHaveBeenCalledTimes(2)
+    expect(b.loadAccounts).toHaveBeenCalledTimes(accountLoads)
+    expect(screen.queryByRole('checkbox', { name: 'Host Model' })).toBeNull()
+  })
+
+  it('re-fetches Antigravity models from its detail view', () => {
+    const b = bench({
+      status: 'ready',
+      view: { riskAcknowledged: true, login: { phase: 'success', configured: true, projectAvailable: true } },
+    })
+    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[0]!)
+    fireEvent.click(screen.getByRole('button', { name: en.antigravityFetchModels }))
+    expect(b.refreshAntigravityModels).toHaveBeenCalledOnce()
   })
 
   it('shows the signed-in account and its models, and starts a login on demand', () => {

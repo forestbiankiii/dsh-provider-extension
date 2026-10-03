@@ -9,6 +9,8 @@
 export declare const DSH_ATTRIBUTION_HEADER: "X-DeepSeek-Harness-Attribution";
 export declare const AGY_PROVIDER_USER_AGENT: string;
 export declare const ANTIGRAVITY_WIRE_ORIGIN: string;
+/** The prod gateway serves the current model set; the daily gateway 404s it. */
+export declare const ANTIGRAVITY_PROD_WIRE_ORIGIN: string;
 export declare const ANTIGRAVITY_WIRE_ORIGINS: readonly string[];
 export declare const ANTIGRAVITY_WIRE_PATHS: readonly string[];
 export type WireHeaderPair = readonly [name: string, value: string];

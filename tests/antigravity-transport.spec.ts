@@ -2,9 +2,10 @@ import { createServer, type Socket } from 'node:net'
 import { once } from 'node:events'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ReasoningEffortId, type GenerateOptions, type StreamChunk } from '@deepseek-ai/dsh-llm'
-import { AntigravityAdapter, ANTIGRAVITY_STREAM_ENDPOINT } from '../src/antigravity/llm-adapter.ts'
+import { AntigravityAdapter, ANTIGRAVITY_STREAM_ENDPOINT, ANTIGRAVITY_GENERATE_ENDPOINT, ANTIGRAVITY_AVAILABLE_MODELS_ENDPOINT } from '../src/antigravity/llm-adapter.ts'
 import { createRawPrivateDispatcher } from '../src/antigravity/raw-http.ts'
 import { PrivateTransportError, type PrivateTransport } from '../src/antigravity/private-transport.ts'
+import { AGY_PROVIDER_USER_AGENT, DSH_ATTRIBUTION_HEADER, assertWireIdentityInvariant, createWireIdentity } from '../src/antigravity/wire-identity.ts'
 
 const options: GenerateOptions = {
   provider: 'google-antigravity', model: 'antigravity-gemini-3.8-flash',
@@ -26,7 +27,54 @@ async function collect(value: AntigravityAdapter, chunks: StreamChunk[] = []) {
 }
 afterEach(() => vi.unstubAllEnvs())
 
+describe('Antigravity wire identity', () => {
+  it('matches the upstream CLI identity invariant and retains truthful DSH attribution', () => {
+    const identity = createWireIdentity()
+    const headers = identity.headers()
+    expect(headers['User-Agent']).toBe(AGY_PROVIDER_USER_AGENT)
+    expect(() => assertWireIdentityInvariant(headers)).not.toThrow()
+    expect(headers[DSH_ATTRIBUTION_HEADER]).toBeTruthy()
+    expect(headers[DSH_ATTRIBUTION_HEADER]).not.toBe(AGY_PROVIDER_USER_AGENT)
+    const pairs = identity.headerPairs(ANTIGRAVITY_STREAM_ENDPOINT, { authorization: 'Bearer test', body: '{}' })
+    expect(pairs.filter(([name]) => name === DSH_ATTRIBUTION_HEADER)).toEqual([[DSH_ATTRIBUTION_HEADER, headers[DSH_ATTRIBUTION_HEADER]]])
+    expect(pairs.filter(([name]) => name === 'User-Agent')).toEqual([['User-Agent', AGY_PROVIDER_USER_AGENT]])
+    expect(pairs.some(([name]) => name === 'Client-Metadata' || name === 'X-Goog-Api-Client')).toBe(false)
+  })
+})
+
 describe('Antigravity provider failure boundaries', () => {
+  it('dispatches Gemini 3.8 High without replacing it with the retired 3.5 alias', async () => {
+    const request = vi.fn<PrivateTransport['request']>(async () => new Response('data: {"candidates":[{"content":{"parts":[{"text":"hello"}]},"finishReason":"STOP"}]}\n\n'))
+    const chunks = await collect(adapter(request))
+    expect(request).toHaveBeenCalledOnce()
+    expect(request.mock.calls[0]?.[0]?.url).toBe('https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse')
+    const payload = JSON.parse(String(request.mock.calls[0]?.[0]?.body))
+    expect(payload.model).toBe('gemini-3.8-flash-high')
+    expect(payload.request.labels.model_enum).toBe('MODEL_PLACEHOLDER_M318')
+    expect(payload.request.generationConfig.thinkingConfig).toEqual({ includeThoughts: true, thinkingBudget: -1 })
+    expect(chunks).toContainEqual(expect.objectContaining({ type: 'text-delta', text: 'hello' }))
+  })
+
+  it.each([ANTIGRAVITY_STREAM_ENDPOINT, ANTIGRAVITY_GENERATE_ENDPOINT, ANTIGRAVITY_AVAILABLE_MODELS_ENDPOINT])('pins model operations to the production gateway: %s', endpoint => {
+    expect(new URL(endpoint).origin).toBe('https://cloudcode-pa.googleapis.com')
+  })
+
+  it('reads the live model catalog from the same gateway as generation', async () => {
+    const request = vi.fn<PrivateTransport['request']>(async () => new Response(JSON.stringify({ models: { 'gemini-3.8-flash-tiered': {} } })))
+    const models = await adapter(request).listModels('google-antigravity')
+    expect(request.mock.calls[0]?.[0]?.url).toBe('https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels')
+    expect(models.some(model => model.id === options.model)).toBe(true)
+  })
+
+  it('reports an explicit HTTP 404 without exposing the response body or substituting another model', async () => {
+    const request = vi.fn(async () => new Response('private provider data', { status: 404 }))
+    await expect(collect(adapter(request))).rejects.toMatchObject({
+      code: 'PROTOCOL_DRIFT', failure: { status: 404 },
+      message: expect.stringContaining('requested model or endpoint (HTTP 404)'),
+    })
+    expect(request).toHaveBeenCalledOnce()
+  })
+
   it.each(['json', 'sse'])('recognizes a real capacity refusal (%s) without resending generation', async format => {
     const json = JSON.stringify(capacity)
     const request = vi.fn(async () => new Response(format === 'sse' ? `data: ${json}\n\n` : json, {

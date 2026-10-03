@@ -86,6 +86,8 @@ export interface AntigravityState {
   readonly error?: string | undefined
   /** True while a login or logout call is in flight. */
   readonly busy?: boolean | undefined
+  /** True while the model catalog is being force-refreshed. */
+  readonly modelsRefreshing?: boolean | undefined
   /** True while the Host reports a pending browser login. */
   readonly loginPending?: boolean | undefined
   readonly switchingId?: string | undefined
@@ -287,6 +289,7 @@ export class AntigravityController {
     this.patch({
       status: current.view?.login?.configured ? 'ready' : 'checking',
       error: undefined,
+      modelsRefreshing: false,
     })
     try {
       const rawStatus = await this.callRaw('status', {})
@@ -320,6 +323,24 @@ export class AntigravityController {
         status: current.view?.login?.configured ? 'ready' : (isAbsent(error) ? 'absent' : 'error'),
         error: failureMessage(error),
       })
+    }
+  }
+
+  /** Force-refresh the companion's live model availability catalog. */
+  async refreshModels(): Promise<void> {
+    const current = this.store.getSnapshot()
+    if (current.modelsRefreshing || current.view?.login.configured !== true) return
+    const generation = this.generation
+    this.patch({ modelsRefreshing: true, error: undefined })
+    try {
+      const models = await this.readModels(true)
+      if (this.disposed || generation !== this.generation) return
+      this.patch({ models, modelsRefreshing: false, error: undefined })
+      saveCachedAntigravityState(this.store.getSnapshot())
+    } catch (error) {
+      if (this.disposed || generation !== this.generation) return
+      this.patch({ modelsRefreshing: false, error: failureMessage(error) })
+      throw error
     }
   }
 
@@ -414,7 +435,7 @@ export class AntigravityController {
   /** Acknowledge the upstream risk notice and start the Google OAuth flow. */
   async login(): Promise<void> {
     const generation = ++this.generation
-    this.patch({ busy: true, error: undefined })
+    this.patch({ busy: true, error: undefined, modelsRefreshing: false })
     try {
       if (this.store.getSnapshot().view?.riskAcknowledged !== true) await this.callRaw('acknowledge-risk', { acknowledge: true })
       await this.callRaw('login', {})
@@ -431,7 +452,7 @@ export class AntigravityController {
   /** Drop the stored Antigravity credential. */
   async logout(): Promise<void> {
     const generation = ++this.generation
-    this.patch({ busy: true, error: undefined })
+    this.patch({ busy: true, error: undefined, modelsRefreshing: false })
     try {
       await this.callRaw('logout', {})
       if (this.disposed || generation !== this.generation) return
@@ -462,8 +483,8 @@ export class AntigravityController {
     return decoded
   }
 
-  private async readModels(): Promise<AntigravityModelCatalog> {
-    const envelope = await this.callRaw('models', {})
+  private async readModels(force = false): Promise<AntigravityModelCatalog> {
+    const envelope = await this.callRaw('models', force ? { force: true } : {})
     const decoded = decodeModels(envelope)
     if (decoded === undefined) throw new Error('Model catalog envelope failed validation')
     return decoded

@@ -7,6 +7,9 @@ export type ProviderPanelGroup = ModelDirectoryState['groups'][number];
 export type ProviderPanelModel = ProviderPanelGroup['models'][number];
 /** Resolve the product family accent, falling back to the provider's row order. */
 export declare function accentFor(modelId: string, index: number): string;
+/** Old DSH resolves void; current DSH resolves a Result instead of throwing failures. */
+export declare function assertSelectionSucceeded(result: unknown): void;
+export declare function sameSelection(a: ModelSelection | null | undefined, b: ModelSelection | null | undefined): boolean;
 /** Find a declared effort; missing and unknown values have no slider position. */
 export declare function effortIndex(model: ProviderPanelModel, effortId: string | undefined): number;
 /** Only a valid declared default is a known resting effort; never infer Max. */

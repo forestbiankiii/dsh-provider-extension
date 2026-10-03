@@ -38,6 +38,59 @@ function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean; prov
   return { select, selectAccount, readQuota, loadDirectory, loadAccounts, view, state, props }
 }
 describe('model panel component', () => {
+  it.each([
+    ['deepseek-official', 'DeepSeek', en.providerDeepseekApi, en.deepseekApiHint],
+    ['deepseek-account', 'DeepSeek Account', en.providerDeepseekAccount, en.deepseekAccountHint],
+  ])('keeps native DeepSeek models separate from other providers visibility and explains setup: %s', async (id, name, label, hint) => {
+    localStorage.setItem('dsh-provider-extension:disabled-models', JSON.stringify(['deepseek-flash', 'deepseek-v4-pro']))
+    try {
+      const b = bench()
+      await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+      b.state.groups.push({ id, name, models: [
+        { id: 'deepseek-flash', name: 'DeepSeek Flash' },
+        { id: 'deepseek-v4-pro', name: 'DeepSeek Pro' },
+      ] })
+      b.view.rerender(<ProviderPanel {...b.props} />)
+      fireEvent.click(screen.getByRole('button', { name: en.providerTitle }))
+      fireEvent.click(screen.getByRole('option', { name: new RegExp(label) }))
+      fireEvent.click(screen.getByRole('button', { name: en.title }))
+      expect(screen.getByText(hint)).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Select DeepSeek Flash' })).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Select DeepSeek Pro' }))
+      await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: id, model: 'deepseek-v4-pro' }))
+    } finally { localStorage.removeItem('dsh-provider-extension:disabled-models') }
+  })
+  it('shows account setup instructions when a refreshed native account catalog is empty', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    b.state.groups.push({ id: 'deepseek-account', name: 'DeepSeek Account', models: [] })
+    b.view.rerender(<ProviderPanel {...b.props} />)
+    fireEvent.click(screen.getByRole('button', { name: en.providerTitle }))
+    fireEvent.click(screen.getByRole('option', { name: /DeepSeek Account/ }))
+    fireEvent.click(screen.getByRole('button', { name: en.title }))
+    expect(screen.getByText(en.deepseekAccountHint)).toBeTruthy()
+    expect(screen.queryByText(en.empty)).toBeNull()
+    expect(screen.queryByText(en.loading)).toBeNull()
+  })
+  it.each([
+    ['openai-codex', 'ChatGPT subscription', en.providerCodex],
+    ['google-antigravity', 'Antigravity', en.providerAntigravity],
+  ])('uses the canonical provider name in header, trigger and list without changing route %s', async (id, oldName, displayName) => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    b.state.groups[0]!.id = id
+    b.state.groups[0]!.name = oldName
+    b.state.current = { provider: id, model: 'sol', reasoningEffort: 'high' }
+    b.view.rerender(<ProviderPanel {...b.props} />)
+    expect(screen.getByRole('button', { name: en.providerTitle }).getAttribute('title')).toBe(displayName)
+    expect(screen.getByRole('dialog', { name: en.title }).textContent).toContain(displayName)
+    expect(screen.getByRole('dialog', { name: en.title }).querySelector(`.${css.headTitle}`)?.textContent).toBe(displayName)
+    fireEvent.click(screen.getByRole('button', { name: en.providerTitle }))
+    expect(screen.getByRole('option', { name: new RegExp(displayName) })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.title }))
+    fireEvent.click(screen.getByRole('button', { name: 'Select Plain' }))
+    await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: id, model: 'plain' }))
+  })
   it('renders separate provider and model triggers, then scopes models to the chosen provider', async () => {
     const b = bench()
     expect(screen.getByRole('button', { name: en.providerTitle })).toBeTruthy()
@@ -57,8 +110,8 @@ describe('model panel component', () => {
     fireEvent.click(screen.getByRole('button', { name: en.title }))
     fireEvent.click(screen.getByRole('button', { name: en.providerTitle }))
     await waitFor(() => expect(b.loadAccounts).toHaveBeenCalledOnce())
-    expect(screen.getByRole('group', { name: 'ChatGPT subscription' }).textContent).toContain('2 accounts')
-    expect(screen.getByRole('group', { name: 'ChatGPT subscription' }).textContent).not.toContain('5')
+    expect(screen.getByRole('group', { name: en.providerCodex }).textContent).toContain('2 accounts')
+    expect(screen.getByRole('group', { name: en.providerCodex }).textContent).not.toContain('5')
     expect(screen.getByRole('option', { name: /Work/ }).textContent).toContain('wo***@example.com')
     fireEvent.click(screen.getByRole('option', { name: /Personal/ }))
     await waitFor(() => expect(b.selectAccount).toHaveBeenCalledWith('personal'))
@@ -68,7 +121,7 @@ describe('model panel component', () => {
   it('shows the read weekly quota and reads another account on demand', async () => {
     const b = bench({ codex: true })
     fireEvent.click(screen.getByRole('button', { name: en.providerTitle }))
-    await waitFor(() => expect(screen.getByRole('group', { name: 'ChatGPT subscription' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('group', { name: en.providerCodex })).toBeTruthy())
     expect(screen.getByRole('option', { name: /Work/ }).textContent).toContain('wk 76%')
     fireEvent.click(screen.getByRole('button', { name: en.readQuota }))
     await waitFor(() => expect(b.readQuota).toHaveBeenCalledWith('personal'))
@@ -83,6 +136,101 @@ describe('model panel component', () => {
     expect(screen.queryByRole('button', { name: '1M' })).toBeNull()
     fireEvent.keyDown(screen.getByTestId('dsh-provider-extension'), { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+  it('reuses a warm catalog on reopen but keeps explicit reload available', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    await waitFor(() => expect(screen.getByRole('button', { name: en.reload }).hasAttribute('disabled')).toBe(false))
+    fireEvent.click(screen.getByRole('button', { name: en.title }))
+    fireEvent.click(screen.getByRole('button', { name: en.title }))
+    fireEvent.click(screen.getByRole('button', { name: en.providerTitle }))
+    fireEvent.click(screen.getByRole('button', { name: en.title }))
+    expect(b.loadDirectory).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: en.reload }))
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledTimes(2))
+  })
+  it('does not cancel a slider preview when a catalog refresh finishes', async () => {
+    const b = bench()
+    await waitFor(() => expect(screen.getByRole('button', { name: en.reload }).hasAttribute('disabled')).toBe(false))
+    let finish!: () => void
+    b.loadDirectory.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve }))
+    fireEvent.click(screen.getByRole('button', { name: en.reload }))
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledTimes(2))
+    const slider = screen.getByRole('slider') as HTMLInputElement
+    fireEvent.change(slider, { target: { value: '0' } })
+    await act(async () => { finish() })
+    expect(slider.value).toBe('0')
+    fireEvent.keyUp(slider, { key: 'ArrowLeft' })
+    await waitFor(() => expect(b.select).toHaveBeenCalledExactlyOnceWith({ provider: 'a', model: 'sol', reasoningEffort: 'low' }))
+  })
+  it('uses transform-only slider position and keeps refresh status in the header', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    const fill = document.querySelector(`.${css.fill}`) as HTMLElement
+    const position = document.querySelector(`.${css.thumbPosition}`) as HTMLElement
+    expect(fill.style.transform).toBe('scaleX(1)')
+    expect(fill.style.width).toBe('')
+    expect(position.style.transform).toBe('translateX(100%)')
+    expect(position.style.left).toBe('')
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(document.querySelector('details')?.open).toBe(false)
+  })
+  it('keeps the selected effort through default-save background catalog refresh and delayed projection', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    const dialog = screen.getByRole('dialog', { name: en.title })
+    const slider = screen.getByRole('slider') as HTMLInputElement
+    let finish!: () => void
+    b.select.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve }))
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '0' } })
+    fireEvent.keyUp(screen.getByRole('slider'), { key: 'ArrowLeft' })
+    expect(slider.value).toBe('0')
+    expect(slider.disabled).toBe(false)
+    b.state.status = 'loading'
+    b.view.rerender(<ProviderPanel {...b.props} />)
+    await act(async () => { finish() })
+    expect(screen.getByRole('dialog', { name: en.title })).toBe(dialog)
+    expect(screen.queryByText(en.loading)).toBeNull()
+    expect(slider.value).toBe('0')
+    expect(b.loadDirectory).toHaveBeenCalledOnce()
+    b.state.current = { provider: 'a', model: 'sol', reasoningEffort: 'low' }
+    b.state.status = 'ready'
+    b.view.rerender(<ProviderPanel {...b.props} />)
+    expect(slider.value).toBe('0')
+    // Once acknowledged, external authoritative changes are followed normally.
+    b.state.current = { provider: 'a', model: 'sol', reasoningEffort: 'high' }
+    b.view.rerender(<ProviderPanel {...b.props} />)
+    expect(slider.value).toBe('1')
+  })
+  it('serializes rapid model and effort changes, keeping only the latest queued intent', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    let finish!: () => void
+    b.select.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve }))
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '0' } })
+    fireEvent.keyUp(screen.getByRole('slider'), { key: 'ArrowLeft' })
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '1' } })
+    fireEvent.keyUp(screen.getByRole('slider'), { key: 'ArrowRight' })
+    fireEvent.click(screen.getByRole('button', { name: 'Select Plain' }))
+    expect(b.select).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Select Plain' }).getAttribute('aria-pressed')).toBe('true')
+    await act(async () => { finish() })
+    await waitFor(() => expect(b.select).toHaveBeenCalledTimes(2))
+    expect(b.select.mock.calls[1]).toEqual([{ provider: 'a', model: 'plain' }])
+    expect(screen.getByRole('button', { name: 'Select Plain' }).getAttribute('aria-pressed')).toBe('true')
+  })
+  it('rolls a rejected queued choice back to the last successful choice, not the stale projection', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    let finish!: () => void
+    b.select.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve }))
+    b.select.mockRejectedValueOnce(new Error('choice rejected'))
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '0' } })
+    fireEvent.keyUp(screen.getByRole('slider'), { key: 'ArrowLeft' })
+    fireEvent.click(screen.getByRole('button', { name: 'Select Plain' }))
+    await act(async () => { finish() })
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('choice rejected'))
+    expect((screen.getByRole('slider') as HTMLInputElement).value).toBe('0')
   })
   it('selects models without reasoning and submits no unknown fields', async () => {
     const b = bench()
@@ -231,14 +379,16 @@ describe('model panel component', () => {
     await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
     const dialog = screen.getByRole('dialog', { name: en.title })
     expect(dialog.querySelectorAll('[data-provider-panel-track] [data-edge]')).toHaveLength(2)
-    expect(dialog.textContent).toContain('Low')
-    expect(dialog.textContent).toContain('High')
+    expect(screen.getAllByText('Low')).toHaveLength(1)
+    expect(screen.getAllByText('High')).toHaveLength(2) // track label and compact trigger
+    expect(screen.queryByRole('group', { name: en.effort })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Low' })).toBeNull()
   })
   it('remembers a previously chosen effort tier when switching models', async () => {
     const b = bench()
     await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
-    const lowPill = screen.getByRole('button', { name: 'Low' })
-    fireEvent.click(lowPill)
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '0' } })
+    fireEvent.keyUp(screen.getByRole('slider'), { key: 'ArrowLeft' })
     await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: 'a', model: 'sol', reasoningEffort: 'low' }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Select Plain' }))

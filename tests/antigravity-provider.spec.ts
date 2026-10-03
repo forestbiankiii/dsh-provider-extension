@@ -5,6 +5,7 @@ import {
 import { createMemoryAuthStore } from '../src/antigravity/auth-store.ts'
 import { AntigravityAdapter, buildAntigravityGeneratePayload } from '../src/antigravity/llm-adapter.ts'
 import { createReplayState } from '../src/antigravity/replay.ts'
+import { buildVideoPayload } from '../src/antigravity/video.ts'
 
 const status = {
   status: {
@@ -40,6 +41,51 @@ describe('antigravity provider integration', () => {
     expect(isAntigravityProvider('google-antigravity-work')).toBe(true)
     expect(isAntigravityProvider('openai-codex')).toBe(false)
     expect(isAntigravityProvider(undefined)).toBe(false)
+  })
+
+  it.each([
+    ['antigravity-gemini-3.8-flash', 'high', 'gemini-3.8-flash-high'],
+    ['antigravity-gemini-3.8-flash', 'medium', 'gemini-3.8-flash-medium'],
+    ['antigravity-gemini-3.8-flash', 'low', 'gemini-3.8-flash-low'],
+    ['antigravity-gemini-3.8-flash', undefined, 'gemini-3.8-flash-medium'],
+    ['antigravity-gemini-3.7-flash', 'high', 'gemini-3.7-flash-high'],
+    ['antigravity-gemini-3.7-flash', undefined, 'gemini-3.7-flash-medium'],
+    ['antigravity-gemini-3.1-pro', undefined, 'gemini-3.1-pro-low'],
+    ['antigravity-claude-opus-4-6-thinking', undefined, 'claude-opus-4-6-thinking'],
+    ['antigravity-claude-sonnet-4-6-thinking', undefined, 'claude-sonnet-4-6'],
+  ])('preserves the selected model and tier: %s / %s', (model, reasoningEffort, expected) => {
+    const payload = buildAntigravityGeneratePayload({
+      provider: 'google-antigravity', model, reasoningEffort,
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+    } as never, { projectId: 'project' } as never)
+    expect(payload.model).toBe(expected)
+    if (model === 'antigravity-gemini-3.8-flash') {
+      const request = payload.request as { generationConfig: { thinkingConfig: unknown } }
+      expect(request.generationConfig.thinkingConfig).toEqual({
+        includeThoughts: true, thinkingBudget: reasoningEffort === 'high' ? -1 : reasoningEffort === 'low' ? 1000 : 4000,
+      })
+    }
+  })
+
+  it.each([
+    ['antigravity-gemini-3.7-flash', 'gemini-3.7-flash-medium'],
+    ['antigravity-gemini-3.8-flash', 'gemini-3.8-flash-medium'],
+  ])('preserves the configured video model: %s', (model, expected) => {
+    const payload = buildVideoPayload('describe', model, { projectId: 'project' }, new Uint8Array([1, 2, 3]))
+    expect(payload.model).toBe(expected)
+    expect((payload.request as { contents: unknown }).contents).toEqual([
+      { role: 'user', parts: [{ text: 'describe' }, { inlineData: { mimeType: 'video/mp4', data: 'AQID' } }] },
+    ])
+  })
+
+  it('does not advertise the retired Gemini 3.5 wire alias as Gemini 3.7', async () => {
+    const adapter = new AntigravityAdapter({
+      auth: { credential: async () => ({ accessToken: 'test', refreshToken: 'test', expiresAt: Date.now() + 60_000, projectId: 'project' }) },
+      transport: { request: async () => new Response(JSON.stringify({ models: { 'gemini-3-flash-agent': {} } })) },
+    })
+    const models = await adapter.listModels('google-antigravity')
+    expect(models.some(model => model.id === 'antigravity-gemini-3.7-flash')).toBe(false)
+    expect(models.some(model => model.id === 'antigravity-gemini-3.8-flash')).toBe(false)
   })
 
   it('drops unsigned tool calls retained from another provider', () => {
@@ -140,6 +186,25 @@ describe('antigravity provider integration', () => {
     expect(state.status).toBe('ready')
     expect(state.view?.login.maskedEmail).toBe('fo***@gmail.com')
     expect(state.models?.models).toHaveLength(1)
+  })
+
+  it('forces a fresh model catalog when requested', async () => {
+    const call = vi.fn()
+      .mockImplementationOnce(() => ok(signedIn))
+      .mockImplementationOnce(() => ok(catalog))
+      .mockImplementationOnce(() => ok(catalog))
+    const controller = new AntigravityController({ call } as never)
+    await controller.load()
+    await controller.refreshModels()
+
+    expect(endpoints(call)).toEqual([
+      'antigravity-auth/status',
+      'antigravity-auth/models',
+      'antigravity-auth/models',
+    ])
+    expect(call).toHaveBeenLastCalledWith('/api', 'antigravity-auth/models', { force: true })
+    expect(controller.store.getSnapshot().modelsRefreshing).toBe(false)
+    expect(controller.store.getSnapshot().models?.models).toHaveLength(1)
   })
 
   it('keeps the current view when a login call fails', async () => {

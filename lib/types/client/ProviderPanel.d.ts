@@ -20,7 +20,7 @@ export interface ProviderPanelInjected {
         antigravity?: SnapshotStore<AntigravityState>;
     };
     /** Load the session's shared model directory. */
-    loadDirectory: () => Promise<void>;
+    loadDirectory: (force?: boolean) => Promise<void>;
     /** Load the optional Codex subscription account roster. */
     loadAccounts: () => Promise<void>;
     /** Select the real active Codex account used for subsequent quota and requests. */
