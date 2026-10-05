@@ -6,6 +6,8 @@ This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the n
 
 ## Unreleased
 
+- Polish account card hierarchy: 15px brand titles, 24px wallet figures and tabular quota values lead; 13px account identity, 12px body/subscription lines and 11px footnotes recede. Subscription dates sit right under the account name, and slimmed progress bars match each provider's brand fill.
+
 - Read each Codex account’s real subscription deadline from the account-scoped plan endpoint (`backend-api/subscriptions`, `active_until`) instead of a JWT claim that pi-ai never persists; the plan read is best-effort and never blocks quota display.
 - Harden subscription dates: accept ISO or epoch deadline payloads, and hide the line (never "Invalid Date") when a host or provider omits or corrupts the value.
 - Show each account’s subscription end date on Statistics account cards when the provider reports one (ChatGPT plan active-until). Providers without subscription deadlines keep showing nothing rather than inventing a date.

@@ -53,6 +53,11 @@ describe('published artifact contract', () => {
     expect(card).toContain('overflow: hidden')
     expect(stripe).not.toContain('border-radius')
     expect(css).toContain('var(--account-brand) 45%, var(--dsw-alias-label-primary)')
+    // Information hierarchy: 15px card title, 14px quota values, 12px body/meta, 11px footnotes.
+    expect(css).toContain('.accountBalanceCard h3 { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 650;')
+    expect(css).toContain('.quotaHeading span { font-size: 12px;')
+    expect(css).toContain('.balance strong { font-size: 24px;')
+    expect(css).toContain('.accountBalanceCard > p.accountLabel { font-size: 13px;')
     expect(client).toContain('--account-stripe:linear-gradient(')
     expect(client).toContain('background:var(--account-brand)')
     expect(client).toContain('::-webkit-progress-value')

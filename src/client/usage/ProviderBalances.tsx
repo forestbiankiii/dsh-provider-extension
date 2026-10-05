@@ -12,8 +12,8 @@ export function ProviderBalances({ providers, t, locale }: { providers: UsagePro
   return <>{providers.map(provider => <section className={css.accountBalanceCard} data-provider={provider.provider} key={`${provider.provider}/${provider.accountId ?? ''}`} aria-label={`${provider.name} ${provider.label}`}>
     <div className={css.accountHeading}><h3>{provider.name}</h3>{provider.plan && <span className={css.accountBadge}>{provider.plan}</span>}{provider.active && <span className={css.accountBadge}>{t('activeAccount')}</span>}</div>
     {provider.accountId && <p className={css.accountLabel}>{provider.label}</p>}
+    {Number.isFinite(provider.subscriptionUntil) && <p className={css.subscriptionLine}>{t('subscriptionUntil', { time: new Date(provider.subscriptionUntil!).toLocaleString(locale) })}</p>}
     <small>{t('checked', { time: new Date(provider.checkedAt).toLocaleString(locale) })}</small>
-    {Number.isFinite(provider.subscriptionUntil) && <p>{t('subscriptionUntil', { time: new Date(provider.subscriptionUntil!).toLocaleString(locale) })}</p>}
     {provider.status !== 'ready' ? <p>{t(status[provider.status])}</p> : <>
       {provider.windows.map(window => {
         const group = window.group ? `${t(window.group === 'gemini' ? 'quotaGemini' : 'quotaNonGemini')} · ` : ''
