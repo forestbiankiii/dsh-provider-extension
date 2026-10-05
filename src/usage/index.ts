@@ -214,8 +214,8 @@ export function createUsageTool(controller: UsageController): ToolDefinition {
     output: { schema: { type: 'object' }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
     execute: async args => {
       const request = z.object({ action: z.enum(['report', 'balance', 'balances', 'set_prices']), query: usageQuerySchema.optional(), prices: z.array(usagePriceSchema).max(200).optional() }).strict().parse(args)
-      if (request.action === 'balance') return controller.balance({ version: 'dsh-provider-extension/0.7.3', locale: 'zh-CN', timezoneOffsetSeconds: 0 })
-      if (request.action === 'balances') return controller.balances({ version: 'dsh-provider-extension/0.7.3', locale: 'zh-CN', timezoneOffsetSeconds: 0 })
+      if (request.action === 'balance') return controller.balance({ version: 'dsh-provider-extension/0.7.4', locale: 'zh-CN', timezoneOffsetSeconds: 0 })
+      if (request.action === 'balances') return controller.balances({ version: 'dsh-provider-extension/0.7.4', locale: 'zh-CN', timezoneOffsetSeconds: 0 })
       if (request.action === 'set_prices') {
         if (!request.prices) throw new Error('prices is required for set_prices')
         return controller.savePrices({ prices: request.prices })

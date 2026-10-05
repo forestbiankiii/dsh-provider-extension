@@ -6,6 +6,8 @@ This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the n
 
 ## Unreleased
 
+- Clip the account card's brand stripe to the card's rounded silhouette so the top edge and corners join cleanly.
+
 - Normalize Statistics' built-in Codex provider name to OpenAI Codex, matching provider settings without renaming unrelated routes.
 - Keep the last public account snapshot in connection-scoped browser memory across Statistics navigation; show it immediately with a background-refresh hint and original check timestamps. Preserve it on failed/invalid requests, replace it on fresh results (including sign-out/removal), and ignore replies from disposed pages. No browser-storage persistence or cross-connection reuse.
 

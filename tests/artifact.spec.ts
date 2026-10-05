@@ -47,6 +47,11 @@ describe('published artifact contract', () => {
     expect(css).toContain("[data-provider='google-antigravity'] { --account-brand: #3186ff;")
     expect(css).toContain("[data-provider='opencode-go'] { --account-brand: var(--dsw-alias-label-primary);")
     expect(css).toContain('var(--account-brand) 8%, var(--dsw-alias-bg-layer-2)')
+    // The brand stripe is clipped by the card's rounded silhouette instead of fighting its corners.
+    const card = css.match(/\.accountBalanceCard \{([^}]+)\}/)?.[1] ?? ''
+    const stripe = css.match(/\.accountBalanceCard::before \{([^}]+)\}/)?.[1] ?? ''
+    expect(card).toContain('overflow: hidden')
+    expect(stripe).not.toContain('border-radius')
     expect(css).toContain('var(--account-brand) 45%, var(--dsw-alias-label-primary)')
     expect(client).toContain('--account-stripe:linear-gradient(')
     expect(client).toContain('background:var(--account-brand)')

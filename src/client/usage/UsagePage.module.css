@@ -35,12 +35,12 @@
 .sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .accountBalances { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px; margin-top: 16px; }
 /* Provider identity colors; surfaces and text continue to use the resolved DSH theme. */
-.accountBalanceCard { --account-brand: var(--dsw-alias-label-secondary); position: relative; padding: 18px; border-radius: 12px; background: color-mix(in srgb, var(--account-brand) 8%, var(--dsw-alias-bg-layer-2)); border: 1px solid color-mix(in srgb, var(--account-brand) 35%, var(--usage-border, var(--dsw-alias-border-l1))); min-width: 0; }
+.accountBalanceCard { --account-brand: var(--dsw-alias-label-secondary); position: relative; overflow: hidden; padding: 18px; border-radius: 12px; background: color-mix(in srgb, var(--account-brand) 8%, var(--dsw-alias-bg-layer-2)); border: 1px solid color-mix(in srgb, var(--account-brand) 35%, var(--usage-border, var(--dsw-alias-border-l1))); min-width: 0; }
 .accountBalanceCard[data-provider='deepseek'] { --account-brand: #4d6bfe; }
 .accountBalanceCard[data-provider='openai-codex'] { --account-brand: #10a37f; }
 .accountBalanceCard[data-provider='google-antigravity'] { --account-brand: #3186ff; --account-stripe: linear-gradient(90deg, #00b95c, #ffee48, #fc413d, #3186ff); }
 .accountBalanceCard[data-provider='opencode-go'] { --account-brand: var(--dsw-alias-label-primary); }
-.accountBalanceCard::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0; background: var(--account-stripe, var(--account-brand)); }
+.accountBalanceCard::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--account-stripe, var(--account-brand)); }
 .accountBalanceCard h3 { display: inline-flex; align-items: center; gap: 8px; color: color-mix(in srgb, var(--account-brand) 45%, var(--dsw-alias-label-primary)); }
 .accountBalanceCard h3::before { content: ''; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--account-stripe, var(--account-brand)); }
 .accountHeading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }

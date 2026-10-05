@@ -119,7 +119,7 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
       started = true; setBalancePending(true); setBalanceError(false)
       try {
         const value = await call<UsageBalances>(rpc, 'usage/balances', {
-          version: 'dsh-provider-extension/0.7.3', locale: language() === 'zh' ? 'zh-CN' : 'en-US', timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60,
+          version: 'dsh-provider-extension/0.7.4', locale: language() === 'zh' ? 'zh-CN' : 'en-US', timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60,
         }, request.signal)
         if (!request.signal.aborted) {
           if (!value.deepseek || !Array.isArray(value.deepseek.wallets) || !Array.isArray(value.deepseek.bonusWallets) || !Array.isArray(value.providers)) throw new Error('Invalid balance response')
