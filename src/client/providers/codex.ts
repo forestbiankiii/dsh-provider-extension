@@ -181,7 +181,7 @@ export function decodeQuota(value: unknown): CodexQuotaView {
 
 async function call(
   rpc: ClientConnectionRpc,
-  endpoint: 'status' | 'account/select' | 'account/remove' | 'account/rename' | 'usage' | 'login/start' | 'login/status' | 'login/cancel' | 'preferences/models',
+  endpoint: 'status' | 'account/select' | 'account/remove' | 'account/rename' | 'usage' | 'models' | 'login/start' | 'login/status' | 'login/cancel' | 'preferences/models',
   payload: unknown,
   timeoutMs = 10_000,
 ): Promise<unknown> {
@@ -287,6 +287,17 @@ export class CodexAccountsController {
   /** Wait for the Host's online catalog before a surface reads its directory. */
   async refreshModels(): Promise<void> {
     await call(this.rpc, 'preferences/models', {}, 15_000)
+  }
+
+  /** Read one account's own model catalog directly, without switching the active account. */
+  async readAccountModels(id: string): Promise<readonly { id: string; name: string }[]> {
+    const value = await call(this.rpc, 'models', { id }, 15_000)
+    if (!Array.isArray(value)) throw new Error('Invalid Codex model catalog')
+    return value.flatMap(entry => {
+      const model = entry as { id?: unknown; name?: unknown }
+      return typeof model?.id === 'string' && model.id.length > 0 && typeof model.name === 'string' && model.name.length > 0
+        ? [{ id: model.id, name: model.name }] : []
+    })
   }
 
   /** Permanently switch the active account and read its quota. */

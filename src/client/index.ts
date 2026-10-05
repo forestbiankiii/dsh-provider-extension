@@ -151,15 +151,7 @@ export function apply(ctx: ClientContext): void {
     inject: (): ProviderSettingsInjected => ({
       hooks: { accounts: codexAccounts.store, antigravity: antigravity.store },
       loadAccounts: async () => { await codexAccounts.load() },
-      loadCodexModels: async () => {
-        await codexAccounts.refreshModels()
-        forceCatalogReload(ctx.modelDirectories)
-        const result = await ctx.remote.session.modelCatalog()
-        if (!result.ok) throw new Error(result.error.message)
-        const failure = result.value.failures.find(entry => entry.id === 'openai-codex')
-        if (failure) throw new Error(failure.message)
-        return result.value.groups.find(group => group.id === 'openai-codex')?.models ?? []
-      },
+      loadCodexModels: async (accountId: string) => await codexAccounts.readAccountModels(accountId),
       readQuota: readCodexQuota,
       loginCodex: async () => { await codexAccounts.login() },
       selectCodexAccount: async (id) => { await codexAccounts.select(id) },

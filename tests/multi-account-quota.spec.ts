@@ -109,11 +109,25 @@ describe('account-specific refresh and quota', () => {
     expect(snapshot().payload.activeId).toBe('a')
   })
   it.each([null, 1, '', 'x'.repeat(513)])('explicit invalid Codex target %s cannot fall back to active usage', async id => {
-    const read = vi.fn(), getAccountAuth = vi.fn()
-    const handler = rpc({ usageReader: { read }, getAccountAuth })
+    const read = vi.fn(), getAccountAuth = vi.fn(), accountModels = vi.fn()
+    const handler = rpc({ usageReader: { read }, getAccountAuth, accountModels })
     expect((await handler('usage', { id }, request())).ok).toBe(false)
+    expect((await handler('models', { id }, request())).ok).toBe(false)
     expect(read).not.toHaveBeenCalled()
     expect(getAccountAuth).not.toHaveBeenCalled()
+    expect(accountModels).not.toHaveBeenCalled()
+    expect((await handler('models', {}, request())).ok).toBe(false)
+  })
+  it('Codex model catalogs load per explicit account and never fall back to the active one', async () => {
+    const accountModels = vi.fn(async (id: string) => {
+      if (id === 'missing') throw new Error('ChatGPT subscription is not signed in')
+      return [{ id: `${id}-model`, name: `${id} Model` }]
+    })
+    const handler = rpc({ usageReader: { read: vi.fn() }, getAccountAuth: vi.fn(), accountModels })
+    expect(await handler('models', { id: 'b' }, request())).toEqual({ ok: true, value: [{ id: 'b-model', name: 'b Model' }] })
+    expect(accountModels).toHaveBeenCalledExactlyOnceWith('b', expect.anything())
+    expect(await handler('models', { id: 'missing' }, request())).toMatchObject({ ok: false })
+    expect(accountModels).toHaveBeenCalledTimes(2)
   })
   it.each(['refresh', 'persist', 'cancel'])('Codex %s failure prevents quota fetch and active-account fallback', async failure => {
     const controller = new AbortController(), fetchQuota = vi.fn()

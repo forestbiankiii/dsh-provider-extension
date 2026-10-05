@@ -16,7 +16,7 @@ export interface ProviderSettingsInjected {
     };
     loadAccounts: () => Promise<void>;
     /** Same authoritative Host catalog used by the composer, not a hardcoded product list. */
-    loadCodexModels?: () => Promise<readonly ModelCatalogModel[]>;
+    loadCodexModels?: (accountId: string) => Promise<readonly ModelCatalogModel[]>;
     readQuota: (id: string) => Promise<void>;
     loginCodex: () => Promise<void>;
     selectCodexAccount?: (id: string) => Promise<void>;

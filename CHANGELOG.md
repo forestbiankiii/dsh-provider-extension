@@ -6,6 +6,7 @@ This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the n
 
 ## Unreleased
 
+- Configure every saved Codex account’s model switches simultaneously without switching accounts: each account loads its own catalog through account-scoped authentication (native refresh included), and switches stay strictly per account. Reject invalid account targets at the RPC boundary for both usage and catalog reads.
 - Clip the account card's brand stripe to the card's rounded silhouette so the top edge and corners join cleanly.
 
 - Normalize Statistics' built-in Codex provider name to OpenAI Codex, matching provider settings without renaming unrelated routes.

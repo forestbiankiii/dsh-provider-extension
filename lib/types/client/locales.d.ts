@@ -57,9 +57,7 @@ export declare const en: {
     readonly antigravityFetchModels: "Reload model list";
     readonly antigravityModelsRefreshing: "Fetching models…";
     readonly codexFetchModels: "Reload model list";
-    readonly codexModelsRefreshing: "Fetching models…";
-    readonly codexModels: "Models in the current Host catalog";
-    readonly codexModelsInactive: "Switch to this account in the provider picker to load and configure its models. Other accounts’ switches do not apply here.";
+    readonly codexModels: "Models in this account’s catalog";
     readonly codexModelsScope: "These switches only control this account’s picker. They do not grant model access.";
     readonly codexModelsMissing: "Saved selections not in the current catalog (preferences retained): {models}";
     readonly antigravityAccounts: "Google accounts";

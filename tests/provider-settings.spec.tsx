@@ -16,10 +16,10 @@ const codexAccounts: CodexAccountsState = {
   usage: { work: { status: 'ready', value: { weeklyPercent: 76 } } },
 }
 
-function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emptyAccounts) {
+function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emptyAccounts, catalogLoader?: (accountId: string) => Promise<readonly { id: string; name: string }[]>) {
   const loadAccounts = vi.fn(async () => {})
   const refreshAntigravityModels = vi.fn(async () => {})
-  const loadCodexModels = vi.fn(async () => [{ id: 'host-model', name: 'Host Model' }, { id: 'gpt-6-astra', name: 'GPT-6 Astra' }])
+  const loadCodexModels = catalogLoader ?? vi.fn(async () => [{ id: 'host-model', name: 'Host Model' }, { id: 'gpt-6-astra', name: 'GPT-6 Astra' }])
   const loginAntigravity = vi.fn(async () => {})
   const loginCodex = vi.fn(async () => {})
   const renameCodexAccount = vi.fn(async () => {})
@@ -270,12 +270,24 @@ describe('provider settings surface', () => {
     expect((screen.getByRole('checkbox', { name: 'Host Model' }) as HTMLInputElement).checked).toBe(false)
   })
 
-  it('does not present the active account catalog as another account’s available models', () => {
-    bench({ status: 'ready' }, { ...codexAccounts, accounts: [{ ...codexAccounts.accounts[0]!, active: false }] })
+  it('configures both accounts’ own model catalogs at once without switching', async () => {
+    const loader = vi.fn(async (accountId: string) => [{ id: `${accountId}-model`, name: `${accountId} Model` }])
+    bench({ status: 'ready' }, {
+      ...codexAccounts,
+      accounts: [
+        { id: 'work', label: 'Work', email: 'work@example.com', active: true },
+        { id: 'personal', label: 'Personal', email: 'personal@example.com', active: false },
+      ],
+    }, loader)
     fireEvent.click(screen.getByText(en.providerCodex))
-    fireEvent.click(screen.getByRole('button', { name: en.quotaView }))
-    expect(screen.getByText(en.codexModelsInactive)).toBeTruthy()
-    expect(screen.queryByRole('checkbox')).toBeNull()
+    for (const button of screen.getAllByRole('button', { name: en.quotaView })) fireEvent.click(button)
+    expect(await screen.findByRole('checkbox', { name: 'work Model' })).toBeTruthy()
+    expect(screen.getByRole('checkbox', { name: 'personal Model' })).toBeTruthy()
+    expect(loader.mock.calls.map(call => call[0]).sort()).toEqual(['personal', 'work'])
+    // Each account keeps its own switches; toggling one never touches the other.
+    fireEvent.click(screen.getByRole('checkbox', { name: 'personal Model' }))
+    expect([...codexEnabledModels('personal')!]).toEqual([])
+    expect(codexEnabledModels('work')).toBeUndefined()
   })
 
   it('navigates to OpenCode settings and saves configuration', () => {

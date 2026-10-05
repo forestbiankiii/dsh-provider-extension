@@ -31,7 +31,7 @@ export interface ProviderSettingsInjected {
   }
   loadAccounts: () => Promise<void>
   /** Same authoritative Host catalog used by the composer, not a hardcoded product list. */
-  loadCodexModels?: () => Promise<readonly ModelCatalogModel[]>
+  loadCodexModels?: (accountId: string) => Promise<readonly ModelCatalogModel[]>
   readQuota: (id: string) => Promise<void>
   loginCodex: () => Promise<void>
   selectCodexAccount?: (id: string) => Promise<void>
@@ -267,22 +267,25 @@ export function ProviderSettings({
   }, [])
 
   const [catalogRefresh, setCatalogRefresh] = useState(0)
-  const [codexCatalog, setCodexCatalog] = useState<{
-    accountId?: string; models: readonly ModelCatalogModel[]; error?: string
-  }>({ models: [] })
-  const activeCodexId = accounts.accounts.find(account => account.active)?.id
+  const [codexCatalogs, setCodexCatalogs] = useState<Record<string, {
+    models: readonly ModelCatalogModel[]; error?: string
+  }>>({})
+  const codexAccountIds = accounts.accounts.map(account => account.id).join('\u0000')
   const codexOpen = selectedProvider === 'codex' || expanded.codex === true
   useEffect(() => {
-    if (!codexOpen || !activeCodexId || accounts.switchingId !== undefined || !loadCodexModels) return
+    if (!codexOpen || accounts.accounts.length === 0 || !loadCodexModels) return
     let cancelled = false
-    setCodexCatalog({ models: [] })
-    void loadCodexModels().then(models => {
-      if (!cancelled) setCodexCatalog({ accountId: activeCodexId, models })
-    }).catch((error: unknown) => {
-      if (!cancelled) setCodexCatalog({ accountId: activeCodexId, models: [], error: String(error) })
-    })
+    // Each account reads its own catalog directly; no active-account switching.
+    void Promise.all(accounts.accounts.map(async account => {
+      try {
+        const models = await loadCodexModels(account.id)
+        if (!cancelled) setCodexCatalogs(previous => ({ ...previous, [account.id]: { models } }))
+      } catch (error) {
+        if (!cancelled) setCodexCatalogs(previous => ({ ...previous, [account.id]: { models: [], error: String(error) } }))
+      }
+    }))
     return () => { cancelled = true }
-  }, [codexOpen, activeCodexId, accounts.switchingId, loadCodexModels, catalogRefresh])
+  }, [codexOpen, codexAccountIds, loadCodexModels, catalogRefresh])
 
   const refreshCodexModels = (): void => setCatalogRefresh(value => value + 1)
   const refreshCodex = (): void => {
@@ -291,27 +294,25 @@ export function ProviderSettings({
   }
 
   const renderCodexModels = (account: CodexAccountView): ReactNode => {
-    if (!account.active) return <p className={css.note}>{t('codexModelsInactive')}</p>
-    if (accounts.switchingId !== undefined || codexCatalog.accountId !== account.id) {
-      return <p className={css.note}>{t('providerChecking')}</p>
-    }
-    if (codexCatalog.error) return <p className={css.error} role="alert">{codexCatalog.error}</p>
+    const catalog = codexCatalogs[account.id]
+    if (!catalog) return <p className={css.note}>{t('providerChecking')}</p>
+    if (catalog.error) return <p className={css.error} role="alert">{catalog.error}</p>
     const enabled = codexEnabledModels(account.id, account.email)
     const disabled = getDisabledModelsForAccount(account.id, account.email)
-    const missing = [...enabled ?? []].filter(id => !codexCatalog.models.some(model => model.id === id))
+    const missing = [...enabled ?? []].filter(id => !catalog.models.some(model => model.id === id))
     return <>
       <p className={css.note}>{t('codexModelsScope')}</p>
       {missing.length > 0 ? <p className={css.note}>{t('codexModelsMissing', { models: missing.join(', ') })}</p> : null}
-      {codexCatalog.models.length === 0 ? <p className={css.note}>{t('empty')}</p> : null}
+      {catalog.models.length === 0 ? <p className={css.note}>{t('empty')}</p> : null}
       <ul className={css.models}>
-        {codexCatalog.models.map(model => <li key={model.id}>
+        {catalog.models.map(model => <li key={model.id}>
           <span className={css.modelName}>{model.name}</span>
           <div className={css.modelToggleRow}>
             <label className={css.switch} title={t('modelToggle')}>
               <input type="checkbox" aria-label={model.name}
                 checked={enabled ? enabled.has(model.id) : !disabled.has(model.id)}
                 onChange={() => {
-                  const next = enabled ?? new Set(codexCatalog.models.filter(entry => !disabled.has(entry.id)).map(entry => entry.id))
+                  const next = enabled ?? new Set(catalog.models.filter(entry => !disabled.has(entry.id)).map(entry => entry.id))
                   if (next.has(model.id)) next.delete(model.id)
                   else next.add(model.id)
                   saveCodexEnabledModels(account.id, account.email, next)
@@ -439,9 +440,9 @@ export function ProviderSettings({
               ) : null}
               <button type="button" className={css.action} onClick={refreshCodex}>{t('providerRefresh')}</button>
               <button type="button" className={css.action}
-                disabled={!codexConnected || accounts.switchingId !== undefined || codexCatalog.accountId !== activeCodexId}
+                disabled={!codexConnected}
                 onClick={refreshCodexModels}
-              >{codexConnected && codexCatalog.accountId !== activeCodexId ? t('codexModelsRefreshing') : t('codexFetchModels')}</button>
+              >{t('codexFetchModels')}</button>
             </div>
 
             {accounts.accounts.length === 0 ? (
@@ -1345,9 +1346,9 @@ export function ProviderSettings({
                 ) : null}
                 <button type="button" className={css.action} onClick={refreshCodex}>{t('providerRefresh')}</button>
                 <button type="button" className={css.action}
-                  disabled={!codexConnected || accounts.switchingId !== undefined || codexCatalog.accountId !== activeCodexId}
+                  disabled={!codexConnected}
                   onClick={refreshCodexModels}
-                >{codexConnected && codexCatalog.accountId !== activeCodexId ? t('codexModelsRefreshing') : t('codexFetchModels')}</button>
+                >{t('codexFetchModels')}</button>
               </div>
 
               {accounts.accounts.length === 0 ? (

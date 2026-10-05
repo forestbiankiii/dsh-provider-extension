@@ -3702,7 +3702,7 @@ const publicError = (code, message) => ({
 		details: { issues: [] }
 	}
 });
-function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, getAccountAuth, network, resetCreditService, preferences, diagnosticsReader, modelCatalog, originalImages, resolveInheritedOriginal }) {
+function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, getAccountAuth, accountModels, network, resetCreditService, preferences, diagnosticsReader, modelCatalog, originalImages, resolveInheritedOriginal }) {
 	return async (endpoint, payload, signal) => {
 		if (endpoint === "image/original/chunk") try {
 			signal.throwIfAborted();
@@ -3778,7 +3778,7 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 		if (endpoint === "usage") try {
 			signal.throwIfAborted();
 			if (payload != null && Object.hasOwn(payload, "id")) {
-				if (typeof payload.id !== "string" || !getAccountAuth) return publicError("bad-request", "Invalid Codex account");
+				if (typeof payload.id !== "string" || payload.id.length === 0 || payload.id.length > 512 || !getAccountAuth) return publicError("bad-request", "Invalid Codex account");
 				return { ok: true, value: await readCodexAccountUsage(payload.id, {
 				getAuth: getAccountAuth,
 				readCredential: (id) => accountVault?.readById(id),
@@ -3801,6 +3801,16 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 			if (signal.aborted) throw error;
 			const known = /* @__PURE__ */ new Set(["ChatGPT subscription is not signed in", "ChatGPT sign-in needs to be renewed"]);
 			const message = error instanceof Error && known.has(error.message) ? error.message : "Could not read ChatGPT usage";
+			return publicError("internal", message);
+		}
+		if (endpoint === "models") try {
+			signal.throwIfAborted();
+			if (payload == null || !Object.hasOwn(payload, "id") || typeof payload.id !== "string" || payload.id.length === 0 || payload.id.length > 512 || !accountModels) return publicError("bad-request", "Invalid Codex account");
+			return { ok: true, value: await accountModels(payload.id, signal) };
+		} catch (error) {
+			if (signal.aborted) throw error;
+			const known = /* @__PURE__ */ new Set(["ChatGPT subscription is not signed in", "ChatGPT sign-in needs to be renewed"]);
+			const message = error instanceof Error && known.has(error.message) ? error.message : "Could not read this account's model catalog";
 			return publicError("internal", message);
 		}
 		if (endpoint === "reset-credit/inspect" || endpoint === "reset-credit/prepare" || endpoint === "reset-credit/consume") try {
@@ -4146,19 +4156,31 @@ function apply(ctx) {
 		usageReader,
 		fetch: (input, init) => network.fetch("quota-reset", input, init)
 	});
+	const resolveAccountAuth = async (id, signal) => {
+		if (!accountVault) throw new Error("ChatGPT subscription is not signed in");
+		const credentials = new DshOAuthCredentialStore(ctx.credentials, CREDENTIAL_REF, [], {
+			vault: accountVault, accountVaultId: id, expirySkewMs: OAUTH_EXPIRY_SKEW_MS
+		});
+		const models = createModels({ credentials });
+		models.setProvider(provider);
+		return await network.run("quota", () => models.getAuth(PROVIDER, { signal }));
+	};
 	const handler = createSubscriptionRpcHandler({
 		authHandler: createCodexRpcHandler(coordinator, { openExternal: openCodexAuthUrl }),
 		usageReader,
 		accountVault,
-		getAccountAuth: async (id, signal) => {
-			if (!accountVault) throw new Error("ChatGPT subscription is not signed in");
-			const credentials = new DshOAuthCredentialStore(ctx.credentials, CREDENTIAL_REF, [], {
-				vault: accountVault, accountVaultId: id, expirySkewMs: OAUTH_EXPIRY_SKEW_MS
-			});
-			const models = createModels({ credentials });
-			models.setProvider(provider);
-			return await network.run("quota", () => models.getAuth(PROVIDER, { signal }));
-		},
+		getAccountAuth: resolveAccountAuth,
+		accountModels: async (id, signal) => await readCodexAccountUsage(id, {
+			getAuth: resolveAccountAuth,
+			readCredential: (target) => accountVault?.readById(target),
+			resolveAccountId: (cred) => {
+				const jwtPayload = decodeJwtPayload(cred.access);
+				return cred.accountId ?? jwtPayload?.["https://api.openai.com/auth"]?.chatgpt_account_id ?? jwtPayload?.["https://api.openai.com/auth"]?.account_id;
+			},
+			fetch: (url, init) => network.fetch("catalog", url, init),
+			parse: (value) => parseOfficialModelCatalog(value).map((model) => mergeModel(baseProvider.getModels(), model)).filter(Boolean).map((model) => ({ id: model.id, name: model.name })),
+			url: CODEX_MODELS_URL, userAgent: USER_AGENT, timeoutMs: DEFAULT_TIMEOUT_MS$1
+		}, signal),
 		network,
 		resetCreditService,
 		preferences,

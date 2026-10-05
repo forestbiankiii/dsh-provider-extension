@@ -78,6 +78,11 @@ export declare class CodexAccountsController {
     loadUsage(generation?: number): Promise<void>;
     /** Wait for the Host's online catalog before a surface reads its directory. */
     refreshModels(): Promise<void>;
+    /** Read one account's own model catalog directly, without switching the active account. */
+    readAccountModels(id: string): Promise<readonly {
+        id: string;
+        name: string;
+    }[]>;
     /** Permanently switch the active account and read its quota. */
     select(id: string): Promise<void>;
     /**
