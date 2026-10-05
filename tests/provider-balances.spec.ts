@@ -32,6 +32,13 @@ describe('real provider balance projections', () => {
     const other = await readProviderBalances([{ id: 'openai-codex-other', name: 'Custom subscription' }], {}, signal())
     expect(other[0]).toMatchObject({ name: 'Custom subscription', status: 'unsupported' })
   })
+  it('normalizes subscription deadlines from ISO or epoch values and rejects junk', async () => {
+    const call = vi.fn(async (endpoint: string) => ({ ok: true, value: endpoint === 'status'
+      ? { accounts: [{ id: 'iso', subscriptionUntil: '2026-12-31T00:00:00.000Z' }, { id: 'seconds', subscriptionUntil: '1798761600' }, { id: 'ms', subscriptionUntil: 1798761600000 }, { id: 'bad', subscriptionUntil: 'not-a-date' }] }
+      : { rateLimits: [] } }))
+    const rows = await readProviderBalances([codexProvider], { codex: { call } }, signal())
+    expect(rows.map(row => row.subscriptionUntil)).toEqual([Date.parse('2026-12-31T00:00:00.000Z'), 1798761600000, 1798761600000, null])
+  })
   it('does not invent full quota when provider windows are missing, invalid or fail', async () => {
     const call = vi.fn(async (endpoint: string, payload: any) => endpoint === 'status' ? { ok: true, value: { accounts: [{ id: 'none' }, { id: 'bad' }, { id: 'failed' }] } }
       : payload.id === 'failed' ? { ok: false } : { ok: true, value: payload.id === 'bad' ? quota(150) : { rateLimits: [] } })

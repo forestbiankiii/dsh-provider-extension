@@ -17,13 +17,20 @@ const decimal = (value: unknown): string | null => typeof value === 'string' && 
 const time = (value: unknown): number | null => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? Date.parse(value) : null
 const percent = (value: unknown, max = 100): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= max
 const secondsTime = (value: unknown): number | null => typeof value === 'number' && Number.isSafeInteger(value) && value > 0 && Number.isFinite(new Date(value * 1000).getTime()) ? value * 1000 : null
+// Subscription deadlines arrive as ISO strings or epoch seconds/milliseconds depending on the account payload.
+const deadline = (value: unknown): number | null => {
+  const iso = time(value)
+  if (iso !== null) return iso
+  const numeric = typeof value === 'number' ? value : typeof value === 'string' && /^\d{9,13}$/.test(value) ? Number(value) : NaN
+  return Number.isFinite(numeric) && numeric > 0 ? numeric > 1e12 ? numeric : numeric * 1000 : null
+}
 const mask = (value: string): string => value.replace(/([^\s@]{1,2})[^\s@]*@([^\s@]+)/g, '$1***@$2')
 // Only these exact routes belong to our readers; a similarly named external adapter may use different credentials.
 const family = (id: string): 'codex' | 'antigravity' | 'opencode' | null => id === 'openai-codex' ? 'codex' : id === 'google-antigravity' ? 'antigravity' : id === 'opencode-go' ? 'opencode' : null
 function base(provider: BalanceProvider, account?: Record<string, unknown>): UsageProviderBalance {
   const name = provider.id === 'openai-codex' ? 'OpenAI Codex' : provider.name
   return { provider: provider.id, name, accountId: text(account?.id), label: mask(text(account?.label) ?? text(account?.email) ?? name),
-    active: account?.active === true, plan: text(account?.planType) ?? text(account?.tier), subscriptionUntil: time(account?.subscriptionUntil), status: 'unavailable', checkedAt: Date.now(), windows: [], credits: null, unlimitedCredits: false, resetCredits: null }
+    active: account?.active === true, plan: text(account?.planType) ?? text(account?.tier), subscriptionUntil: deadline(account?.subscriptionUntil), status: 'unavailable', checkedAt: Date.now(), windows: [], credits: null, unlimitedCredits: false, resetCredits: null }
 }
 async function unwrap(reader: CodexBalanceReader, endpoint: 'status' | 'usage', payload: unknown, signal: AbortSignal): Promise<Record<string, unknown>> {
   const result = await reader.call(endpoint, payload, signal)

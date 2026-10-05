@@ -6,6 +6,7 @@ This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the n
 
 ## Unreleased
 
+- Harden subscription dates: accept ISO or epoch deadline payloads, and hide the line (never "Invalid Date") when a host or provider omits or corrupts the value.
 - Show each account’s subscription end date on Statistics account cards when the provider reports one (ChatGPT plan active-until). Providers without subscription deadlines keep showing nothing rather than inventing a date.
 - Configure every saved Codex account’s model switches simultaneously without switching accounts: each account loads its own catalog through account-scoped authentication (native refresh included), and switches stay strictly per account. Reject invalid account targets at the RPC boundary for both usage and catalog reads.
 - Clip the account card's brand stripe to the card's rounded silhouette so the top edge and corners join cleanly.

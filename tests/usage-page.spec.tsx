@@ -68,11 +68,14 @@ describe('usage page', () => {
   it('shows provider-reported account quotas/credits separately from cash and refreshes without polling', async () => {
     const provider: UsageProviderBalance = { provider: 'openai-codex', name: 'OpenAI Codex', accountId: 'work', label: 'Work', active: true, plan: 'PLUS', subscriptionUntil: 1_800_000_000_000, status: 'ready', checkedAt: 1_800_000_000_000,
       windows: [{ window: '5h', percent: 84, kind: 'remaining', resetsAt: 1_800_000_000_000 }, { window: 'weekly', percent: 92, kind: 'remaining', resetsAt: null }], credits: '5.50', unlimitedCredits: false, resetCredits: 3 }
-    const { call } = setup(report(), [provider, { ...provider, provider: 'custom', name: 'Custom', accountId: null, status: 'unsupported', windows: [], credits: null, resetCredits: null }])
+    const { call } = setup(report(), [provider, { ...provider, provider: 'custom', name: 'Custom', accountId: null, status: 'unsupported', windows: [], credits: null, resetCredits: null, subscriptionUntil: undefined as unknown as number }])
     const section = await screen.findByRole('region', { name: en.accountBalances })
     await within(section).findByText('84% remaining')
     expect(within(section).getByText('92% remaining')).toBeTruthy()
     expect(within(screen.getByRole('region', { name: 'OpenAI Codex Work' })).getByText(/Subscription active until/)).toBeTruthy()
+    // A stale host may omit the field entirely; never render "Invalid Date".
+    expect(within(screen.getByRole('region', { name: 'Custom Work' })).queryByText(/Subscription active until/)).toBeNull()
+    expect(within(section).queryByText(/Invalid Date/)).toBeNull()
     expect(within(section).getByRole('progressbar', { name: /OpenAI Codex Work: 5h/ }).getAttribute('value')).toBe('84')
     expect(screen.getByRole('region', { name: en.balance }).getAttribute('data-provider')).toBe('deepseek')
     expect(screen.getByRole('region', { name: 'OpenAI Codex Work' }).getAttribute('data-provider')).toBe('openai-codex')
