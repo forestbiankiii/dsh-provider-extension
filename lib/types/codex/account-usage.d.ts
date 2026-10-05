@@ -5,7 +5,7 @@ export interface CodexAccountUsageOptions {
     resolveAccountId(credential: Record<string, unknown>): unknown;
     fetch(url: string, init: RequestInit): Promise<Response>;
     parse(value: unknown): unknown;
-    url: string;
+    url: string | ((accountId: string) => string);
     userAgent: string;
     timeoutMs: number;
 }

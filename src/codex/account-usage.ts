@@ -5,7 +5,7 @@ export interface CodexAccountUsageOptions {
   resolveAccountId(credential: Record<string, unknown>): unknown
   fetch(url: string, init: RequestInit): Promise<Response>
   parse(value: unknown): unknown
-  url: string
+  url: string | ((accountId: string) => string)
   userAgent: string
   timeoutMs: number
 }
@@ -22,7 +22,7 @@ export async function readCodexAccountUsage(id: string, options: CodexAccountUsa
   if (credential.access !== auth.apiKey) throw new Error('ChatGPT credential changed during quota read')
   const accountId = options.resolveAccountId(credential)
   if (typeof accountId !== 'string' || !accountId) throw new Error('ChatGPT subscription is not signed in')
-  const response = await options.fetch(options.url, {
+  const response = await options.fetch(typeof options.url === 'string' ? options.url : options.url(accountId), {
     method: 'GET', redirect: 'error',
     headers: { authorization: `Bearer ${auth.apiKey}`, 'chatgpt-account-id': accountId, accept: 'application/json', 'cache-control': 'no-store', 'user-agent': options.userAgent },
     signal: AbortSignal.any([signal, AbortSignal.timeout(options.timeoutMs)]),

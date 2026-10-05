@@ -14,10 +14,10 @@ describe('real provider balance projections', () => {
   it('reads each Codex account directly, does not select accounts, and excludes secrets/unknown currency', async () => {
     const call = vi.fn(async (endpoint: string, payload: any) => ({ ok: true, value: endpoint === 'status'
       ? { accounts: [{ id: 'work', label: 'Work', active: true, planType: 'PLUS', subscriptionUntil: '2026-12-31T00:00:00.000Z', accessToken: 'SECRET' }, { id: 'other', email: 'personal@example.com', active: false }] }
-      : { ...quota(payload.id === 'work' ? 84 : 12), refreshToken: 'SECRET' } }))
+      : { ...quota(payload.id === 'work' ? 84 : 12), subscriptionUntil: payload.id === 'work' ? '2027-01-15T16:00:00.000Z' : undefined, refreshToken: 'SECRET' } }))
     const rows = await readProviderBalances([codexProvider], { codex: { call } }, signal())
     expect(rows).toHaveLength(2)
-    expect(rows[0]).toMatchObject({ name: 'OpenAI Codex', accountId: 'work', active: true, plan: 'PLUS', subscriptionUntil: Date.parse('2026-12-31T00:00:00.000Z'), status: 'ready', credits: '5.50', resetCredits: 3, windows: [{ window: '5h', percent: 84, kind: 'remaining', resetsAt: 1_800_000_000_000 }, { window: 'weekly', percent: 92 }] })
+    expect(rows[0]).toMatchObject({ name: 'OpenAI Codex', accountId: 'work', active: true, plan: 'PLUS', subscriptionUntil: Date.parse('2027-01-15T16:00:00.000Z'), status: 'ready', credits: '5.50', resetCredits: 3, windows: [{ window: '5h', percent: 84, kind: 'remaining', resetsAt: 1_800_000_000_000 }, { window: 'weekly', percent: 92 }] })
     expect(rows[1]).toMatchObject({ accountId: 'other', label: 'pe***@example.com', subscriptionUntil: null, windows: [{ percent: 12 }, { percent: 92 }] })
     expect(call.mock.calls.map(args => args[0])).toEqual(['status', 'usage', 'usage'])
     expect(call.mock.calls.slice(1).map(args => args[1])).toEqual([{ id: 'work', force: true }, { id: 'other', force: true }])

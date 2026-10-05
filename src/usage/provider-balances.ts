@@ -70,6 +70,7 @@ async function codex(provider: BalanceProvider, reader: CodexBalanceReader, sign
         row.credits = decimal(credits?.balance)
         row.unlimitedCredits = credits?.unlimited === true
         row.resetCredits = typeof resets?.availableCount === 'number' && Number.isSafeInteger(resets.availableCount) && resets.availableCount >= 0 ? resets.availableCount : null
+        row.subscriptionUntil = deadline(usage.subscriptionUntil) ?? row.subscriptionUntil
         row.status = row.windows.length || row.credits !== null || row.unlimitedCredits || row.resetCredits !== null ? 'ready' : 'unavailable'
       } catch { signal.throwIfAborted(); row.status = 'failed' }
       row.checkedAt = Date.now()

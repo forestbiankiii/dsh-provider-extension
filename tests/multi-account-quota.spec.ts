@@ -129,6 +129,25 @@ describe('account-specific refresh and quota', () => {
     expect(await handler('models', { id: 'missing' }, request())).toMatchObject({ ok: false })
     expect(accountModels).toHaveBeenCalledTimes(2)
   })
+  it('merges the plan subscription deadline into targeted usage and keeps quota when that read fails', async () => {
+    const { vault } = vaultFixture()
+    const fetchStub = vi.fn(async (input: string) => input.includes('/subscriptions')
+      ? new Response(JSON.stringify({ plan_type: 'plus', active_until: '2027-01-15T16:00:00Z' }))
+      : new Response(JSON.stringify({ quota: 71 })))
+    vi.stubGlobal('fetch', fetchStub)
+    try {
+      const handler = rpc({ usageReader: { read: vi.fn() }, accountVault: vault, getAccountAuth: async () => ({ auth: { apiKey: 'b-old' } }) })
+      expect(await handler('usage', { id: 'b' }, request())).toEqual({ ok: true, value: { quota: 71, subscriptionUntil: '2027-01-15T16:00:00Z' } })
+      expect(fetchStub.mock.calls.map(call => String(call[0]))).toEqual([
+        'https://chatgpt.com/backend-api/wham/usage',
+        'https://chatgpt.com/backend-api/subscriptions?account_id=b',
+      ])
+      fetchStub.mockImplementation(async (input: string) => input.includes('/subscriptions')
+        ? new Response('{}', { status: 500 })
+        : new Response(JSON.stringify({ quota: 72 })))
+      expect(await handler('usage', { id: 'b' }, request())).toEqual({ ok: true, value: { quota: 72, subscriptionUntil: null } })
+    } finally { vi.unstubAllGlobals() }
+  })
   it.each(['refresh', 'persist', 'cancel'])('Codex %s failure prevents quota fetch and active-account fallback', async failure => {
     const controller = new AbortController(), fetchQuota = vi.fn()
     const options = { getAuth: async () => { if (failure === 'cancel') controller.abort(); else throw new Error('test failure'); return { auth: { apiKey: 'opaque' } } }, readCredential: vi.fn(), resolveAccountId: () => 'b', fetch: fetchQuota, parse: (value: unknown) => value, url: 'https://chatgpt.com/backend-api/wham/usage', userAgent: 'test', timeoutMs: 15000 }

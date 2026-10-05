@@ -3779,16 +3779,26 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 			signal.throwIfAborted();
 			if (payload != null && Object.hasOwn(payload, "id")) {
 				if (typeof payload.id !== "string" || payload.id.length === 0 || payload.id.length > 512 || !getAccountAuth) return publicError("bad-request", "Invalid Codex account");
-				return { ok: true, value: await readCodexAccountUsage(payload.id, {
+				const accountRead = (url, parse) => readCodexAccountUsage(payload.id, {
 				getAuth: getAccountAuth,
 				readCredential: (id) => accountVault?.readById(id),
 				resolveAccountId: (cred) => {
 					const jwtPayload = decodeJwtPayload(cred.access);
 					return cred.accountId ?? jwtPayload?.["https://api.openai.com/auth"]?.chatgpt_account_id ?? jwtPayload?.["https://api.openai.com/auth"]?.account_id;
 				},
-				fetch: (url, init) => network?.fetch ? network.fetch("quota", url, init) : fetch(url, init),
-				parse: parseCodexUsage, url: CODEX_USAGE_URL, userAgent: USER_AGENT, timeoutMs: DEFAULT_TIMEOUT_MS$1
-			}, signal) };
+				fetch: (input, init) => network?.fetch ? network.fetch("quota", input, init) : fetch(input, init),
+				parse, url, userAgent: USER_AGENT, timeoutMs: DEFAULT_TIMEOUT_MS$1
+			}, signal);
+				const usage = await accountRead(CODEX_USAGE_URL, parseCodexUsage);
+				// The plan deadline lives in the account's subscription endpoint, not the shared credential JWT.
+				let subscriptionUntil = null;
+				try {
+					subscriptionUntil = await accountRead((accountId) => `https://chatgpt.com/backend-api/subscriptions?account_id=${encodeURIComponent(accountId)}`, (value) => value != null && typeof value === "object" && typeof value.active_until === "string" ? value.active_until : null);
+				} catch (error) {
+					if (signal.aborted) throw error;
+					subscriptionUntil = null;
+				}
+				return { ok: true, value: { ...usage, subscriptionUntil } };
 			}
 			return {
 				ok: true,
