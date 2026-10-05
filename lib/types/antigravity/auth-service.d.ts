@@ -32,6 +32,10 @@ export declare class AntigravityAuthService implements BootstrapStatusService {
     private readonly credentials;
     private readonly flow;
     private readonly quota;
+    private readonly quotaOptions;
+    private readonly refreshAccountToken;
+    private readonly refreshTimeoutMs;
+    private readonly accountReads;
     private readonly gates;
     private readonly autoActivate;
     private riskAcknowledged;
@@ -56,6 +60,7 @@ export declare class AntigravityAuthService implements BootstrapStatusService {
         readonly forceRefresh?: boolean;
     }): Promise<HostCredential | undefined>;
     usage(signal?: AbortSignal, force?: boolean): Promise<import('./quota.ts').QuotaStatusView>;
+    usageForAccount(id: string, signal?: AbortSignal): Promise<import('./quota.ts').QuotaStatusView>;
     logout(): Promise<import('./credential-coordinator.ts').LogoutResult>;
     revoke(confirmed: boolean, signal?: AbortSignal): Promise<import('./credential-coordinator.ts').RevokeActionResult>;
     accounts(): Promise<readonly AntigravityAccountView[]>;

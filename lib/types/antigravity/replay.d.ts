@@ -25,5 +25,5 @@ export declare function compatibleReplayState(message: Message, provider: string
 /** Return the block family without allowing a model alias to cross families. */
 export declare function antigravityModelFamily(model: string): AntigravityReplayResponse['family'];
 /** Convert DSH schemas to the small function-declaration subset accepted privately. */
-export declare function sanitizeToolSchemas(tools: readonly ToolSchema[] | undefined): readonly Record<string, unknown>[];
-export declare function buildFunctionDeclarations(tools: readonly ToolSchema[] | undefined): readonly Record<string, unknown>[];
+export declare function sanitizeToolSchemas(tools: readonly ToolSchema[] | undefined, stringEnumsOnly?: boolean): readonly Record<string, unknown>[];
+export declare function buildFunctionDeclarations(tools: readonly ToolSchema[] | undefined, stringEnumsOnly?: boolean): readonly Record<string, unknown>[];

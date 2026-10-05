@@ -9,6 +9,8 @@ import { apply as applyCodexSubscription } from './codex/index.js'
 import { apply as applyOpenCode } from './opencode/index.js'
 import { registerAccountRoutes } from './antigravity/account-routes.ts'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
+import { applyUsage } from './usage/index.ts'
+import type { ProviderBalanceReaders } from './usage/provider-balances.ts'
 
 export const name = 'provider-extension'
 export const inject = [
@@ -23,8 +25,17 @@ export const inject = [
 
 /** Mount Host-side Antigravity and Codex services, LLM adapters, RPC routes, and tools. */
 export function apply(ctx: Context): void {
+  const balanceReaders: ProviderBalanceReaders = {}
+  // One feature failing here used to abort the whole mount, which removed the
+  // LLM adapters below (a request then failed with NO_ADAPTER), so contain it.
+  try {
+    applyUsage(ctx, () => balanceReaders)
+  } catch (error) {
+    ctx.logger?.warn(`Failed to mount usage statistics: ${String(error)}`)
+  }
+
   // 1. Mount Antigravity auth service, LLM adapter, loopback RPC, and /antigravity command
-  applyAntigravityAuth(ctx)
+  balanceReaders.antigravity = applyAntigravityAuth(ctx)
 
   // 2. Mount Antigravity web search provider when web service is available
   ctx.inject(['web'], (webCtx) => {
@@ -43,14 +54,14 @@ export function apply(ctx: Context): void {
 
   // 5. Mount ChatGPT / Codex subscription service, LLM adapter, account RPC, and tools
   try {
-    applyCodexSubscription(ctx)
+    balanceReaders.codex = applyCodexSubscription(ctx)
   } catch (error) {
     ctx.logger?.warn(`Failed to mount Codex subscription: ${String(error)}`)
   }
 
   // 6. Mount OpenCode Go adapter, live catalog, usage service, and remotes
   try {
-    applyOpenCode(ctx)
+    balanceReaders.opencode = applyOpenCode(ctx)
   } catch (error) {
     ctx.logger?.warn(`Failed to mount OpenCode Go: ${String(error)}`)
   }

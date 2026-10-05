@@ -2,7 +2,7 @@
 
 import type { AntigravityAuthRecord, AntigravityAuthStore } from './auth-store.ts'
 import { createAuthStore, defaultAuthStorePath } from './auth-store.ts'
-import { createCredentialCoordinator, type CredentialCoordinator, type CredentialCoordinatorOptions, type HostCredential } from './credential-coordinator.ts'
+import { createCredentialCoordinator, createGoogleRefreshTransport, type RefreshAccessToken, type CredentialCoordinator, type CredentialCoordinatorOptions, type HostCredential } from './credential-coordinator.ts'
 import { createOAuthFlow, OAuthFlowError } from './oauth-flow.ts'
 import type {
   OAuthFlow,
@@ -25,7 +25,7 @@ import type {
   LlmFamilyId,
 } from './status.ts'
 import { createStatusView } from './status.ts'
-import { createQuotaService, type QuotaService, type QuotaServiceOptions } from './quota.ts'
+import { createQuotaService, readFreshQuota, type QuotaService, type QuotaServiceOptions } from './quota.ts'
 import {
   createFileCapabilityGates,
   createMemoryCapabilityGates,
@@ -62,6 +62,10 @@ export class AntigravityAuthService implements BootstrapStatusService {
   private readonly credentials: CredentialCoordinator
   private readonly flow: OAuthFlow
   private readonly quota: QuotaService
+  private readonly quotaOptions: QuotaServiceOptions
+  private readonly refreshAccountToken: RefreshAccessToken
+  private readonly refreshTimeoutMs: number
+  private readonly accountReads = new Set<AbortController>()
   private readonly gates: CapabilityGateRegistry
   private readonly autoActivate: boolean
   private riskAcknowledged = false
@@ -82,10 +86,10 @@ export class AntigravityAuthService implements BootstrapStatusService {
       ...options.credentialOptions,
       store: this.store,
     })
-    this.quota = createQuotaService({
-      ...options.quotaOptions,
-      auth: this.credentials,
-    })
+    this.refreshAccountToken = options.credentialOptions?.refreshToken ?? createGoogleRefreshTransport(options.credentialOptions?.fetchImpl, options.credentialOptions?.now)
+    this.refreshTimeoutMs = options.credentialOptions?.operationTimeoutMs ?? 15_000
+    this.quotaOptions = { ...options.quotaOptions, auth: this.credentials }
+    this.quota = createQuotaService(this.quotaOptions)
     const projectDiscovery = createProjectDiscovery(options.projectOptions)
     this.flow = createOAuthFlow({
       ...options.flowOptions,
@@ -199,6 +203,26 @@ export class AntigravityAuthService implements BootstrapStatusService {
     return await this.quota.refresh(signal, force)
   }
 
+  async usageForAccount(id: string, signal?: AbortSignal): Promise<import('./quota.ts').QuotaStatusView> {
+    if (this.disposed) throw new OAuthFlowError('internal', 'The Antigravity login is unavailable')
+    if (!id || id.length > 512) throw new OAuthFlowError('internal', 'Invalid Antigravity account')
+    const controller = new AbortController()
+    this.accountReads.add(controller)
+    const request = AbortSignal.any([controller.signal, ...(signal ? [signal] : [])])
+    try {
+      return await readFreshQuota({ ...this.quotaOptions, auth: { credential: async (quotaSignal?: AbortSignal) => {
+        request.throwIfAborted()
+        return await this.store.refreshAccount(id, async refreshToken => {
+          const refreshSignal = AbortSignal.any([request, ...(quotaSignal ? [quotaSignal] : []), AbortSignal.timeout(this.refreshTimeoutMs)])
+          refreshSignal.throwIfAborted()
+          const result = await this.refreshAccountToken({ refreshToken, signal: refreshSignal })
+          refreshSignal.throwIfAborted()
+          return result
+        })
+      } } }, request)
+    } finally { this.accountReads.delete(controller) }
+  }
+
   async logout(): Promise<import('./credential-coordinator.ts').LogoutResult> {
     if (this.disposed) throw new OAuthFlowError('internal', 'The Antigravity login is unavailable')
     this.activeFlowGeneration = 0
@@ -263,6 +287,8 @@ export class AntigravityAuthService implements BootstrapStatusService {
   async dispose(): Promise<void> {
     if (this.disposed) return
     this.disposed = true
+    for (const controller of this.accountReads) controller.abort()
+    this.accountReads.clear()
     this.activeFlowGeneration = 0
     this.statusListeners.clear()
     await Promise.all([this.flow.dispose(), this.credentials.dispose(), this.quota.dispose()])

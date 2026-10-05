@@ -1,3 +1,5 @@
+import { readCodexAccountUsage } from "./account-usage.ts";
+import { normalizeAbortDrops } from "./abort-normalize.ts";
 import { clientRequestSchema } from "@deepseek-ai/dsh-client-connection";
 import * as dshCredentials from "@deepseek-ai/dsh-credentials";
 import { dshHomePath, resolveDshHome } from "@deepseek-ai/dsh-home-paths";
@@ -624,6 +626,25 @@ var DshOAuthAccountVault = class {
 			return clone$1(payload?.accounts.find((account) => account.id === id)?.credential);
 		});
 	}
+	modifyById(id, update) {
+		return this.#enqueue(async () => {
+			let result;
+			await this.#modifyPayload(async (current) => {
+				const index = current.accounts.findIndex((account) => account.id === id);
+				if (index === -1) throw new Error("Unknown Codex account");
+				const previous = clone$1(current.accounts[index].credential);
+				const next = await update(previous);
+				if (next === void 0) { result = previous; return current; }
+				const credential = sanitizeOAuthCredential(next);
+				if (credential.email === void 0 && previous.email !== void 0) credential.email = previous.email;
+				const accounts = [...current.accounts];
+				accounts[index] = { ...accounts[index], credential };
+				result = clone$1(credential);
+				return { ...current, accounts };
+			});
+			return result;
+		});
+	}
 	add(label, credential) {
 		return this.#enqueue(async () => {
 			const normalizedLabel = normalizeLabel(label);
@@ -774,6 +795,8 @@ var DshOAuthCredentialStore = class {
 		this.legacyRefs = Object.freeze([...legacyRefs]);
 		this.expirySkewMs = expirySkewMs;
 		this.vault = options.vault;
+		this.accountVaultId = options.accountVaultId;
+		if (this.accountVaultId !== void 0 && (!this.vault || typeof this.accountVaultId !== "string" || !this.accountVaultId || this.accountVaultId.length > 512)) throw new Error("Invalid Codex account scope");
 	}
 	#enqueue(providerId, operation, options) {
 		assertProvider(providerId);
@@ -792,8 +815,11 @@ var DshOAuthCredentialStore = class {
 		assertProvider(providerId);
 		abortIfNeeded(options);
 		if (this.vault !== void 0) {
-			const current = await this.vault.readActive();
-			if (current === void 0) return void 0;
+			const current = await (this.accountVaultId === void 0 ? this.vault.readActive() : this.vault.readById(this.accountVaultId));
+			if (current === void 0) {
+				if (this.accountVaultId !== void 0) throw new Error("Unknown Codex account");
+				return void 0;
+			}
 			return this.expirySkewMs === 0 ? current : {
 				...current,
 				expires: current.expires - this.expirySkewMs
@@ -830,7 +856,8 @@ var DshOAuthCredentialStore = class {
 	modify(providerId, update, options) {
 		return this.#enqueue(providerId, async () => {
 			if (this.vault !== void 0) {
-				const next = await this.vault.modifyActive(async (current) => {
+				const modify = this.accountVaultId === void 0 ? (update) => this.vault.modifyActive(update) : (update) => this.vault.modifyById(this.accountVaultId, update);
+				const next = await modify(async (current) => {
 					const visible = current === void 0 || this.expirySkewMs === 0 ? current : {
 						...current,
 						expires: current.expires - this.expirySkewMs
@@ -854,6 +881,7 @@ var DshOAuthCredentialStore = class {
 	}
 	delete(providerId, options) {
 		return this.#enqueue(providerId, async () => {
+			if (this.accountVaultId !== void 0) throw new Error("Scoped Codex credentials cannot sign out accounts");
 			if (this.vault !== void 0) {
 				await this.vault.deleteAll();
 				abortIfNeeded(options);
@@ -1660,8 +1688,8 @@ function openaiCodexSubscriptionProvider({ resolveSpeedMode = () => void 0, reso
 			apiKey: requestToken
 		}),
 		getModels,
-		stream: (model, context, options) => networkIterable(() => provider.stream(model, context, withPreferences(model, options))),
-		streamSimple: (model, context, options) => networkIterable(() => provider.streamSimple(model, context, withPreferences(model, options)))
+		stream: (model, context, options) => networkIterable(() => normalizeAbortDrops(provider.stream(model, context, withPreferences(model, options)), options)),
+		streamSimple: (model, context, options) => networkIterable(() => normalizeAbortDrops(provider.streamSimple(model, context, withPreferences(model, options)), options))
 	});
 }
 //#endregion
@@ -3674,7 +3702,7 @@ const publicError = (code, message) => ({
 		details: { issues: [] }
 	}
 });
-function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, network, resetCreditService, preferences, diagnosticsReader, modelCatalog, originalImages, resolveInheritedOriginal }) {
+function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, getAccountAuth, network, resetCreditService, preferences, diagnosticsReader, modelCatalog, originalImages, resolveInheritedOriginal }) {
 	return async (endpoint, payload, signal) => {
 		if (endpoint === "image/original/chunk") try {
 			signal.throwIfAborted();
@@ -3749,44 +3777,18 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 		}
 		if (endpoint === "usage") try {
 			signal.throwIfAborted();
-			if (typeof payload?.id === "string" && accountVault) {
-				const cred = await accountVault.readById(payload.id);
-				if (cred?.access) {
+			if (payload != null && Object.hasOwn(payload, "id")) {
+				if (typeof payload.id !== "string" || !getAccountAuth) return publicError("bad-request", "Invalid Codex account");
+				return { ok: true, value: await readCodexAccountUsage(payload.id, {
+				getAuth: getAccountAuth,
+				readCredential: (id) => accountVault?.readById(id),
+				resolveAccountId: (cred) => {
 					const jwtPayload = decodeJwtPayload(cred.access);
-					const accountId = cred.accountId ?? jwtPayload?.["https://api.openai.com/auth"]?.account_id ?? jwtPayload?.["https://api.openai.com/auth"]?.user_id;
-					if (accountId) {
-						const response = await (network?.fetch ? network.fetch("quota", CODEX_USAGE_URL, {
-							method: "GET",
-							redirect: "error",
-							headers: {
-								authorization: `Bearer ${cred.access}`,
-								"chatgpt-account-id": accountId,
-								accept: "application/json",
-								"cache-control": "no-store",
-								"user-agent": USER_AGENT
-							},
-							signal: requestSignal$1(signal, DEFAULT_TIMEOUT_MS$1)
-						}) : fetch(CODEX_USAGE_URL, {
-							method: "GET",
-							redirect: "error",
-							headers: {
-								authorization: `Bearer ${cred.access}`,
-								"chatgpt-account-id": accountId,
-								accept: "application/json",
-								"cache-control": "no-store",
-								"user-agent": USER_AGENT
-							},
-							signal: requestSignal$1(signal, DEFAULT_TIMEOUT_MS$1)
-						}));
-						if (response.ok) {
-							const value = await response.json();
-							return {
-								ok: true,
-								value: parseCodexUsage(value)
-							};
-						}
-					}
-				}
+					return cred.accountId ?? jwtPayload?.["https://api.openai.com/auth"]?.chatgpt_account_id ?? jwtPayload?.["https://api.openai.com/auth"]?.account_id;
+				},
+				fetch: (url, init) => network?.fetch ? network.fetch("quota", url, init) : fetch(url, init),
+				parse: parseCodexUsage, url: CODEX_USAGE_URL, userAgent: USER_AGENT, timeoutMs: DEFAULT_TIMEOUT_MS$1
+			}, signal) };
 			}
 			return {
 				ok: true,
@@ -4148,6 +4150,15 @@ function apply(ctx) {
 		authHandler: createCodexRpcHandler(coordinator, { openExternal: openCodexAuthUrl }),
 		usageReader,
 		accountVault,
+		getAccountAuth: async (id, signal) => {
+			if (!accountVault) throw new Error("ChatGPT subscription is not signed in");
+			const credentials = new DshOAuthCredentialStore(ctx.credentials, CREDENTIAL_REF, [], {
+				vault: accountVault, accountVaultId: id, expirySkewMs: OAUTH_EXPIRY_SKEW_MS
+			});
+			const models = createModels({ credentials });
+			models.setProvider(provider);
+			return await network.run("quota", () => models.getAuth(PROVIDER, { signal }));
+		},
 		network,
 		resetCreditService,
 		preferences,
@@ -4166,6 +4177,7 @@ function apply(ctx) {
 		modelCatalog.refresh().catch((error) => ctx.logger?.debug?.("could not refresh Codex model catalog: %s", error.message));
 	}, "codex-subscription: official model catalog");
 	ctx.inject(["connection"], (connectionContext) => connectionContext.effect(() => registerSubscriptionTransport(connectionContext.connection, handler), "codex-subscription: DSH-trusted account RPC"));
+	return { call: (endpoint, payload, signal) => handler(endpoint, payload, signal) };
 }
 //#endregion
 export { CODEX_IMAGE_GENERATION_URL, CODEX_IMAGE_TOOL_NAME, CODEX_RESET_CONSUME_URL, CODEX_RESET_CREDITS_URL, CODEX_USAGE_URL, CodexLoginCoordinator, DshOAuthCredentialStore, apply, assertCodexAuthUrl, commandForCodexAuthUrl, createCodexAuthService, createCodexImageTool, createCodexResetCreditService, createCodexRpcHandler, createCodexUsageReader, createSearchProviderSwitcher, createSubscriptionDiagnostics, createSubscriptionRpcHandler, decodeCodexPng, inject, name, normalizeContextMode, normalizeCustomContextWindow, openCodexAuthUrl, parseCodexUsage };

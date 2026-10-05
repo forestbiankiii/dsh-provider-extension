@@ -48,6 +48,12 @@ export interface AntigravityAuthStore {
     read(): Promise<AntigravityAuthRecord | undefined>;
     /** Return all saved accounts. */
     readAccounts(): Promise<readonly AntigravityAccountRecord[]>;
+    /** Refresh one saved account under the store lock without changing activeId. */
+    refreshAccount(id: string, refresh: (refreshToken: string) => Promise<{
+        accessToken: string;
+        expiresAt: number;
+        refreshToken?: string;
+    }>): Promise<import('./credential-coordinator.ts').HostCredential | undefined>;
     /** Select an active account by id. Returns updated active record. */
     selectAccount(id: string): Promise<AntigravityAuthRecord | undefined>;
     /** Update an account by id (label, tier). Returns updated accounts. */

@@ -164,6 +164,14 @@ export function createQuotaService(options: QuotaServiceOptions): QuotaService {
   }
 }
 
+/** Statistics reads must not join an old selected account's cached/in-flight request. */
+export async function readFreshQuota(options: QuotaServiceOptions, signal?: AbortSignal): Promise<QuotaStatusView> {
+  signal?.throwIfAborted()
+  const reader = createQuotaService(options)
+  try { return await reader.refresh(signal, true) }
+  finally { await reader.dispose() }
+}
+
 async function refreshQuota(
   auth: QuotaServiceOptions['auth'],
   transport: PrivateTransport,

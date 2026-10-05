@@ -32,13 +32,27 @@ Integrations stay in their upstream projects. **`dsh-antigravity-auth` (MIT, © 
 - Choosing an ordinary provider changes the browsed catalog group; the active session model changes only after a model is chosen.
 - Reports unsupported context-window selection honestly instead of showing fake 256K/512K/1M controls.
 
+### Usage Statistics (included in this bundle)
+
+The sidebar Usage Statistics page covers every workspace, session and subagent in the current DSH configuration, without cross-profile synchronization. It includes a yearly activity heatmap, usage trends, provider/model/workspace/session rankings and request latency, first-token, retry and failure metrics. It follows the DSH theme and adds no budget notices or automatic request limits.
+
+The first visit imports persisted session history in the background and displays progress and read failures. Fork-inherited prefixes are excluded from physical request totals; original requests remain counted after conversation compaction. Unreported token usage is marked missing, not zero.
+
+DeepSeek recharge and bonus wallets reuse the DSH account login. The existing Usage action opens Platform, not a billing-data API. Wallet changes are not a spending ledger. Monetary figures are **estimates** using the currently configured per-channel/model rates per million tokens, not historical prices or actual bills. Missing rates or ambiguous cache accounting stay unknown; currencies remain separate. Other providers are not priced in this first version.
+
+The account section also reads real Codex per-account 5-hour/weekly quotas and provider credits, per-account Antigravity group quotas, and OpenCode Go's Host-side usage API. It never switches accounts or sends secrets to the page. Both current and inactive saved accounts are queried directly with their own refreshable authentication; unsupported channels are labeled explicitly; missing data is not 100% remaining or zero money. OpenCode's reported percent is not reinterpreted as remaining. Re-entering the page immediately shows the last account snapshot for the same connection while refreshing in the background; checked timestamps remain unchanged until new results arrive. Failed requests retain the previous snapshot with an explicit warning. This browser-memory snapshot is cleared on reload, not persisted to browser storage. Refresh is entry/manual, independent of log filters. The `usage_statistics` action `balances` returns this same combined account view; `balance` remains the legacy DeepSeek-only operation.
+
+DSH session projections own the rebuildable usage cache; the Host stores rates within the current configuration. The page and `usage_statistics` tool share report, balance and pricing operations. Reports expose metadata and counters, not message content or credentials. Required Host capabilities are `sessionQuery`, `sessionProjections` and `connection`; saving rates additionally requires `storageDomain`.
+
+Install or upgrade this bundle through DSH's Plugin Manager to include the page. Replacing a loaded package may require restart; follow the installation result rather than assuming a browser refresh reloads Host code.
+
 ### ChatGPT / Codex subscription accounts
 
 - Every saved account is listed under its provider with its label, masked email, and active marker.
 - The header shows the account count instead of a model count.
 - Selecting an account calls the subscription plugin's authenticated `account/select` RPC, refreshes its quota indicator, and reloads the model directory. OAuth credentials never reach this plugin.
 - The active account's weekly remaining quota is read automatically when the list opens.
-- Upstream's `usage` endpoint only reports the **active** account, so another account's quota is read on demand: the plugin switches to it, reads, and immediately switches back. A failed restore is reported instead of leaving the switch silent.
+- The existing composer/settings controller still reads another account on demand through a temporary switch/restore and reports a failed restore. The Usage Statistics page uses the new account-specific read path instead: no switch, and a failed targeted request never falls back to another account's quota.
 
 ## Compatibility
 
@@ -118,7 +132,9 @@ UI and runtime changes must pass the real-window acceptance gate documented in [
 
 ## Architecture
 
-- `src/index.ts` — empty Host carrier required by the Cordis loader.
+- `src/index.ts` — Host provider integrations and usage-module mounting.
+- `src/usage/` — secret-free metering projection, historical import, reporting, DeepSeek wallets and rate storage.
+- `src/client/usage/` — statistics main panel, sidebar entry, filters and charts.
 - `src/client/index.ts` — client registration and lifecycle-owned stylesheet.
 - `src/client/ProviderPanel.tsx` — composer triggers, popovers, sliders, and accessibility behavior.
 - `src/client/providers/codex.ts` — ChatGPT/Codex subscription roster, account switching, and quota reads.
@@ -131,7 +147,7 @@ The plugin declares `sessions`, `remote`, and `remote.session` because `modelDir
 
 ## Privacy and security
 
-The plugin reads only the current session's model-directory state and calls its existing `load`/`select` methods. It optionally reads the secret-free account roster exposed by `dsh-codex-subscription` 2.x and calls that plugin's own authenticated endpoints for account switching and quota. It does not read prompts, messages, files, or credentials, makes no independent third-party requests, and includes no telemetry. See [SECURITY.md](SECURITY.md).
+The plugin includes Host provider integrations and Client UI. Usage reporting reads metering, model, timing and relationship records through the Host session query/projection services. Its reports expose only statistics and session metadata, not message bodies or credentials. DeepSeek wallets use the Host account service; the usage feature does not read separate keys or switch provider accounts. Provider authentication and network access have a different permission boundary from usage reporting. No telemetry is added. See [SECURITY.md](SECURITY.md).
 
 ## License
 

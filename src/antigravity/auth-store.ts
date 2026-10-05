@@ -65,6 +65,8 @@ export interface AntigravityAuthStore {
   read(): Promise<AntigravityAuthRecord | undefined>
   /** Return all saved accounts. */
   readAccounts(): Promise<readonly AntigravityAccountRecord[]>
+  /** Refresh one saved account under the store lock without changing activeId. */
+  refreshAccount(id: string, refresh: (refreshToken: string) => Promise<{ accessToken: string; expiresAt: number; refreshToken?: string }>): Promise<import('./credential-coordinator.ts').HostCredential | undefined>
   /** Select an active account by id. Returns updated active record. */
   selectAccount(id: string): Promise<AntigravityAuthRecord | undefined>
   /** Update an account by id (label, tier). Returns updated accounts. */
@@ -138,6 +140,21 @@ export function createAuthStore(path: string, options: AuthStoreOptions = {}): A
       const multi = await readMulti()
       return multi?.accounts ?? []
     },
+    refreshAccount: (id, refresh) => enqueue(() => withStoreLock(path, async () => {
+      const multi = await readMulti()
+      const account = multi?.accounts.find(account => account.id === id)
+      if (!multi || !account) return undefined
+      const result = await refresh(account.refreshToken)
+      if (!isBoundedSafeText(result.accessToken, 4096) || !Number.isFinite(result.expiresAt) || result.expiresAt <= now() ||
+        (result.refreshToken !== undefined && !isBoundedSafeText(result.refreshToken, 4096))) throw storeIoError()
+      const refreshToken = result.refreshToken ?? account.refreshToken
+      if (refreshToken !== account.refreshToken) {
+        const updatedAt = new Date(now()).toISOString()
+        await writeMultiAuthRecord(path, { ...multi, revision: multi.revision + 1, updatedAt,
+          accounts: multi.accounts.map(candidate => candidate.id === id ? { ...candidate, refreshToken, updatedAt } : candidate) })
+      }
+      return { accessToken: result.accessToken, expiresAt: result.expiresAt, refreshToken, projectId: account.projectId }
+    })),
     selectAccount: id => enqueue(() => withStoreLock(path, async () => {
       const multi = await readMulti()
       const updated = selectAccountRecord(multi, id)
@@ -245,6 +262,20 @@ export function createMemoryAuthStore(initial?: AntigravityAuthRecord, options: 
   return {
     read: async () => activeFromMulti(current),
     readAccounts: async () => current?.accounts ?? [],
+    refreshAccount: (id, refresh) => enqueue(async () => {
+      const account = current?.accounts.find(account => account.id === id)
+      if (!current || !account) return undefined
+      const result = await refresh(account.refreshToken)
+      if (!isBoundedSafeText(result.accessToken, 4096) || !Number.isFinite(result.expiresAt) || result.expiresAt <= now() ||
+        (result.refreshToken !== undefined && !isBoundedSafeText(result.refreshToken, 4096))) throw storeIoError()
+      const refreshToken = result.refreshToken ?? account.refreshToken
+      if (refreshToken !== account.refreshToken) {
+        const updatedAt = new Date(now()).toISOString()
+        current = { ...current, revision: current.revision + 1, updatedAt,
+          accounts: current.accounts.map(candidate => candidate.id === id ? { ...candidate, refreshToken, updatedAt } : candidate) }
+      }
+      return { accessToken: result.accessToken, expiresAt: result.expiresAt, refreshToken, projectId: account.projectId }
+    }),
     selectAccount: async id => enqueue(async () => {
       const updated = selectAccountRecord(current, id)
       if (updated === undefined) return undefined

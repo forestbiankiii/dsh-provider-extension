@@ -9,3 +9,5 @@ temp/
 !.env.example
 .DS_Store
 Thumbs.db
+.playwright-cli/
+dsh-provider-extension-*.tgz

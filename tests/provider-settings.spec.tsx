@@ -50,6 +50,32 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
 }
 
 describe('provider settings surface', () => {
+  it('uses locally bundled official marks and a brand identity on every provider card', () => {
+    const { view } = bench({ status: 'ready' }, codexAccounts)
+    const cards = view.container.querySelectorAll('article[data-provider]')
+    expect([...cards].map(card => card.getAttribute('data-provider'))).toEqual(['antigravity', 'codex', 'claude', 'opencode'])
+    for (const card of cards) {
+      const icon = card.querySelector('div[data-provider]')!
+      expect(icon.textContent).toBe('')
+      const mark = icon.querySelector('svg, img')!
+      expect(mark.getAttribute('aria-hidden')).toBe('true')
+      if (mark.tagName.toLowerCase() === 'img') {
+        expect(mark.getAttribute('alt')).toBe('')
+        const src = mark.getAttribute('src')!
+        expect(src.startsWith('data:image/svg+xml,')).toBe(true)
+        const svg = decodeURIComponent(src.slice('data:image/svg+xml,'.length))
+        expect(svg).toContain('fill="#3186FF"')
+        expect(svg).not.toMatch(/<script|<foreignObject|(?:href|src)=["']https?:\/\//i)
+        expect(new DOMParser().parseFromString(svg, 'image/svg+xml').querySelector('parsererror')).toBeNull()
+      } else {
+        expect(mark.querySelector('path')).toBeTruthy()
+        expect(mark.getAttribute('focusable')).toBe('false')
+      }
+    }
+    expect(cards[1]!.querySelector('svg')!.getAttribute('viewBox')).toBe('0 0 180 180')
+    expect(cards[2]!.querySelector('svg')!.getAttribute('viewBox')).toBe('0 0 248 248')
+    expect(cards[3]!.querySelector('svg')!.getAttribute('viewBox')).toBe('0 0 16 20')
+  })
   it('keeps provider names parallel in both locales and all settings views', () => {
     for (const copy of [en, zh]) {
       expect(copy.providerCodex).toBe('OpenAI Codex')

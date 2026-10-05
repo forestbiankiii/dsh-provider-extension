@@ -21,6 +21,44 @@ describe('published artifact contract', () => {
     expect(clientSource).not.toContain("ctx.slots.inject('conversation.input.right'")
   })
 
+  it('keeps heatmap cells fixed-size while their grid spans the available width', () => {
+    const cell = client.match(/\.dpe_heatCell_[^{]+\{([^}]+)\}/)?.[1]
+    const grid = client.match(/\.dpe_heatmap_[^{]+\{([^}]+)\}/)?.[1]
+    const viewport = client.match(/\.dpe_heatScroll_[^{]+\{([^}]+)\}/)?.[1]
+    expect(cell).toContain('width:20px')
+    expect(cell).toContain('height:20px')
+    expect(grid).toContain('width:100%')
+    expect(grid).toContain('justify-content:space-between')
+    expect(viewport).not.toContain('max-width')
+  })
+  it('themes the native filter picker without adding a custom dropdown runtime', () => {
+    expect(client).toContain('appearance:base-select')
+    expect(client).toContain('::picker(select)')
+    expect(client).toContain('::checkmark')
+    const picker = [...client.matchAll(/::picker\(select\)\{([^}]+)\}/g)].map(match => match[1]).find(rule => rule?.includes('background:'))
+    expect(picker).toContain('background:var(--dsw-alias-bg-layer-1)')
+    expect(picker).not.toContain('var(--dsw-alias-bg-overlay)')
+    expect(picker).toContain('box-shadow:none')
+  })
+  it('ships theme-aware provider brand cards and matching native quota fills', () => {
+    const css = readFileSync(new URL('../src/client/usage/UsagePage.module.css', import.meta.url), 'utf8')
+    expect(css).toContain("[data-provider='deepseek'] { --account-brand: #4d6bfe;")
+    expect(css).toContain("[data-provider='openai-codex'] { --account-brand: #10a37f;")
+    expect(css).toContain("[data-provider='google-antigravity'] { --account-brand: #3186ff;")
+    expect(css).toContain("[data-provider='opencode-go'] { --account-brand: var(--dsw-alias-label-primary);")
+    expect(css).toContain('var(--account-brand) 8%, var(--dsw-alias-bg-layer-2)')
+    expect(css).toContain('var(--account-brand) 45%, var(--dsw-alias-label-primary)')
+    expect(client).toContain('--account-stripe:linear-gradient(')
+    expect(client).toContain('background:var(--account-brand)')
+    expect(client).toContain('::-webkit-progress-value')
+    expect(client).toContain('::-moz-progress-bar')
+    const settingsCss = readFileSync(new URL('../src/client/ProviderSettings.module.css', import.meta.url), 'utf8')
+    expect(settingsCss).toContain("[data-provider='claude'] { --provider-brand: #d97757;")
+    expect(settingsCss).toContain("[data-provider='opencode'] { --provider-brand: var(--dsw-alias-label-primary);")
+    expect(settingsCss).toContain('var(--provider-brand) 8%, var(--dsw-alias-bg-layer-1)')
+    expect(client).toContain('data:image/svg+xml,')
+    expect(client).not.toMatch(/data-provider[=:][^\n]*>AG<|>GPT<|>CL<|>OC</)
+  })
   it('ships the expected DSH module-loader wrapper without dshx internals', () => {
     expect(client.startsWith('window.__ModuleLoader__.load({id:"dsh-provider-extension"')).toBe(true)
     expect(client).not.toContain('@dshx/')

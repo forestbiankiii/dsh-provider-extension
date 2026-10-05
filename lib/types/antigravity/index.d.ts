@@ -1,9 +1,10 @@
 /** Host half of the private Antigravity bootstrap capability bundle. */
 import type { Context } from '@deepseek-ai/cordis';
+import { createAntigravityAuthService } from './auth-service.ts';
 export declare const name = "antigravity-auth";
 export declare const inject: string[];
 /** Mount the Host-only OAuth service and its guarded account RPC channel. */
-export declare function apply(ctx: Context): void;
+export declare function apply(ctx: Context): Pick<ReturnType<typeof createAntigravityAuthService>, 'accounts' | 'usageForAccount'>;
 export * from './auth-service.ts';
 export * from './credential-coordinator.ts';
 export * from './rpc-contract.ts';

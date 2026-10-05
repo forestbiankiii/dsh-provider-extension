@@ -40,3 +40,5 @@ export declare class QuotaNormalizationError extends Error {
     constructor(message: string);
 }
 export declare function createQuotaService(options: QuotaServiceOptions): QuotaService;
+/** Statistics reads must not join an old selected account's cached/in-flight request. */
+export declare function readFreshQuota(options: QuotaServiceOptions, signal?: AbortSignal): Promise<QuotaStatusView>;

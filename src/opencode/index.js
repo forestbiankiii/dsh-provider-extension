@@ -51,7 +51,7 @@ import { LlmError as LlmError7, assertUsableApiKey, resolveImageAttachmentAccess
 
 // src/adapter.ts
 import { randomUUID } from "node:crypto";
-import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
+import { getSupportedThinkingLevels, normalizeContext } from "@earendil-works/pi-ai";
 import {
   LlmAdapter,
   LlmError as LlmError6,
@@ -399,11 +399,13 @@ function splitSystemPrompt(options) {
 }
 function piContext(systemPrompt, options, messages) {
   const tools = toolsOf(options);
-  return {
+  // Provider APIs consume a transcript: normalize the prompt and tools into
+  // its leading system message or the SDK silently omits both from the wire.
+  return normalizeContext({
     ...systemPrompt !== void 0 ? { systemPrompt } : {},
     messages,
     ...tools !== void 0 && tools.length > 0 ? { tools } : {}
-  };
+  });
 }
 function appendAssistant(message, messages, toolNames, onReplayDegrade) {
   const assistant = toPiAssistant(message, onReplayDegrade);
@@ -1501,6 +1503,7 @@ var GoUsageService = class extends TypertRemoteService {
   constructor(ctx, options) {
     super(ctx, "opencodeGoUsage");
     this.options = options;
+    options.onReady?.(this);
   }
   identity;
   async read() {
@@ -1637,7 +1640,8 @@ function apply(ctx, raw) {
     );
   };
   registerGoRemotes(ctx);
-  ctx.plugin(GoUsageService, { baseURL: () => current().baseURL, resolveApiKey });
+  let balanceUsageService;
+  ctx.plugin(GoUsageService, { baseURL: () => current().baseURL, resolveApiKey, onReady: (service) => { balanceUsageService = service; } });
   const logger = {
     fallback: ({ url, error }) => {
       ctx.logger.warn(`llm-opencode-go: could not refresh ${url}; using last-known model data (${String(error)})`);
@@ -1749,6 +1753,10 @@ function apply(ctx, raw) {
     syncRoute();
   });
   ctx.logger.info(`llm-opencode-go: route "${PROVIDER_ID}" registered as ${DISPLAY_NAME}`);
+  return { readUsage: async () => {
+    if (!balanceUsageService) throw new Error("OpenCode Go usage service is unavailable");
+    return balanceUsageService.read();
+  } };
 }
 export {
   Config,

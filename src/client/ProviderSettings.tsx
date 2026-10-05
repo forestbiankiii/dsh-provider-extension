@@ -19,6 +19,7 @@ import {
   saveAccountDisabledModels, getDisabledModelsForAccount, type AccountDisabledModelsMap, MODELS_VISIBILITY_EVENT,
 } from './selection.ts'
 import css from './ProviderSettings.module.css'
+import { ProviderIcon } from './ProviderIcon.tsx'
 
 /** Per-surface actions and stores injected by the client plugin. */
 export interface ProviderSettingsInjected {
@@ -903,7 +904,7 @@ export function ProviderSettings({
           <article className={css.card}>
             <div className={css.cardHead}>
               <div className={css.cardTitleRow}>
-                <div className={css.providerIcon} data-provider="opencode">OC</div>
+                <div className={css.providerIcon} data-provider="opencode"><ProviderIcon provider="opencode" /></div>
                 <div className={css.cardTitles}>
                   <span className={css.cardTitle}>{t('providerOpenCode')}</span>
                   <span className={css.cardSubtitle}>{t('providerOpenCodeDesc')}</span>
@@ -1076,13 +1077,13 @@ export function ProviderSettings({
 
       <div className={css.providerList}>
         {/* 1. Antigravity (Google) */}
-        <article className={css.providerCard}>
+        <article className={css.providerCard} data-provider="antigravity">
           <div
             className={css.providerCardHead}
             onClick={() => toggleExpand('antigravity')}
           >
             <div className={css.providerMain}>
-              <div className={css.providerIcon} data-provider="antigravity">AG</div>
+              <div className={css.providerIcon} data-provider="antigravity"><ProviderIcon provider="antigravity" /></div>
               <div className={css.providerTitles}>
                 <span className={css.providerTitle}>{t('providerAntigravity')}</span>
                 <span className={css.providerSubtitle}>
@@ -1295,13 +1296,13 @@ export function ProviderSettings({
         </article>
 
         {/* 2. ChatGPT / Codex 订阅 */}
-        <article className={css.providerCard}>
+        <article className={css.providerCard} data-provider="codex">
           <div
             className={css.providerCardHead}
             onClick={() => toggleExpand('codex')}
           >
             <div className={css.providerMain}>
-              <div className={css.providerIcon} data-provider="codex">GPT</div>
+              <div className={css.providerIcon} data-provider="codex"><ProviderIcon provider="codex" /></div>
               <div className={css.providerTitles}>
                 <span className={css.providerTitle}>{t('providerCodex')}</span>
                 <span className={css.providerSubtitle}>
@@ -1571,13 +1572,13 @@ export function ProviderSettings({
         </article>
 
         {/* 3. Claude (Anthropic) */}
-        <article className={css.providerCard}>
+        <article className={css.providerCard} data-provider="claude">
           <div
             className={css.providerCardHead}
             onClick={() => toggleExpand('claude')}
           >
             <div className={css.providerMain}>
-              <div className={css.providerIcon} data-provider="claude">CL</div>
+              <div className={css.providerIcon} data-provider="claude"><ProviderIcon provider="claude" /></div>
               <div className={css.providerTitles}>
                 <span className={css.providerTitle}>{t('providerClaude')}</span>
                 <span className={css.providerSubtitle}>{t('providerClaudeDesc')}</span>
@@ -1609,13 +1610,13 @@ export function ProviderSettings({
         </article>
 
         {/* 4. OpenCode */}
-        <article className={css.providerCard}>
+        <article className={css.providerCard} data-provider="opencode">
           <div
             className={css.providerCardHead}
             onClick={() => toggleExpand('opencode')}
           >
             <div className={css.providerMain}>
-              <div className={css.providerIcon} data-provider="opencode">OC</div>
+              <div className={css.providerIcon} data-provider="opencode"><ProviderIcon provider="opencode" /></div>
               <div className={css.providerTitles}>
                 <span className={css.providerTitle}>{t('providerOpenCode')}</span>
                 <span className={css.providerSubtitle}>

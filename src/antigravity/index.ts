@@ -21,7 +21,7 @@ export const name = 'antigravity-auth'
 export const inject = ['llm', 'attachments']
 
 /** Mount the Host-only OAuth service and its guarded account RPC channel. */
-export function apply(ctx: Context): void {
+export function apply(ctx: Context): Pick<ReturnType<typeof createAntigravityAuthService>, 'accounts' | 'usageForAccount'> {
   const service = createAntigravityAuthService({
     storePath: defaultAuthStorePath(),
     autoActivateGates: true,
@@ -75,6 +75,7 @@ export function apply(ctx: Context): void {
     label: 'antigravity-auth: OAuth and LLM operations',
   })
   ctx.inject(['commands'], (commandCtx: any) => commandCtx.commands.register(createAntigravityAuthCommand(service, () => accountMode)))
+  return { accounts: () => service.accounts(), usageForAccount: (id, signal) => service.usageForAccount(id, signal) }
 }
 
 export * from './auth-service.ts'

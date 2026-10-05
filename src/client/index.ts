@@ -21,6 +21,7 @@ import { en, zh, type ProviderPanelKey } from './locales.ts'
 import { accountRpcFallback } from './account-rpc.ts'
 import { forceCatalogReload } from './catalog-refresh.ts'
 import { assertSelectionSucceeded } from './selection.ts'
+import { applyUsagePage } from './usage/index.tsx'
 
 export { ProviderPanel } from './ProviderPanel.tsx'
 export type { ProviderPanelInjected, ProviderPanelProps } from './ProviderPanel.tsx'
@@ -110,6 +111,7 @@ export function apply(ctx: ClientContext): void {
       return (activeRpc.call as (...params: unknown[]) => Promise<unknown>)(...args)
     },
   } as ClientConnectionRpc
+  applyUsagePage(ctx, rpc)
   const codexAccounts = new CodexAccountsController(rpc)
   const antigravity = new AntigravityController(rpc)
   const opencode = new OpencodeController()

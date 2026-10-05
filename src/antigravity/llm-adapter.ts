@@ -811,7 +811,7 @@ function buildPayloadFromContents(
   if (options.reasoningEffort !== undefined) generationConfig.thinkingConfig = { thinkingLevel: String(options.reasoningEffort) }
   if (Object.keys(generationConfig).length > 0) request.generationConfig = generationConfig
   if (options.tools !== undefined && options.tools.length > 0) {
-    const declarations = buildFunctionDeclarations(options.tools)
+    const declarations = buildFunctionDeclarations(options.tools, !wireModel.toLowerCase().includes('claude'))
     if (declarations.length > 0) request.tools = [{ functionDeclarations: declarations }]
   }
   const resolved = resolveModelWithTier(usesCapturedGemini38ThinkingBudget ? wireModel : options.model, { cli_first: false })

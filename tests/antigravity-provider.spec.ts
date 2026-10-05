@@ -4,7 +4,7 @@ import {
 } from '../src/client/providers/antigravity.ts'
 import { createMemoryAuthStore } from '../src/antigravity/auth-store.ts'
 import { AntigravityAdapter, buildAntigravityGeneratePayload } from '../src/antigravity/llm-adapter.ts'
-import { createReplayState } from '../src/antigravity/replay.ts'
+import { createReplayState, buildFunctionDeclarations } from '../src/antigravity/replay.ts'
 import { buildVideoPayload } from '../src/antigravity/video.ts'
 
 const status = {
@@ -36,6 +36,37 @@ function endpoints(call: { mock: { calls: unknown[][] } }): string[] {
 }
 
 describe('antigravity provider integration', () => {
+  it('keeps numeric and boolean tool arguments typed while making Gemini enums protobuf-safe', () => {
+    const tools = [{ name: 'usage_statistics', description: 'Usage', parameters: {
+      type: 'object', properties: { query: { type: 'object', properties: {
+        days: { type: 'integer', description: 'Date range', enum: [0, 7, 30, 90, 365] },
+        enabled: { type: 'boolean', enum: [true, false] },
+        mode: { type: 'string', enum: ['report', 'balance'] },
+        values: { type: 'array', items: { type: 'number', enum: [1, 2] } },
+      } } },
+    } }]
+    const original = JSON.stringify(tools)
+    const declarations = buildFunctionDeclarations(tools as never, true) as any
+    const properties = declarations[0].parameters.properties.query.properties
+    expect(properties.days.type).toBe('integer')
+    expect(properties.days.enum).toBeUndefined()
+    expect(properties.days.description).toContain('Allowed values: 0, 7, 30, 90, 365.')
+    expect(properties.enabled.type).toBe('boolean')
+    expect(properties.enabled.enum).toBeUndefined()
+    expect(properties.values.items.enum).toBeUndefined()
+    expect(properties.mode.enum).toEqual(['report', 'balance'])
+    expect((buildFunctionDeclarations(tools as never) as any)[0].parameters.properties.query.properties.days.enum).toEqual([0, 7, 30, 90, 365])
+    const payload = buildAntigravityGeneratePayload({
+      provider: 'google-antigravity', model: 'antigravity-gemini-3.8-flash', tools,
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
+    } as never, { projectId: 'project' } as never)
+    const request = payload.request as any
+    const wire = request.tools[0].functionDeclarations[0].parameters.properties.query.properties
+    expect(wire.days.enum).toBeUndefined()
+    expect(String(wire.days.type).toLowerCase()).toBe('integer')
+    expect(wire.mode.enum).toEqual(['report', 'balance'])
+    expect(JSON.stringify(tools)).toBe(original)
+  })
   it('recognizes only Antigravity routes', () => {
     expect(isAntigravityProvider('google-antigravity')).toBe(true)
     expect(isAntigravityProvider('google-antigravity-work')).toBe(true)

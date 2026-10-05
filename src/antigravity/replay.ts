@@ -106,24 +106,24 @@ export function antigravityModelFamily(model: string): AntigravityReplayResponse
 }
 
 /** Convert DSH schemas to the small function-declaration subset accepted privately. */
-export function sanitizeToolSchemas(tools: readonly ToolSchema[] | undefined): readonly Record<string, unknown>[] {
+export function sanitizeToolSchemas(tools: readonly ToolSchema[] | undefined, stringEnumsOnly = false): readonly Record<string, unknown>[] {
   if (tools === undefined) return []
   return tools.slice(0, 64).map(tool => ({
     name: boundedName(tool.name),
     description: boundedText(tool.description, 4096),
-    parameters: sanitizeSchema(tool.parameters),
+    parameters: sanitizeSchema(tool.parameters, 0, stringEnumsOnly),
   }))
 }
 
-export function buildFunctionDeclarations(tools: readonly ToolSchema[] | undefined): readonly Record<string, unknown>[] {
-  return sanitizeToolSchemas(tools).map(tool => ({
+export function buildFunctionDeclarations(tools: readonly ToolSchema[] | undefined, stringEnumsOnly = false): readonly Record<string, unknown>[] {
+  return sanitizeToolSchemas(tools, stringEnumsOnly).map(tool => ({
     name: tool.name,
     description: tool.description,
     parameters: tool.parameters,
   }))
 }
 
-function sanitizeSchema(value: unknown, depth = 0): Record<string, unknown> {
+function sanitizeSchema(value: unknown, depth = 0, stringEnumsOnly = false): Record<string, unknown> {
   if (depth > 8 || !isRecord(value)) return { type: 'object', properties: {} }
   const type = typeof value.type === 'string' && ['object', 'array', 'string', 'number', 'integer', 'boolean', 'null'].includes(value.type)
     ? value.type
@@ -131,16 +131,25 @@ function sanitizeSchema(value: unknown, depth = 0): Record<string, unknown> {
   const output: Record<string, unknown> = { type }
   if (typeof value.description === 'string') output.description = boundedText(value.description, 1024)
   if (Array.isArray(value.required)) output.required = value.required.filter(item => typeof item === 'string').slice(0, 128)
-  if (Array.isArray(value.enum)) output.enum = value.enum.slice(0, 128).filter(item => ['string', 'number', 'boolean', 'null'].includes(typeof item))
+  if (Array.isArray(value.enum)) {
+    const values = value.enum.slice(0, 128).filter(item => item === null || ['string', 'number', 'boolean'].includes(typeof item))
+    // Gemini's protobuf Schema.enum accepts strings only. Keep numeric/boolean
+    // argument types intact and convey their choices in prose; DSH still validates
+    // the actual tool arguments against the original JSON Schema.
+    if (stringEnumsOnly && (type !== 'string' || values.some(item => typeof item !== 'string'))) {
+      const choices = `Allowed values: ${values.map(item => JSON.stringify(item)).join(', ')}.`
+      output.description = boundedText(`${output.description ?? ''} ${choices}`.trim(), 4096)
+    } else if (values.length > 0) output.enum = values
+  }
   if (type === 'object' && isRecord(value.properties)) {
     const properties: Record<string, unknown> = {}
     for (const [key, item] of Object.entries(value.properties).slice(0, 128)) {
-      if (!hasControl(key) && key.length > 0) properties[key.slice(0, 128)] = sanitizeSchema(item, depth + 1)
+      if (!hasControl(key) && key.length > 0) properties[key.slice(0, 128)] = sanitizeSchema(item, depth + 1, stringEnumsOnly)
     }
     output.properties = properties
   }
-  if (type === 'array') output.items = sanitizeSchema(value.items, depth + 1)
-  if (Array.isArray(value.oneOf)) output.oneOf = value.oneOf.slice(0, 8).map(item => sanitizeSchema(item, depth + 1))
+  if (type === 'array') output.items = sanitizeSchema(value.items, depth + 1, stringEnumsOnly)
+  if (Array.isArray(value.oneOf)) output.oneOf = value.oneOf.slice(0, 8).map(item => sanitizeSchema(item, depth + 1, stringEnumsOnly))
   return output
 }
 

@@ -10,13 +10,22 @@ Please use GitHub's **Security → Report a vulnerability** flow for this reposi
 
 ## Data and permissions
 
-`dsh-provider-extension` is a browser-side DSH plugin. It:
+`dsh-provider-extension` contains Host integrations and browser UI. The provider integrations can manage authentication and send requests to their providers; those permissions must not be confused with the usage-report boundary.
 
-- reads the current session's model directory;
-- asks that directory to load when the user opens or reloads the panel;
-- sends only `provider`, `model`, and an optional `reasoningEffort` after an explicit user selection;
-- does not read prompts, messages, credentials, or files;
-- optionally reads the secret-free account roster exposed by `dsh-codex-subscription` 2.x and calls that plugin's own authenticated endpoints for account switching and quota reads (a quota read for a non-active account temporarily switches to it and switches straight back);
-- does not make independent third-party network requests and contains no telemetry.
+The usage feature:
+
+- reads profile-local session records through the Host session query/projection services;
+- derives metadata, timing and counters, without retaining message bodies or credentials in its projection or reports;
+- queries DeepSeek recharge and bonus wallets through the existing Host account service, without transferring the account grant to the page;
+- invokes provider-owned Host readers for Codex per-account quota/credits, per-account Antigravity quota and OpenCode Go usage; credentials stay in their existing Host integrations;
+- never switches provider accounts to scan usage or read the Statistics page's account section; targeted Codex failures cannot fall back to another account;
+- refreshes account-scoped OAuth through the existing provider implementations; token rotations are persisted under the existing credential-store lock without changing active account selection;
+- returns only closed quota/credit projections with masked email labels; credits without a reported currency are never presented as cash;
+- stores only optional DeepSeek estimation rates in a profile-local Host domain; the usage cache is derived and rebuildable;
+- keeps missing/ambiguous accounting distinct from zero, and estimates distinct from real bills;
+- exposes bounded reports and the same validated pricing operation to the page and `usage_statistics` tool;
+- adds no telemetry, budget notifications or automatic request limits.
+
+Request bodies are validated. Usage read failures return stable classifications rather than raw errors, credentials or log content. Session titles and workspace paths are visible metadata in reports and should be treated as private when sharing screenshots.
 
 The installer writes only to the selected user-owned DSH home and profile. It creates timestamped backups before changing `package.json` or `cordis.patch.yml`; it never modifies the installed Desktop application or `app.asar`.
