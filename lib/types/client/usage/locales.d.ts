@@ -57,6 +57,7 @@ export declare const en: {
     quotaCredits: string;
     quotaUnlimited: string;
     quotaResetCredits: string;
+    subscriptionUntil: string;
     quotaCreditsHint: string;
     balance: string;
     recharge: string;

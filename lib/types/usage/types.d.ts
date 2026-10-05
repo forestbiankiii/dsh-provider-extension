@@ -121,6 +121,7 @@ export interface UsageProviderBalance {
     label: string;
     active: boolean;
     plan: string | null;
+    subscriptionUntil: number | null;
     status: 'ready' | 'signed-out' | 'failed' | 'unsupported' | 'inactive' | 'unavailable';
     checkedAt: number;
     windows: UsageQuotaWindow[];

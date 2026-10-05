@@ -23,7 +23,7 @@ const family = (id: string): 'codex' | 'antigravity' | 'opencode' | null => id =
 function base(provider: BalanceProvider, account?: Record<string, unknown>): UsageProviderBalance {
   const name = provider.id === 'openai-codex' ? 'OpenAI Codex' : provider.name
   return { provider: provider.id, name, accountId: text(account?.id), label: mask(text(account?.label) ?? text(account?.email) ?? name),
-    active: account?.active === true, plan: text(account?.planType) ?? text(account?.tier), status: 'unavailable', checkedAt: Date.now(), windows: [], credits: null, unlimitedCredits: false, resetCredits: null }
+    active: account?.active === true, plan: text(account?.planType) ?? text(account?.tier), subscriptionUntil: time(account?.subscriptionUntil), status: 'unavailable', checkedAt: Date.now(), windows: [], credits: null, unlimitedCredits: false, resetCredits: null }
 }
 async function unwrap(reader: CodexBalanceReader, endpoint: 'status' | 'usage', payload: unknown, signal: AbortSignal): Promise<Record<string, unknown>> {
   const result = await reader.call(endpoint, payload, signal)

@@ -66,12 +66,13 @@ describe('usage page', () => {
   })
 
   it('shows provider-reported account quotas/credits separately from cash and refreshes without polling', async () => {
-    const provider: UsageProviderBalance = { provider: 'openai-codex', name: 'OpenAI Codex', accountId: 'work', label: 'Work', active: true, plan: 'PLUS', status: 'ready', checkedAt: 1_800_000_000_000,
+    const provider: UsageProviderBalance = { provider: 'openai-codex', name: 'OpenAI Codex', accountId: 'work', label: 'Work', active: true, plan: 'PLUS', subscriptionUntil: 1_800_000_000_000, status: 'ready', checkedAt: 1_800_000_000_000,
       windows: [{ window: '5h', percent: 84, kind: 'remaining', resetsAt: 1_800_000_000_000 }, { window: 'weekly', percent: 92, kind: 'remaining', resetsAt: null }], credits: '5.50', unlimitedCredits: false, resetCredits: 3 }
     const { call } = setup(report(), [provider, { ...provider, provider: 'custom', name: 'Custom', accountId: null, status: 'unsupported', windows: [], credits: null, resetCredits: null }])
     const section = await screen.findByRole('region', { name: en.accountBalances })
     await within(section).findByText('84% remaining')
     expect(within(section).getByText('92% remaining')).toBeTruthy()
+    expect(within(screen.getByRole('region', { name: 'OpenAI Codex Work' })).getByText(/Subscription active until/)).toBeTruthy()
     expect(within(section).getByRole('progressbar', { name: /OpenAI Codex Work: 5h/ }).getAttribute('value')).toBe('84')
     expect(screen.getByRole('region', { name: en.balance }).getAttribute('data-provider')).toBe('deepseek')
     expect(screen.getByRole('region', { name: 'OpenAI Codex Work' }).getAttribute('data-provider')).toBe('openai-codex')
@@ -85,12 +86,13 @@ describe('usage page', () => {
     expect(call.mock.calls.filter(args => args[1] === 'usage/report')).toHaveLength(1)
   })
   it('simultaneously displays two accounts of the same provider with independent quota values', async () => {
-    const account: UsageProviderBalance = { provider: 'google-antigravity', name: 'Google Antigravity', accountId: 'a', label: 'Account A', active: true, plan: null, status: 'ready', checkedAt: 1_800_000_000_000,
+    const account: UsageProviderBalance = { provider: 'google-antigravity', name: 'Google Antigravity', accountId: 'a', label: 'Account A', active: true, plan: null, subscriptionUntil: null, status: 'ready', checkedAt: 1_800_000_000_000,
       windows: [{ window: 'weekly', group: 'gemini', percent: 25, kind: 'remaining', resetsAt: null }], credits: null, unlimitedCredits: false, resetCredits: null }
     setup(report(), [account, { ...account, accountId: 'b', label: 'Account B', active: false, windows: [{ window: 'weekly', group: 'gemini', percent: 85, kind: 'remaining', resetsAt: null }] }])
     const first = await screen.findByRole('region', { name: 'Google Antigravity Account A' })
     const second = await screen.findByRole('region', { name: 'Google Antigravity Account B' })
     expect(within(first).getByText('25% remaining')).toBeTruthy()
+    expect(within(first).queryByText(/Subscription active until/)).toBeNull()
     expect(within(second).getByText('85% remaining')).toBeTruthy()
     expect(within(first).getByText(en.activeAccount)).toBeTruthy()
     expect(within(second).queryByText(en.activeAccount)).toBeNull()
@@ -99,7 +101,7 @@ describe('usage page', () => {
     expect(second.getAttribute('data-provider')).toBe(first.getAttribute('data-provider'))
   })
   it('renders the last account snapshot immediately on re-entry while refreshing in the background', async () => {
-    const provider: UsageProviderBalance = { provider: 'openai-codex', name: 'OpenAI Codex', accountId: 'work', label: 'Work', active: true, plan: null, status: 'ready', checkedAt: 1_800_000_000_000,
+    const provider: UsageProviderBalance = { provider: 'openai-codex', name: 'OpenAI Codex', accountId: 'work', label: 'Work', active: true, plan: null, subscriptionUntil: null, status: 'ready', checkedAt: 1_800_000_000_000,
       windows: [{ window: '5h', percent: 84, kind: 'remaining', resetsAt: null }], credits: null, unlimitedCredits: false, resetCredits: null }
     const { view, rpc, call } = setup(report(), [provider])
     await screen.findByText('84% remaining')
