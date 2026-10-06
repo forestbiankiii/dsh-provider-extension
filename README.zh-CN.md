@@ -16,11 +16,20 @@
 | Antigravity（`dsh-antigravity-auth` 0.1.4-rc.1） | **已实现** | 提供商设置页确认该能力包的风险提示、登录 Google 账号，并列出该账号上报的模型 |
 | OpenAI GPT（API） | 计划中 | — |
 | Google Gemini | 计划中 | — |
-| OpenCode | 计划中 | — |
+| OpenCode Go | 已实现 | 网关模型、API Key 配置及额度窗口 |
+| Claude 订阅（`anthropic-claude-cli`） | 已实现；真实调用待用户登录验证 | 官方 CLI 管理登录、文本流式响应、工具调用回传、模型别名及开关 |
 
 每个提供方在 `src/client/providers/` 下拥有独立模块。未实现并在真实 DSH 窗口验收之前，不会宣称已接入。
 
-接入逻辑保留在上游项目中：**`dsh-antigravity-auth`（MIT，© suntianc）负责 Antigravity 的 OAuth 流程、线路身份，以及把 Antigravity 模型路由发布进模型目录的 LLM adapter**；本插件只在自己的提供商设置页调用该能力包仅限 loopback 的账号 RPC，从不接触令牌。安装命令：`dsh plugin --profile desktop add dsh-antigravity-auth@0.1.4-rc.1`。
+Host 接入实现已包含在此 Bundle 中，上游来源和许可证记录在 THIRD-PARTY-NOTICES。不要重复启用占用同一路由的适配器。Antigravity／Codex 凭据保留在各自 Host 模块；Claude 则完全由官方 CLI 管理登录。
+
+## Claude 订阅：通过官方 CLI 接入
+
+先安装未修改的官方 Claude Code CLI 并加入 PATH，重启 DSH，再打开「提供商拓展 → Anthropic Claude」。Windows 上的登录按钮会在可见终端启动官方 `claude auth login`，其他平台请自行执行该命令。完成登录后刷新状态，在输入区选择 Anthropic Claude 和 Sonnet／Opus／Haiku 模型别名。登录及账号切换仍由官方 CLI 管理，本插件不导入、保存、导出或改写其 Token。CLI 也可能使用 API Key／第三方计费，设置页会明确提示。请遵守 [Anthropic 的认证及凭据规则](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use)。
+
+适配器借鉴 MIT 项目 [katsos/dsh-claude-cli](https://github.com/katsos/dsh-claude-cli)，固定提交为 `3a3a57f22a3e748c9720a1b96ce64e015f0f9643`。DSH 保留对话记录并执行工具，CLI 内置工具及本地设置不参与，仅由无执行能力的 MCP 桥声明工具；一个模型消息完成后结束 CLI 请求。首版只支持文本，历史以转录形式重建，并非原生角色／思考签名回放；模型别名是参考目录，不保证套餐权限。CLI 未报告的订阅额度／到期日不会伪造，请在官方 CLI 使用 `/usage` 查看，不提取 Token 或发送收费探测消息。
+
+插件 Config 字段：`claudeExecutable`（默认 `claude`）、`claudeStreamIdleTimeoutMs`（默认 `300000`）、`claudeUnsupportedFields`（默认 `error`）。这里的 CLI 无法精确兑现 `temperature`、`maxTokens`、`stop`；请从代理配置移除，或显式设置 `ignore` 才忽略。`claude_channel` 工具只提供状态／模型查询，登录仅限用户界面或终端。安装检测和模拟测试不能替代您的真实登录及模型调用验收。
 
 ## 功能
 

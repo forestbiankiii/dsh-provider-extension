@@ -7,12 +7,19 @@ import { apply as applyAntigravityImage } from './antigravity/image.ts'
 import { apply as applyAntigravityVideo } from './antigravity/video.ts'
 import { apply as applyCodexSubscription } from './codex/index.js'
 import { apply as applyOpenCode } from './opencode/index.js'
+import { apply as applyClaude, type ClaudeConfig } from './claude/index.ts'
+import Schema from '@deepseek-ai/schemastery'
 import { registerAccountRoutes } from './antigravity/account-routes.ts'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { applyUsage } from './usage/index.ts'
 import type { ProviderBalanceReaders } from './usage/provider-balances.ts'
 
 export const name = 'provider-extension'
+export const Config = Schema.object({
+  claudeExecutable: Schema.string().default('claude').description('Official Claude Code executable; no shell command string.'),
+  claudeStreamIdleTimeoutMs: Schema.natural().default(300000).description('Claude CLI output idle timeout in milliseconds.'),
+  claudeUnsupportedFields: Schema.union(['error', 'ignore'] as const).default('error').description('Reject unsupported temperature/maxTokens/stop by default; ignore explicitly drops them.'),
+})
 export const inject = [
   'llm',
   'attachments',
@@ -24,7 +31,7 @@ export const inject = [
 ]
 
 /** Mount Host-side Antigravity and Codex services, LLM adapters, RPC routes, and tools. */
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config: ClaudeConfig = {}): void {
   const balanceReaders: ProviderBalanceReaders = {}
   // One feature failing here used to abort the whole mount, which removed the
   // LLM adapters below (a request then failed with NO_ADAPTER), so contain it.
@@ -64,6 +71,12 @@ export function apply(ctx: Context): void {
     balanceReaders.opencode = applyOpenCode(ctx)
   } catch (error) {
     ctx.logger?.warn(`Failed to mount OpenCode Go: ${String(error)}`)
+  }
+
+  try {
+    balanceReaders.claude = applyClaude(ctx, config)
+  } catch {
+    ctx.logger?.warn('Failed to mount Claude Code CLI channel')
   }
 
   // 7. Mount OpenCode config RPC to sync API keys to credentials and disk

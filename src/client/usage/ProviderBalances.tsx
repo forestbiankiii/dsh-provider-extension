@@ -14,7 +14,7 @@ export function ProviderBalances({ providers, t, locale }: { providers: UsagePro
     {provider.accountId && <p className={css.accountLabel}>{provider.label}</p>}
     {Number.isFinite(provider.subscriptionUntil) && <p className={css.subscriptionLine}>{t('subscriptionUntil', { time: new Date(provider.subscriptionUntil!).toLocaleString(locale) })}</p>}
     <small>{t('checked', { time: new Date(provider.checkedAt).toLocaleString(locale) })}</small>
-    {provider.status !== 'ready' ? <p>{t(status[provider.status])}</p> : <>
+    {provider.status !== 'ready' ? <p>{t(provider.provider === 'anthropic-claude-cli' && provider.status === 'unavailable' ? 'quotaCliUnavailable' : status[provider.status])}</p> : <>
       {provider.windows.map(window => {
         const group = window.group ? `${t(window.group === 'gemini' ? 'quotaGemini' : 'quotaNonGemini')} · ` : ''
         const name = `${group}${t(({ '5h': 'quota5h', weekly: 'quotaWeekly', rolling: 'quotaRolling', monthly: 'quotaMonthly' } as const)[window.window])}`

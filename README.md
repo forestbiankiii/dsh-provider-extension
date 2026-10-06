@@ -16,11 +16,20 @@ This project was previously published as `dsh-model-panel`. The installer migrat
 | Antigravity (`dsh-antigravity-auth` 0.1.4-rc.1) | **Implemented** | The provider settings page acknowledges the companion's risk notice, signs in a Google account, and lists the models that account reports |
 | OpenAI GPT (API) | Planned | — |
 | Google Gemini | Planned | — |
-| OpenCode | Planned | — |
+| OpenCode Go | Implemented | Gateway models, API-key settings and usage windows |
+| Claude subscription (`anthropic-claude-cli`) | Implemented; live inference awaits user login | Official CLI-owned authentication, text streaming, tool-call handoff, model aliases and visibility switches |
 
 Each provider gets its own module under `src/client/providers/`. Nothing is claimed as integrated until it is implemented and accepted in a real DSH window.
 
-Integrations stay in their upstream projects. **`dsh-antigravity-auth` (MIT, © suntianc) owns the Antigravity OAuth flow, its wire identity, and the LLM adapter that publishes Antigravity model routes**; this plugin only drives that bundle's loopback-guarded account RPC from its provider settings page and never handles tokens. Install it with `dsh plugin --profile desktop add dsh-antigravity-auth@0.1.4-rc.1`.
+Host integrations are included in this bundle, with upstream provenance and licenses recorded in THIRD-PARTY-NOTICES. Do not enable a second adapter owning the same route. Antigravity and Codex credentials stay in their Host integrations; Claude differs by leaving authentication entirely to the official CLI.
+
+## Claude subscription via the official CLI
+
+Install the unmodified official Claude Code CLI on PATH, restart DSH, then open **Provider Extension → Anthropic Claude**. The login button opens the official `claude auth login` in a visible Windows terminal; other platforms show the same command to run yourself. Finish login and refresh status. Choose Anthropic Claude and a Sonnet/Opus/Haiku alias in the composer. Authentication and account switching stay in the CLI: this extension never imports, stores, exports or rewrites its tokens. The current CLI authentication may instead use API-key/third-party billing; the settings view displays that distinction. Follow [Anthropic’s authentication and credential rules](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use).
+
+The MIT adapter is adapted from [katsos/dsh-claude-cli](https://github.com/katsos/dsh-claude-cli), pinned at `3a3a57f22a3e748c9720a1b96ce64e015f0f9643`. DSH owns the conversation and executes tools; the CLI's built-in tools and local settings are disabled, and an inert MCP bridge supplies tool schemas only. Streams stop after one model message. This first version is text-only and re-renders history as a transcript, not native role-preserving replay; model aliases are advisory, not discovered account entitlements. Unreported subscription quotas/end dates remain unknown; use `/usage` in the CLI rather than extracting tokens or making paid quota probes.
+
+Plugin Config fields: `claudeExecutable` (default `claude`), `claudeStreamIdleTimeoutMs` (default `300000`), `claudeUnsupportedFields` (default `error`). The CLI cannot honor `temperature`, `maxTokens` or `stop` here: remove them from the agent configuration or explicitly choose `ignore` to drop them. `claude_channel` offers read-only status/models to agents; only the UI/user terminal can start login. Installation/status and synthetic streaming tests do not establish live provider availability until your own login and request succeed.
 
 ## Features
 

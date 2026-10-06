@@ -38,6 +38,31 @@ function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean; prov
   return { select, selectAccount, readQuota, loadDirectory, loadAccounts, view, state, props }
 }
 describe('model panel component', () => {
+  it('opens the OpenCode model pane without silently falling back to the current provider', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    fireEvent.click(screen.getByRole('button', { name: en.providerTitle }))
+    fireEvent.click(screen.getByRole('option', { name: /OpenCode/ }))
+    expect(screen.getByRole('dialog', { name: en.title }).querySelector(`.${css.headTitle}`)?.textContent).toBe(en.providerOpenCode)
+    expect(screen.getByText(en.opencodeCatalogUnavailable)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Select Sol' })).toBeNull()
+    expect(b.select).not.toHaveBeenCalled()
+    b.state.groups.push({ id: 'opencode-go', name: 'OpenCode', models: [{ id: 'real-host-model', name: 'Real Host Model' }] })
+    b.view.rerender(<ProviderPanel {...b.props} />)
+    expect(screen.queryByText(en.opencodeCatalogUnavailable)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Select Real Host Model' }))
+    await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: 'opencode-go', model: 'real-host-model' }))
+  })
+  it('opens and selects an already loaded OpenCode catalog', async () => {
+    const b = bench()
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    b.state.groups.push({ id: 'opencode-go', name: 'OpenCode', models: [{ id: 'live-opencode', name: 'Live OpenCode' }] })
+    b.view.rerender(<ProviderPanel {...b.props} />)
+    fireEvent.click(screen.getByRole('button', { name: en.providerTitle }))
+    fireEvent.click(screen.getByRole('option', { name: /OpenCode/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Select Live OpenCode' }))
+    await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: 'opencode-go', model: 'live-opencode' }))
+  })
   it.each([
     ['deepseek-official', 'DeepSeek', en.providerDeepseekApi, en.deepseekApiHint],
     ['deepseek-account', 'DeepSeek Account', en.providerDeepseekAccount, en.deepseekAccountHint],

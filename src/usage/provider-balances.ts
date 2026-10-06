@@ -3,12 +3,14 @@ import type { CodexBalanceReader } from '../codex/index.js'
 import type { OpenCodeBalanceReader } from '../opencode/index.js'
 import type { AntigravityAccountView } from '../antigravity/auth-service.ts'
 import type { QuotaStatusView } from '../antigravity/quota.ts'
+import type { ClaudeChannelService } from '../claude/service.ts'
 import type { UsageProviderBalance, UsageQuotaWindow } from './types.ts'
 
 export interface ProviderBalanceReaders {
   codex?: CodexBalanceReader
   antigravity?: { accounts(): Promise<readonly AntigravityAccountView[]>; usageForAccount(id: string, signal?: AbortSignal): Promise<QuotaStatusView> }
   opencode?: OpenCodeBalanceReader
+  claude?: Pick<ClaudeChannelService, 'status'>
 }
 export interface BalanceProvider { id: string; name: string }
 const record = (value: unknown): Record<string, unknown> | undefined => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined
@@ -26,7 +28,7 @@ const deadline = (value: unknown): number | null => {
 }
 const mask = (value: string): string => value.replace(/([^\s@]{1,2})[^\s@]*@([^\s@]+)/g, '$1***@$2')
 // Only these exact routes belong to our readers; a similarly named external adapter may use different credentials.
-const family = (id: string): 'codex' | 'antigravity' | 'opencode' | null => id === 'openai-codex' ? 'codex' : id === 'google-antigravity' ? 'antigravity' : id === 'opencode-go' ? 'opencode' : null
+const family = (id: string): 'codex' | 'antigravity' | 'opencode' | 'claude' | null => id === 'openai-codex' ? 'codex' : id === 'google-antigravity' ? 'antigravity' : id === 'opencode-go' ? 'opencode' : id === 'anthropic-claude-cli' ? 'claude' : null
 function base(provider: BalanceProvider, account?: Record<string, unknown>): UsageProviderBalance {
   const name = provider.id === 'openai-codex' ? 'OpenAI Codex' : provider.name
   return { provider: provider.id, name, accountId: text(account?.id), label: mask(text(account?.label) ?? text(account?.email) ?? name),
@@ -120,6 +122,13 @@ export async function readProviderBalances(providers: readonly BalanceProvider[]
       if (kind === 'codex' && readers.codex) return await codex(provider, readers.codex, signal)
       if (kind === 'antigravity' && readers.antigravity) return await antigravity(provider, readers.antigravity, signal)
       if (kind === 'opencode' && readers.opencode) return await opencode(provider, readers.opencode, signal)
+      if (kind === 'claude' && readers.claude) {
+        const state = await readers.claude.status(signal)
+        const row = base(provider, { id: 'cli-current', label: state.label ?? 'Claude Code CLI', active: state.status === 'ready', planType: state.plan })
+        row.status = state.status === 'signed-out' ? 'signed-out' : state.status === 'failed' ? 'failed' : 'unavailable'
+        row.checkedAt = state.checkedAt
+        return [row]
+      }
       return [{ ...base(provider), status: 'unsupported' as const }]
     } catch { signal.throwIfAborted(); return [{ ...base(provider), status: 'failed' as const }] }
   }))

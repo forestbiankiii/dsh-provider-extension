@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.8.0
+
+- Replace the Claude roadmap card with official CLI-owned login/status, advisory Sonnet/Opus/Haiku aliases, model visibility and a registered `anthropic-claude-cli` inference route. Reuse the pinned MIT DSH Claude CLI adapter with Windows native/npm launcher support; DSH owns tool execution, with bounded process output and awaited cancellation. No Claude OAuth credentials are imported or stored; quota/end dates remain unknown unless the CLI reports them.
+- Add the read-only `claude_channel` status/models tool. Keep login user-only. Disclose text transcript replay, unsupported sampling fields and API-key/third-party billing configurations.
+- Fix the inert OpenCode picker row: row selection and browsing now share one catalog, click opens the model pane, and a missing Host catalog produces an explicit setup/reload hint instead of silently returning to Codex or advertising static models.
+
 ## Unreleased
 
 - Polish account card hierarchy: 15px brand titles, 24px wallet figures and tabular quota values lead; 13px account identity, 12px body/subscription lines and 11px footnotes recede. Subscription dates sit right under the account name, and slimmed progress bars match each provider's brand fill.

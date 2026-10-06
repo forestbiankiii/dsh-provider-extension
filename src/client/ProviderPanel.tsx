@@ -10,12 +10,13 @@ import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selec
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { isCodexProvider, maskedEmail, type CodexAccountsState } from './providers/codex.ts'
 import { isAntigravityProvider, type AntigravityState } from './providers/antigravity.ts'
-import { isOpencodeProvider, type OpencodeState, DEFAULT_OPENCODE_MODELS } from './providers/opencode.ts'
+import { isOpencodeProvider, type OpencodeState } from './providers/opencode.ts'
 import {
   accentFor, activeGroup, effortIndex, isCurrentModel, resolveModelEffort, restingEffort,
   selectionForRow, sameSelection, type ProviderPanelModel, loadDisabledModels, getDisabledModelsForAccount, MODELS_VISIBILITY_EVENT,
 } from './selection.ts'
 import { codexEnabledModels } from './codex-visibility.ts'
+import { claudeEnabledModels } from './providers/claude.ts'
 import css from './ProviderPanel.module.css'
 
 /** Per-session injected seat dependencies. */
@@ -227,7 +228,11 @@ export function ProviderPanel({
   }, [busy, optimistic, directory.current])
 
   const authoritativeGroup = activeGroup({ ...directory, current })
-  const group = directory.groups.find(candidate => candidate.id === providerDraft) ?? authoritativeGroup
+  // The row and browsed group must use one catalog. Never advertise static fallback models as loaded.
+  const providerGroups = directory.groups.some(candidate => isOpencodeProvider(candidate.id)) ? directory.groups : [
+    ...directory.groups, { id: 'opencode-go', name: t('providerOpenCode'), models: [] },
+  ]
+  const group = providerGroups.find(candidate => candidate.id === providerDraft) ?? authoritativeGroup
   const activeAgAccount = antigravity.accounts.find(account => account.active) ?? antigravity.accounts[0]
   const activeCodexAccount = accounts.accounts.find(account => account.active)
   // Storage is synchronous: read only when the account or visibility settings change,
@@ -247,7 +252,8 @@ export function ProviderPanel({
     ? codexEnabledModels(activeCodexAccount?.id, activeCodexAccount?.email) : undefined,
   [group?.id, activeCodexAccount?.id, activeCodexAccount?.email, disabledModels])
   useEffect(() => { lastDirectoryLoad.current = 0 }, [activeAgAccount?.id, activeCodexAccount?.id])
-  const models = allModels.filter(model => codexEnabled !== undefined
+  const claudeEnabled = useMemo(() => group?.id === 'anthropic-claude-cli' ? claudeEnabledModels() : undefined, [group?.id, disabledModels])
+  const models = allModels.filter(model => claudeEnabled !== undefined ? claudeEnabled.has(model.id) : codexEnabled !== undefined
     ? codexEnabled.has(model.id) : !disabledForCurrent.has(model.id))
   const currentModel = group === undefined || group.id !== current?.provider ? undefined
     : models.find(model => isCurrentModel(current, group.id, model))
@@ -798,27 +804,7 @@ export function ProviderPanel({
           {directory.groups.length === 0 && !fetching ? <p className={css.note}>{t('providerEmpty')}</p> : null}
           <div className={css.providerList} role="listbox" aria-label={t('providerTitle')}>
             {(() => {
-              const opencodeGroup = directory.groups.find(g => isOpencodeProvider(g.id))
-              const opencodeModels = opencode?.models?.map(m => ({
-                id: m.id,
-                name: m.name,
-                provider: 'opencode-go',
-                inputModalities: ['text', 'image'],
-              })) ?? DEFAULT_OPENCODE_MODELS.map(m => ({
-                id: m.id,
-                name: m.name,
-                provider: 'opencode-go',
-                inputModalities: ['text', 'image'],
-              }))
-              const effectiveGroups = opencodeGroup !== undefined ? directory.groups : [
-                ...directory.groups,
-                {
-                  id: 'opencode-go',
-                  name: t('providerOpenCode'),
-                  models: opencodeModels,
-                } as any,
-              ]
-              return effectiveGroups.map(candidate => {
+              return providerGroups.map(candidate => {
                 const selected = candidate.id === group?.id
                 const displayName = cleanGroupName(candidate.id, candidate.name)
                 if (isAntigravityProvider(candidate.id) && antigravity.accounts.length > 0) {
@@ -876,8 +862,8 @@ export function ProviderPanel({
                         disabled={pending}
                         onClick={() => {
                           setProviderDraft(candidate.id)
-                          setOpen(null)
-                          queueMicrotask(() => { providerTrigger.current?.focus() })
+                          setOpen(isOpencodeProvider(candidate.id) ? 'model' : null)
+                          if (!isOpencodeProvider(candidate.id)) queueMicrotask(() => { providerTrigger.current?.focus() })
                         }}
                       >
                         <span>{displayName}</span>
@@ -979,7 +965,8 @@ export function ProviderPanel({
             ? <p className={css.note}>{t('missing', { provider: directory.current.provider, model: directory.current.model })}</p> : null}
           {group?.id === 'deepseek-official' ? <p className={css.note}>{t('deepseekApiHint')}</p>
             : group?.id === 'deepseek-account' ? <p className={css.note}>{t('deepseekAccountHint')}</p>
-              : models.length === 0 && !fetching ? <p className={css.note}>{t('empty')}</p> : null}
+              : isOpencodeProvider(group?.id) && !directory.groups.some(candidate => candidate.id === group?.id) ? <p className={css.note}>{t('opencodeCatalogUnavailable')}</p>
+                : models.length === 0 && !fetching ? <p className={css.note}>{t('empty')}</p> : null}
           {models.length === 0 ? null : <div className={css.rows}>{models.map(renderRow)}</div>}
           <details className={css.foot}>
             <summary className={css.footLabel}>{t('contextWindow')}<ChevronDown /></summary>

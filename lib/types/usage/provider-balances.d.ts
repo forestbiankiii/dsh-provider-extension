@@ -3,6 +3,7 @@ import type { CodexBalanceReader } from '../codex/index.js';
 import type { OpenCodeBalanceReader } from '../opencode/index.js';
 import type { AntigravityAccountView } from '../antigravity/auth-service.ts';
 import type { QuotaStatusView } from '../antigravity/quota.ts';
+import type { ClaudeChannelService } from '../claude/service.ts';
 import type { UsageProviderBalance } from './types.ts';
 export interface ProviderBalanceReaders {
     codex?: CodexBalanceReader;
@@ -11,6 +12,7 @@ export interface ProviderBalanceReaders {
         usageForAccount(id: string, signal?: AbortSignal): Promise<QuotaStatusView>;
     };
     opencode?: OpenCodeBalanceReader;
+    claude?: Pick<ClaudeChannelService, 'status'>;
 }
 export interface BalanceProvider {
     id: string;

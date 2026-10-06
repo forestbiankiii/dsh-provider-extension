@@ -7,6 +7,17 @@ const patch = readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf
 const clientSource = readFileSync(new URL('../src/client/index.ts', import.meta.url), 'utf8')
 
 describe('published artifact contract', () => {
+  it('ships a Claude schema-only bridge alongside the host bundle, without a second token collector', () => {
+    const bridge = readFileSync(new URL('../lib/claude-bridge.mjs', import.meta.url), 'utf8')
+    const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
+    expect(host).toContain('anthropic-claude-cli')
+    expect(host).toContain('claude-bridge.mjs')
+    expect(bridge).toContain('tools/list')
+    expect(bridge).toContain('This call was handed to the harness')
+    expect(bridge).not.toContain('child_process')
+    expect(client).toContain('claude-subscription/')
+    expect(client).toContain('opencodeCatalogUnavailable')
+  })
   it('advertises one installable bundle and client entry', () => {
     expect(manifest.name).toBe('dsh-provider-extension')
     expect(manifest.dsh.bundle.patch).toBe('./cordis.patch.yml')

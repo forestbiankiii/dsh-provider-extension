@@ -5,7 +5,7 @@ const root = resolve(import.meta.dirname, '..')
 const required = [
   'LICENSE', 'README.md', 'README.zh-CN.md', 'SECURITY.md', 'CHANGELOG.md',
   'cordis.patch.yml', 'lib/index.js', 'lib/client.js', 'lib/types/index.d.ts',
-  'scripts/profile.mjs',
+  'scripts/profile.mjs', 'lib/claude-bridge.mjs',
 ]
 for (const path of required) await stat(resolve(root, path))
 

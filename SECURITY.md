@@ -12,6 +12,8 @@ Please use GitHub's **Security → Report a vulnerability** flow for this reposi
 
 `dsh-provider-extension` contains Host integrations and browser UI. The provider integrations can manage authentication and send requests to their providers; those permissions must not be confused with the usage-report boundary.
 
+Claude is an exception to plugin-managed auth: it executes the user's unmodified official Claude Code CLI and projects only its bounded public `auth status` fields, with masked email. It never reads Claude credential files or handles OAuth/session tokens. Login is a user-only official CLI action. API-key/third-party CLI billing remains possible and is disclosed, not claimed as subscription billing. DSH alone executes tools; the isolated schema-only MCP bridge has no tool implementation. Subprocess cancellation and plugin disposal terminate CLI requests before owned temporary manifests are removed. Text-only transcript replay and unsupported sampling fields are explicit limitations. CLI executable/PATH configuration is trusted operator configuration.
+
 The usage feature:
 
 - reads profile-local session records through the Host session query/projection services;

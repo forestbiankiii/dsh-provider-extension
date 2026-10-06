@@ -43,6 +43,7 @@ export declare const en: {
     quotaFailed: string;
     quotaUnsupported: string;
     quotaInactive: string;
+    quotaCliUnavailable: string;
     quotaUnavailable: string;
     quota5h: string;
     quotaWeekly: string;

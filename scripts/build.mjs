@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdir, readFile, rm } from 'node:fs/promises'
+import { mkdir, readFile, rm, copyFile } from 'node:fs/promises'
 import { basename, relative, resolve } from 'node:path'
 import { build } from 'esbuild'
 import { transform } from 'lightningcss'
@@ -8,6 +8,7 @@ const root = resolve(import.meta.dirname, '..')
 const lib = resolve(root, 'lib')
 await rm(lib, { recursive: true, force: true })
 await mkdir(lib, { recursive: true })
+await copyFile(resolve(root, 'src/claude/claude-bridge.mjs'), resolve(lib, 'claude-bridge.mjs'))
 
 execFileSync(process.execPath, [resolve(root, 'node_modules/typescript/bin/tsc'), '-p', resolve(root, 'tsconfig.json')], {
   cwd: root,

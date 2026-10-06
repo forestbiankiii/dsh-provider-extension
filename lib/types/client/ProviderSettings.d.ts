@@ -6,6 +6,7 @@ import { type CodexAccountsState } from './providers/codex.ts';
 import type { ModelCatalogModel } from '@deepseek-ai/dsh-api-session-controller/types';
 import { type AntigravityState } from './providers/antigravity.ts';
 import { type OpencodeState } from './providers/opencode.ts';
+import type { ClaudeClientState } from './providers/claude.ts';
 /** Per-surface actions and stores injected by the client plugin. */
 export interface ProviderSettingsInjected {
     hooks: {
@@ -13,7 +14,14 @@ export interface ProviderSettingsInjected {
         accounts: SnapshotStore<CodexAccountsState>;
         /** Antigravity companion status and advisory model catalog. */
         antigravity: SnapshotStore<AntigravityState>;
+        claude: SnapshotStore<ClaudeClientState>;
     };
+    loadClaude?: () => Promise<void>;
+    loginClaude?: () => Promise<void>;
+    loadClaudeModels?: () => Promise<readonly {
+        id: string;
+        name: string;
+    }[]>;
     loadAccounts: () => Promise<void>;
     /** Same authoritative Host catalog used by the composer, not a hardcoded product list. */
     loadCodexModels?: (accountId: string) => Promise<readonly ModelCatalogModel[]>;
@@ -45,4 +53,4 @@ export type ProviderSettingsProps = PropsRuntime<'settings.section'> & PropsLoca
 export declare const GEMINI_TIERS: readonly ["Free", "Pro", "Ultra"];
 export type GeminiTier = typeof GEMINI_TIERS[number];
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
-export declare function ProviderSettings({ useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, resetCodexQuota, loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, t, }: ProviderSettingsProps): ReactNode;
+export declare function ProviderSettings({ useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, resetCodexQuota, loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, useClaude, loadClaude, loginClaude, loadClaudeModels, t, }: ProviderSettingsProps): ReactNode;

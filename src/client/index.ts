@@ -17,6 +17,7 @@ import { cssText as settingsCssText } from './ProviderSettings.module.css'
 import { CodexAccountsController, isCodexProvider } from './providers/codex.ts'
 import { AntigravityController, isAntigravityProvider } from './providers/antigravity.ts'
 import { OpencodeController, isOpencodeProvider } from './providers/opencode.ts'
+import { ClaudeController } from './providers/claude.ts'
 import { en, zh, type ProviderPanelKey } from './locales.ts'
 import { accountRpcFallback } from './account-rpc.ts'
 import { forceCatalogReload } from './catalog-refresh.ts'
@@ -112,10 +113,15 @@ export function apply(ctx: ClientContext): void {
     },
   } as ClientConnectionRpc
   applyUsagePage(ctx, rpc)
+  const claude = new ClaudeController(rpc)
+  const loadClaude = async () => { await claude.load() }
+  const loginClaude = async () => { await claude.login() }
+  const loadClaudeModels = async () => await claude.models()
   const codexAccounts = new CodexAccountsController(rpc)
   const antigravity = new AntigravityController(rpc)
   const opencode = new OpencodeController()
   opencode.setRpc(rpc)
+  ctx.effect(() => () => { claude.dispose() }, 'dsh-provider-extension: Claude CLI controller')
   ctx.effect(() => () => { codexAccounts.dispose() }, 'dsh-provider-extension: Codex account controller')
   ctx.effect(() => () => { antigravity.dispose() }, 'dsh-provider-extension: Antigravity controller')
   ctx.effect(() => () => { opencode.dispose() }, 'dsh-provider-extension: OpenCode controller')
@@ -149,7 +155,8 @@ export function apply(ctx: ClientContext): void {
     label: () => ctx.locale.bind(NS)('settingsNav'),
     locale: NS,
     inject: (): ProviderSettingsInjected => ({
-      hooks: { accounts: codexAccounts.store, antigravity: antigravity.store },
+      hooks: { accounts: codexAccounts.store, antigravity: antigravity.store, claude: claude.store },
+      loadClaude, loginClaude, loadClaudeModels,
       loadAccounts: async () => { await codexAccounts.load() },
       loadCodexModels: async (accountId: string) => await codexAccounts.readAccountModels(accountId),
       readQuota: readCodexQuota,

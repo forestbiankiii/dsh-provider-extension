@@ -20,6 +20,8 @@ import {
 } from './selection.ts'
 import css from './ProviderSettings.module.css'
 import { ProviderIcon } from './ProviderIcon.tsx'
+import { ClaudeSettings } from './ClaudeSettings.tsx'
+import type { ClaudeClientState } from './providers/claude.ts'
 
 /** Per-surface actions and stores injected by the client plugin. */
 export interface ProviderSettingsInjected {
@@ -28,7 +30,11 @@ export interface ProviderSettingsInjected {
     accounts: SnapshotStore<CodexAccountsState>
     /** Antigravity companion status and advisory model catalog. */
     antigravity: SnapshotStore<AntigravityState>
+    claude: SnapshotStore<ClaudeClientState>
   }
+  loadClaude?: () => Promise<void>
+  loginClaude?: () => Promise<void>
+  loadClaudeModels?: () => Promise<readonly { id: string; name: string }[]>
   loadAccounts: () => Promise<void>
   /** Same authoritative Host catalog used by the composer, not a hardcoded product list. */
   loadCodexModels?: (accountId: string) => Promise<readonly ModelCatalogModel[]>
@@ -171,8 +177,9 @@ function formatResetSeconds(epochSeconds?: number): string {
 export function ProviderSettings({
   useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, resetCodexQuota,
   loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota,
-  useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, t,
+  useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, useClaude, loadClaude, loginClaude, loadClaudeModels, t,
 }: ProviderSettingsProps): ReactNode {
+  const claude = useClaude ? useClaude(snapshot => snapshot) : undefined
   const accounts = useAccounts(snapshot => snapshot)
   const antigravity = useAntigravity(snapshot => snapshot)
   const opencodeState = useOpencode ? useOpencode(s => s) : {
@@ -1051,13 +1058,13 @@ export function ProviderSettings({
           </article>
         )}
 
-        {selectedProvider !== 'codex' && selectedProvider !== 'antigravity' && selectedProvider !== 'opencode' && (
+        {selectedProvider === 'claude' && (
           <article className={css.card}>
             <div className={css.cardHead}>
-              <span className={css.cardTitle}>{providerTitles[selectedProvider]}</span>
-              <span className={css.badge} data-state="roadmap">{t('providerStatusRoadmap')}</span>
+              <span className={css.cardTitle}>{t('providerClaude')}</span>
+              <span className={css.badge} data-state={claude?.status === 'ready' ? 'ready' : 'idle'}>{t(claude?.status === 'ready' ? 'providerStatusConnected' : 'providerStatusIdle')}</span>
             </div>
-            <p className={css.note}>{t('roadmapNotice')}</p>
+            <ClaudeSettings state={claude} load={loadClaude} login={loginClaude} loadModels={loadClaudeModels} t={t} />
           </article>
         )}
       </section>
@@ -1586,8 +1593,8 @@ export function ProviderSettings({
               </div>
             </div>
             <div className={css.providerRight} onClick={e => e.stopPropagation()}>
-              <span className={css.providerBadge} data-status="roadmap">
-                {t('providerStatusRoadmap')}
+              <span className={css.providerBadge} data-status={claude?.status === 'ready' ? 'ready' : 'idle'}>
+                {t(claude?.status === 'ready' ? 'providerStatusConnected' : 'providerStatusIdle')}
               </span>
               <button
                 type="button"
@@ -1605,7 +1612,7 @@ export function ProviderSettings({
           </div>
           {expanded.claude && (
             <div className={css.quickView}>
-              <p className={css.note}>{t('roadmapNotice')}</p>
+              <ClaudeSettings state={claude} load={loadClaude} login={loginClaude} loadModels={loadClaudeModels} t={t} />
             </div>
           )}
         </article>

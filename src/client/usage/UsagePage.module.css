@@ -40,6 +40,7 @@
 .accountBalanceCard[data-provider='openai-codex'] { --account-brand: #10a37f; }
 .accountBalanceCard[data-provider='google-antigravity'] { --account-brand: #3186ff; --account-stripe: linear-gradient(90deg, #00b95c, #ffee48, #fc413d, #3186ff); }
 .accountBalanceCard[data-provider='opencode-go'] { --account-brand: var(--dsw-alias-label-primary); }
+.accountBalanceCard[data-provider='anthropic-claude-cli'] { --account-brand: #d97757; }
 .accountBalanceCard::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--account-stripe, var(--account-brand)); }
 .accountBalanceCard h3 { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 650; color: color-mix(in srgb, var(--account-brand) 45%, var(--dsw-alias-label-primary)); }
 .accountBalanceCard h3::before { content: ''; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--account-stripe, var(--account-brand)); }
