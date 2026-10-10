@@ -5,6 +5,7 @@ import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/cli
 import type { UsageBalance, UsageBalances, UsageProviderBalance, UsageMetrics, UsageReport } from '../src/usage/types.ts'
 import { calendarDays, heatmapDayCount, parsePrices, UsagePage } from '../src/client/usage/UsagePage.tsx'
 import { en, zh, type UsageKey } from '../src/client/usage/locales.ts'
+import { CARD_LAYOUT_KEY } from '../src/client/usage/AccountCards.tsx'
 
 const t = (key: UsageKey, args?: Record<string, unknown>) => en[key].replace(/\{(\w+)\}/g, (_, k: string) => String(args?.[k] ?? ''))
 const language = () => 'en'
@@ -27,7 +28,7 @@ function report(tokens = 100): UsageReport {
 }
 const balance: UsageBalance = { status: 'ready', wallets: [{ currency: 'CNY', balance: '9.97' }], bonusWallets: [{ currency: 'USD', balance: '5.61' }], checkedAt: 1_800_000_000_000, usageUrl: null }
 const balances = { deepseek: balance, providers: [] }
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers() })
+afterEach(() => { cleanup(); localStorage.removeItem(CARD_LAYOUT_KEY); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers() })
 function setup(value = report(), providers: UsageProviderBalance[] = []) {
   const call = vi.fn(async (_channel, endpoint) => ({ ok: true, value: endpoint === 'usage/balances' ? { ...balances, providers } : value }))
   const rpc = { call } as unknown as ClientConnectionRpc
@@ -36,6 +37,20 @@ function setup(value = report(), providers: UsageProviderBalance[] = []) {
 }
 
 describe('usage page', () => {
+  it('hides a selected quota card independently without re-querying providers', async () => {
+    const account: UsageProviderBalance = { provider: 'openai-codex', name: 'OpenAI Codex', accountId: 'work', label: 'Work', active: true, plan: 'PLUS', subscriptionUntil: null,
+      status: 'ready', checkedAt: 1_800_000_000_000, windows: [{ window: '5h', percent: 84, kind: 'remaining', resetsAt: null }], credits: null, unlimitedCredits: false, resetCredits: null }
+    const { call } = setup(report(), [account, { ...account, accountId: 'other', label: 'Personal', active: false }])
+    await screen.findByRole('region', { name: 'OpenAI Codex Work' })
+    fireEvent.click(screen.getByRole('button', { name: 'Hide OpenAI Codex · Work' }))
+    expect(screen.queryByRole('region', { name: 'OpenAI Codex Work' })).toBeNull()
+    expect(screen.getByRole('region', { name: 'OpenAI Codex Personal' })).toBeTruthy()
+    expect(screen.getByRole('region', { name: en.balance })).toBeTruthy()
+    fireEvent.click(screen.getByText(en.cardLayout))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'OpenAI Codex · Work' }))
+    expect(screen.getByRole('region', { name: 'OpenAI Codex Work' })).toBeTruthy()
+    expect(call.mock.calls.filter(args => args[1] === 'usage/balances')).toHaveLength(1)
+  })
   it('renders real DTOs, separate currencies, compact heat cells, pagination and unknown sample metrics', async () => {
     const { call, view } = setup()
     await screen.findByRole('heading', { name: en.activity })

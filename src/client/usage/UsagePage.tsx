@@ -6,6 +6,7 @@ import type { UsageBalance, UsageBalances, UsageDaily, UsageMetrics, UsagePrice,
 import type { UsageKey } from './locales.ts'
 import css from './UsagePage.module.css'
 import { ProviderBalances } from './ProviderBalances.tsx'
+import { AccountCards } from './AccountCards.tsx'
 
 export interface UsagePageProps { rpc: ClientConnectionRpc; t: Translate<UsageKey>; language: () => string }
 const deepseek = (provider: string) => /^deepseek(?:$|[-_/:.])/i.test(provider)
@@ -119,7 +120,7 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
       started = true; setBalancePending(true); setBalanceError(false)
       try {
         const value = await call<UsageBalances>(rpc, 'usage/balances', {
-          version: 'dsh-provider-extension/0.8.0', locale: language() === 'zh' ? 'zh-CN' : 'en-US', timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60,
+          version: 'dsh-provider-extension/0.8.1', locale: language() === 'zh' ? 'zh-CN' : 'en-US', timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60,
         }, request.signal)
         if (!request.signal.aborted) {
           if (!value.deepseek || !Array.isArray(value.deepseek.wallets) || !Array.isArray(value.deepseek.bonusWallets) || !Array.isArray(value.providers)) throw new Error('Invalid balance response')
@@ -182,13 +183,15 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
       <div className={css.sectionHeading}><h2>{t('accountBalances')}</h2><button type="button" disabled={balancePending} onClick={() => setBalanceRevision(value => value + 1)}>{t(balancePending ? 'updating' : 'refresh')}</button></div>
       <p>{t('accountBalancesHint')}</p>
       {balancePending && accountData && <p role="status">{t('accountBalancesUpdating')}</p>}
-      <div className={css.accountBalances}>
-        <section className={css.accountBalanceCard} data-provider="deepseek" aria-label={t('balance')}><div className={css.accountHeading}><h3>{t('balance')}</h3></div>{balance?.checkedAt ? <small>{t('checked', { time: new Date(balance.checkedAt).toLocaleString(locale) })}</small> : null}
+      <AccountCards t={t} cards={[
+        { id: 'deepseek', label: t('balance'), content: <section className={css.accountBalanceCard} data-provider="deepseek" aria-label={t('balance')}>
+          <div className={css.accountHeading}><h3>{t('balance')}</h3></div>{balance?.checkedAt ? <small>{t('checked', { time: new Date(balance.checkedAt).toLocaleString(locale) })}</small> : null}
           <div className={css.balance}><div><span>{t('recharge')}</span><strong>{balance?.status === 'ready' ? wallet(balance.wallets) : t('unknown')}</strong></div><div><span>{t('bonus')}</span><strong>{balance?.status === 'ready' ? wallet(balance.bonusWallets) : t('unknown')}</strong></div></div>
           {balancePending && !accountData ? <p role="status">{t('balanceLoading')}</p> : balance?.status !== 'ready' || balanceError ? <p role="status">{t(balanceStatus)}</p> : null}<p>{t('balanceHint')}</p>
-        </section>
-        <ProviderBalances providers={providerBalances} t={t} locale={locale} />
-      </div>
+        </section> },
+        ...providerBalances.map(provider => ({ id: `${provider.provider}/${provider.accountId ?? ''}`, label: provider.accountId ? `${provider.name} · ${provider.label}` : provider.name,
+          content: <ProviderBalances providers={[provider]} t={t} locale={locale} /> })),
+      ]} />
       {balanceError && <p role="status">{t('accountBalancesFailed')}</p>}
     </section>
     {report && <>

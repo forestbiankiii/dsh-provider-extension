@@ -34,6 +34,29 @@
 .panel { border-radius: 16px; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--usage-border, var(--dsw-alias-border-l1)); padding: 22px; margin-bottom: 20px; }
 .sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .accountBalances { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px; margin-top: 16px; }
+.cardLayout { margin-top: 12px; font-size: 12px; }
+.cardLayout summary { cursor: pointer; width: fit-content; padding: 6px 0; font-weight: 600; }
+.cardLayout summary > span { color: var(--dsw-alias-label-secondary); margin-left: 8px; font-weight: 400; }
+.cardLayoutBody { padding: 12px 14px; margin-top: 8px; border: 1px solid var(--usage-border, var(--dsw-alias-border-l1)); border-radius: 10px; background: var(--dsw-alias-bg-layer-2); }
+.cardLayoutBody > p { margin-top: 0; }
+.cardChoices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 8px 20px; margin-bottom: 12px; }
+.cardChoice { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.cardChoice label { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; cursor: pointer; line-height: 1.5; }
+.page .cardChoice input { width: 14px; height: 14px; margin: 0; flex: none; accent-color: var(--dsw-alias-brand-primary); }
+.cardChoiceMoves { display: flex; gap: 4px; flex: none; }
+.page .cardChoiceMoves button { width: 28px; height: 28px; padding: 0; }
+.cardSlot { position: relative; min-width: 0; border-radius: 12px; }
+.cardSlot > section { height: 100%; box-sizing: border-box; }
+.cardSlot .accountHeading { padding-right: 48px; }
+.cardSlot[data-dragging='true'] { opacity: .55; }
+.cardSlot[data-drop-target='true'] { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 3px; }
+.cardTools { position: absolute; z-index: 1; top: 13px; right: 7px; display: flex; gap: 2px; }
+.page .cardTools button { display: inline-flex; align-items: center; justify-content: center; width: 25px; height: 26px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--dsw-alias-label-secondary); }
+.page .cardTools button:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-2); }
+.page .cardTools .cardGrip { cursor: grab; }
+.page .cardTools .cardGrip:active { cursor: grabbing; }
+.layoutAnnouncement { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.noCards { padding: 16px 0; }
 /* Provider identity colors; surfaces and text continue to use the resolved DSH theme. */
 .accountBalanceCard { --account-brand: var(--dsw-alias-label-secondary); position: relative; overflow: hidden; padding: 18px; border-radius: 12px; background: color-mix(in srgb, var(--account-brand) 8%, var(--dsw-alias-bg-layer-2)); border: 1px solid color-mix(in srgb, var(--account-brand) 35%, var(--usage-border, var(--dsw-alias-border-l1))); min-width: 0; }
 .accountBalanceCard[data-provider='deepseek'] { --account-brand: #4d6bfe; }

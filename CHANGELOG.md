@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.8.1
+
+- Add native drag-and-drop ordering and per-account card visibility to Usage Statistics. A display chooser offers checkboxes, accessible up/down controls and restore defaults; card grips support arrow-key ordering. Browser local storage retains only bounded, validated card IDs and display preferences. Refresh/remount preserves layout, new accounts append, and hiding cards does not alter authentication or queries.
+
 ## 0.8.0
 
 - Replace the Claude roadmap card with official CLI-owned login/status, advisory Sonnet/Opus/Haiku aliases, model visibility and a registered `anthropic-claude-cli` inference route. Reuse the pinned MIT DSH Claude CLI adapter with Windows native/npm launcher support; DSH owns tool execution, with bounded process output and awaited cancellation. No Claude OAuth credentials are imported or stored; quota/end dates remain unknown unless the CLI reports them.
