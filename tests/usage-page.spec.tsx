@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client'
 import type { UsageBalance, UsageBalances, UsageProviderBalance, UsageMetrics, UsageReport } from '../src/usage/types.ts'
-import { calendarDays, heatmapDayCount, parsePrices, UsagePage } from '../src/client/usage/UsagePage.tsx'
+import { calendarDays, heatmapDayCount, parsePrices, formatTokenCount, UsagePage } from '../src/client/usage/UsagePage.tsx'
 import { en, zh, type UsageKey } from '../src/client/usage/locales.ts'
 import { CARD_LAYOUT_KEY } from '../src/client/usage/AccountCards.tsx'
 
@@ -37,6 +37,28 @@ function setup(value = report(), providers: UsageProviderBalance[] = []) {
 }
 
 describe('usage page', () => {
+  it.each([[0, '0'], [9999, '9,999'], [10_000, '1万'], [12_000, '1.2万'], [123_456, '12.35万'], [100_000_000, '1亿'], [150_000_000, '1.5亿'], [1_234_567_890, '12.35亿']] as const)('formats Token count %s as %s', (value, expected) => {
+    expect(formatTokenCount(value)).toBe(expected)
+  })
+  it('uses 万/亿 throughout Token views without abbreviating steps or mutating the report', async () => {
+    const value = report(150_000_000)
+    value.overview.period = { ...metrics(150_000_000), requests: 17000, inputTokens: 12500, outputTokens: 50_000_000 }
+    value.daily[0]!.metrics = { ...value.overview.period }
+    setup(value)
+    const chart = await screen.findByRole('img', { name: new RegExp(en.trend) })
+    expect(screen.getAllByText('1.5亿').length).toBeGreaterThanOrEqual(3)
+    expect(chart.querySelector('text[x="40"][y="20"]')?.textContent).toBe('1.5亿')
+    fireEvent.focus(chart)
+    fireEvent.keyDown(chart, { key: 'End' })
+    const tooltip = screen.getByRole('tooltip')
+    expect(within(tooltip).getByText('1.5亿')).toBeTruthy()
+    expect(within(tooltip).getByText('1.25万')).toBeTruthy()
+    expect(within(tooltip).getByText('5000万')).toBeTruthy()
+    expect(within(tooltip).getByText('17,000')).toBeTruthy()
+    expect(within(tooltip).queryByText('1.7万')).toBeNull()
+    expect(value.overview.period.totalTokens).toBe(150_000_000)
+    expect(value.daily[0]!.metrics.inputTokens).toBe(12500)
+  })
   it('hides a selected quota card independently without re-querying providers', async () => {
     const account: UsageProviderBalance = { provider: 'openai-codex', name: 'OpenAI Codex', accountId: 'work', label: 'Work', active: true, plan: 'PLUS', subscriptionUntil: null,
       status: 'ready', checkedAt: 1_800_000_000_000, windows: [{ window: '5h', percent: 84, kind: 'remaining', resetsAt: null }], credits: null, unlimitedCredits: false, resetCredits: null }

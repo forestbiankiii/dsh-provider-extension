@@ -8,6 +8,13 @@ import css from './UsagePage.module.css'
 import { ProviderBalances } from './ProviderBalances.tsx'
 import { AccountCards } from './AccountCards.tsx'
 
+/** Presentation only: calculations and report DTOs retain their original Token counts. */
+export function formatTokenCount(value: number, locale = 'zh-CN'): string {
+  const unit = value >= 100_000_000 ? 100_000_000 : value >= 10_000 ? 10_000 : 1
+  const suffix = unit === 100_000_000 ? '亿' : unit === 10_000 ? '万' : ''
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: unit === 1 ? 1 : 2, useGrouping: unit === 1 }).format(value / unit) + suffix
+}
+
 export interface UsagePageProps { rpc: ClientConnectionRpc; t: Translate<UsageKey>; language: () => string }
 const deepseek = (provider: string) => /^deepseek(?:$|[-_/:.])/i.test(provider)
 const ranges = [7, 30, 90, 365, 0] as const
@@ -43,6 +50,7 @@ function dateInZone(time: number, timezone: string): string {
 export function UsagePage({ rpc, t, language }: UsagePageProps) {
   const locale = language() === 'zh' ? 'zh-CN' : 'en-US'
   const number = (value: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value)
+  const tokenNumber = (value: number) => formatTokenCount(value, locale)
   const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', [])
   const [query, setQuery] = useState<UsageQuery>({ days: 30, timezone, role: 'all' })
   const [report, setReport] = useState<UsageReport | null>(null)
@@ -120,7 +128,7 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
       started = true; setBalancePending(true); setBalanceError(false)
       try {
         const value = await call<UsageBalances>(rpc, 'usage/balances', {
-          version: 'dsh-provider-extension/0.8.1', locale: language() === 'zh' ? 'zh-CN' : 'en-US', timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60,
+          version: 'dsh-provider-extension/0.8.2', locale: language() === 'zh' ? 'zh-CN' : 'en-US', timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60,
         }, request.signal)
         if (!request.signal.aborted) {
           if (!value.deepseek || !Array.isArray(value.deepseek.wallets) || !Array.isArray(value.deepseek.bonusWallets) || !Array.isArray(value.providers)) throw new Error('Invalid balance response')
@@ -175,7 +183,7 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
     {error && <div className={css.error} role="alert">{t('loadFailed')} <button type="button" onClick={() => setRevision(value => value + 1)}>{t('retry')}</button></div>}
     {!report && !error && <p role="status">{t('loading')}</p>}
     <div className={css.cards}>
-      {(['today', 'month', 'allTime'] as const).map((key, index) => <div className={css.card} key={key}><span>{t((['today', 'month', 'lifetime'] as const)[index]!)}</span><strong>{report ? number(report.overview[key].totalTokens) : t('unknown')}</strong><small>{t('tokens')}</small></div>)}
+      {(['today', 'month', 'allTime'] as const).map((key, index) => <div className={css.card} key={key}><span>{t((['today', 'month', 'lifetime'] as const)[index]!)}</span><strong>{report ? tokenNumber(report.overview[key].totalTokens) : t('unknown')}</strong><small>{t('tokens')}</small></div>)}
       <div className={css.card} title={t('stepsHint')}><span>{t('steps')}</span><strong>{metrics ? number(metrics.requests) : t('unknown')}</strong><small>{t('stepsHint')}</small></div>
     </div>
     {report && <div className={css.warning} role="status"><p>{t('reportedOnly', { missing: number(report.overview.allTime.missingUsage), partial: number(report.overview.allTime.partialUsage) })}</p>{report.coverage.loading && <p>{t('indexing', { done: number(report.coverage.processedSessions), total: number(report.coverage.totalSessions) })}</p>}{report.coverage.failedSessions > 0 && <p>{t('failedArchives', { count: number(report.coverage.failedSessions) })}</p>}</div>}
@@ -200,20 +208,20 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
           const day = daily.get(date)
           const tokens = day?.metrics.totalTokens ?? 0
           const level = tokens === 0 ? 0 : Math.max(1, Math.ceil(tokens / maximum * 4))
-          const label = t('dayTitle', { date, tokens: number(tokens), steps: number(day?.metrics.requests ?? 0) })
+          const label = t('dayTitle', { date, tokens: tokenNumber(tokens), steps: number(day?.metrics.requests ?? 0) })
           return <button type="button" key={date} className={css.heatCell} data-level={level} aria-label={label} title={label} aria-pressed={selectedDate === date} onClick={() => setSelectedDate(selectedDate === date ? null : date)} />
         })}</div><div className={css.heatDates}><span>{heatDays[0]}</span><span>{heatDays.at(-1)}</span></div></div></div>
         <div className={css.inlineMetrics}><span>{t('activeDays')}: {number(report.overview.activeDays)}</span><span>{t('streak')}: {number(report.overview.streak)}</span><span>{t('longestStreak')}: {number(report.overview.longestStreak)}</span></div>
-        {selectedDate && <div className={css.selectedDay}><div className={css.sectionHeading}><h3>{t('selectedDay', { date: selectedDate })}</h3><button type="button" onClick={() => setSelectedDate(null)}>{t('closeDay')}</button></div>{selected ? <div className={css.inlineMetrics}><span>{t('tokens')}: {number(selected.metrics.totalTokens)}</span><span title={t('stepsHint')}>{t('steps')}: {number(selected.metrics.requests)}</span><span>{t('input')}: {number(selected.metrics.inputTokens)}</span><span>{t('output')}: {number(selected.metrics.outputTokens)}</span><span>{t('cost')}: {money(selected.metrics)}</span></div> : <p>{t('dayUnknown')}</p>}</div>}
+        {selectedDate && <div className={css.selectedDay}><div className={css.sectionHeading}><h3>{t('selectedDay', { date: selectedDate })}</h3><button type="button" onClick={() => setSelectedDate(null)}>{t('closeDay')}</button></div>{selected ? <div className={css.inlineMetrics}><span>{t('tokens')}: {tokenNumber(selected.metrics.totalTokens)}</span><span title={t('stepsHint')}>{t('steps')}: {number(selected.metrics.requests)}</span><span>{t('input')}: {tokenNumber(selected.metrics.inputTokens)}</span><span>{t('output')}: {tokenNumber(selected.metrics.outputTokens)}</span><span>{t('cost')}: {money(selected.metrics)}</span></div> : <p>{t('dayUnknown')}</p>}</div>}
       </section>
-      <section className={css.panel} aria-label={t('trend')}><h2>{t('trend')}</h2>{query.days === 0 && <p>{t('yearOnly')}</p>}<Trend days={days} daily={daily} t={t} number={number} /><div className={css.inlineMetrics}>{(['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning'] as const).map((key, i) => <span key={key}>{t(key)}: {number([metrics!.inputTokens, metrics!.outputTokens, metrics!.cacheReadTokens, metrics!.cacheWriteTokens, metrics!.reasoningTokens][i]!)}</span>)}</div></section>
+      <section className={css.panel} aria-label={t('trend')}><h2>{t('trend')}</h2>{query.days === 0 && <p>{t('yearOnly')}</p>}<Trend days={days} daily={daily} t={t} number={number} tokenNumber={tokenNumber} /><div className={css.inlineMetrics}>{(['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning'] as const).map((key, i) => <span key={key}>{t(key)}: {tokenNumber([metrics!.inputTokens, metrics!.outputTokens, metrics!.cacheReadTokens, metrics!.cacheWriteTokens, metrics!.reasoningTokens][i]!)}</span>)}</div></section>
       <section className={css.panel} aria-label={t('performance')}><h2>{t('performance')}</h2><div className={css.metricGrid}>
         <Metric label={t('average')} value={average(metrics?.elapsedMs, metrics?.timedRequests)} /><Metric label={t('ttft')} value={average(metrics?.ttftMs, metrics?.ttftRequests)} /><Metric label={t('speed')} value={metrics?.decodeMs && metrics.decodeTokens ? t('tokPerSecond', { value: number(metrics.decodeTokens / metrics.decodeMs * 1000) }) : t('unknown')} />
         <Metric label={t('failureRate')} value={metrics?.requests ? `${number(metrics.failed / metrics.requests * 100)}%` : t('unknown')} /><Metric label={t('failures')} value={number(metrics!.failed)} /><Metric label={t('retries')} value={number(metrics!.retries)} /><Metric label={t('cancelled')} value={number(metrics!.cancelled)} />
       </div></section>
       <section className={css.panel} aria-label={t('estimates')}><h2>{t('estimates')}</h2><strong className={css.cost}>{money(metrics)}</strong><p>{t('costHint')}</p><p>{t('unpriced', { count: number(metrics!.unpricedRequests) })}</p>{metrics!.costs.map(cost => <small key={cost.currency}>{cost.currency}: {t('pricedSteps', { count: number(cost.requests) })} </small>)}</section>
       <section className={css.panel} aria-label={t('ranks')}><h2>{t('ranks')}</h2><div className={css.tabs}>{(['providers', 'models', 'workspaces', 'sessions'] as const).map(value => <button type="button" key={value} aria-pressed={rank === value} onClick={() => { setRank(value); setPage(0) }}>{t(value)}</button>)}</div>
-        <div className={css.tableScroll}><table><caption className={css.srOnly}>{t(rank)}</caption><thead><tr><th scope="col">{t('name')}</th><th scope="col">{t('tokens')}</th><th scope="col" title={t('stepsHint')}>{t('steps')}</th><th scope="col">{t('cost')}</th></tr></thead><tbody>{rows.slice(safePage * 20, safePage * 20 + 20).map(row => <tr key={row.id}><th scope="row" title={row.id}>{row.label || row.id}{row.provider && <small className={css.rowDetail}>{row.provider}</small>}</th><td>{number(row.metrics.totalTokens)}</td><td>{number(row.metrics.requests)}</td><td>{money(row.metrics)}</td></tr>)}{!rows.length && <tr><td colSpan={4}>{t('noRows')}</td></tr>}</tbody></table></div>
+        <div className={css.tableScroll}><table><caption className={css.srOnly}>{t(rank)}</caption><thead><tr><th scope="col">{t('name')}</th><th scope="col">{t('tokens')}</th><th scope="col" title={t('stepsHint')}>{t('steps')}</th><th scope="col">{t('cost')}</th></tr></thead><tbody>{rows.slice(safePage * 20, safePage * 20 + 20).map(row => <tr key={row.id}><th scope="row" title={row.id}>{row.label || row.id}{row.provider && <small className={css.rowDetail}>{row.provider}</small>}</th><td title={number(row.metrics.totalTokens)}>{tokenNumber(row.metrics.totalTokens)}</td><td>{number(row.metrics.requests)}</td><td>{money(row.metrics)}</td></tr>)}{!rows.length && <tr><td colSpan={4}>{t('noRows')}</td></tr>}</tbody></table></div>
         <div className={css.pagination}><button type="button" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>{t('previous')}</button><span>{t('page', { page: safePage + 1, pages })}</span><button type="button" disabled={safePage + 1 >= pages} onClick={() => setPage(safePage + 1)}>{t('next')}</button></div>
       </section>
       <section className={css.panel} aria-label={t('coverage')}><h2>{t('coverage')}</h2><p role="status">{t(report.coverage.loading ? 'indexing' : 'indexed', { done: number(report.coverage.processedSessions), total: number(report.coverage.totalSessions) })}</p>{report.coverage.loading && <progress max={Math.max(1, report.coverage.totalSessions)} value={report.coverage.processedSessions} aria-label={t('coverage')} />}<p>{t('missing', { count: number(metrics!.missingUsage) })}</p>{metrics!.partialUsage > 0 && <p>{t('partial', { count: number(metrics!.partialUsage) })}</p>}<p>{t('inherited', { count: number(report.coverage.inheritedEventsExcluded) })}</p>{report.coverage.from !== null && <p>{t('historyFrom', { date: new Date(report.coverage.from).toLocaleDateString(locale) })}</p>}
@@ -225,7 +233,7 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
 }
 
 function Metric({ label, value }: { label: string; value: string }) { return <div><span>{label}</span><strong>{value}</strong></div> }
-function Trend({ days, daily, t, number }: { days: string[]; daily: Map<string, UsageDaily>; t: Translate<UsageKey>; number: (n: number) => string }) {
+function Trend({ days, daily, t, number, tokenNumber }: { days: string[]; daily: Map<string, UsageDaily>; t: Translate<UsageKey>; number: (n: number) => string; tokenNumber: (n: number) => string }) {
   const id = useId()
   const [active, setActive] = useState<number | null>(null)
   const max = Math.max(1, ...days.map(date => daily.get(date)?.metrics.totalTokens ?? 0))
@@ -265,14 +273,14 @@ function Trend({ days, daily, t, number }: { days: string[]; daily: Map<string, 
         <text x={anchor} y="220" textAnchor="middle">{date}</text>
       </g>}
       {!date && <><text x="40" y="220">{days[0]}</text><text x="760" y="220" textAnchor="end">{days.at(-1)}</text></>}
-      <text x="40" y="20">{number(max)}</text>
+      <text x="40" y="20">{tokenNumber(max)}</text>
     </svg>
     {date && <div id={`${id}-tooltip`} role="tooltip" className={css.trendTooltip} style={{ left: `clamp(8px, calc(${anchor / 8}% ${anchor > 400 ? '- 232px' : '+ 12px'}), calc(100% - 228px))` }}>
       <strong>{date}</strong>
       {selected && selected.requests > 0 ? <><dl>{([
         ['tokens', selected.totalTokens], ['steps', selected.requests], ['input', selected.inputTokens], ['output', selected.outputTokens],
         ['cacheRead', selected.cacheReadTokens], ['cacheWrite', selected.cacheWriteTokens], ['reasoning', selected.reasoningTokens],
-      ] as const).map(([key, value]) => <div key={key}><dt>{t(key)}</dt><dd>{number(value)}</dd></div>)}</dl>
+      ] as const).map(([key, value]) => <div key={key}><dt>{t(key)}</dt><dd title={number(value)}>{key === 'steps' ? number(value) : tokenNumber(value)}</dd></div>)}</dl>
         {selected.missingUsage > 0 && <small>{t('missing', { count: number(selected.missingUsage) })}</small>}
         {selected.partialUsage > 0 && <small>{t('partial', { count: number(selected.partialUsage) })}</small>}
       </> : <small>{t('dayUnknown')}</small>}

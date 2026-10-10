@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.8.2
+
+- Format displayed Token counts with 万 from 10,000 and 亿 from 100,000,000, keeping up to two fractional digits. Apply consistently to overview cards, heatmap/day detail, trend axis/tooltips, Token breakdowns and rankings. Preserve raw report counts, calculations and ordinary step/latency/currency formatting; ranking/tooltip hover titles retain full numeric values.
+
 ## 0.8.1
 
 - Add native drag-and-drop ordering and per-account card visibility to Usage Statistics. A display chooser offers checkboxes, accessible up/down controls and restore defaults; card grips support arrow-key ordering. Browser local storage retains only bounded, validated card IDs and display preferences. Refresh/remount preserves layout, new accounts append, and hiding cards does not alter authentication or queries.
