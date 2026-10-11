@@ -138,13 +138,16 @@ export class UsageController {
       ...(parsed.workspace === undefined ? {} : { workspace: parsed.workspace }),
       ...(parsed.provider === undefined ? {} : { provider: parsed.provider }),
       ...(parsed.model === undefined ? {} : { model: parsed.model }) }
-    this.refreshHistory()
+    // Start the initial import immediately. Later reads first capture the completed cut;
+    // starting maintenance before capturing it makes every 15s poll report loading forever.
+    const initialImport = this.lastScan === 0
+    if (initialImport) this.refreshHistory()
     const data = [...this.sessions.values()]
     const registry = this.ctx.get('workspaceRegistry') as { list(): { path: string; title: string }[] } | undefined
     const report = aggregateUsage(data, query, this.prices?.global.get() ?? [], {
       workspaceTitles: new Map(registry?.list().map(workspace => [workspace.path, workspace.title])),
     })
-    return {
+    const result: UsageReport = {
       ...report,
       priceStorage: this.prices !== undefined,
       coverage: {
@@ -154,6 +157,8 @@ export class UsageController {
         errors: this.errors.slice(0, 20),
       },
     }
+    if (!initialImport) this.refreshHistory()
+    return result
   }
   async savePrices(raw: unknown): Promise<{ prices: UsagePrice[] }> {
     const { prices } = usagePricesSchema.parse(raw)
@@ -214,8 +219,8 @@ export function createUsageTool(controller: UsageController): ToolDefinition {
     output: { schema: { type: 'object' }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
     execute: async args => {
       const request = z.object({ action: z.enum(['report', 'balance', 'balances', 'set_prices']), query: usageQuerySchema.optional(), prices: z.array(usagePriceSchema).max(200).optional() }).strict().parse(args)
-      if (request.action === 'balance') return controller.balance({ version: 'dsh-provider-extension/0.8.4', locale: 'zh-CN', timezoneOffsetSeconds: 0 })
-      if (request.action === 'balances') return controller.balances({ version: 'dsh-provider-extension/0.8.4', locale: 'zh-CN', timezoneOffsetSeconds: 0 })
+      if (request.action === 'balance') return controller.balance({ version: 'dsh-provider-extension/0.8.5', locale: 'zh-CN', timezoneOffsetSeconds: 0 })
+      if (request.action === 'balances') return controller.balances({ version: 'dsh-provider-extension/0.8.5', locale: 'zh-CN', timezoneOffsetSeconds: 0 })
       if (request.action === 'set_prices') {
         if (!request.prices) throw new Error('prices is required for set_prices')
         return controller.savePrices({ prices: request.prices })

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { UsageController, usageQuerySchema, usagePricesSchema, createUsageTool } from '../src/usage/index.ts'
 import { initUsage, applyUsage } from '../src/usage/fold.ts'
 import type { Context } from '@deepseek-ai/cordis'
@@ -40,6 +40,47 @@ describe('usage trust boundaries and lifecycle', () => {
     controller.update({ header }, 'providerUsage', { ...state, rows: [] }, 1)
     expect(controller.report({}).overview.allTime.requests).toBe(0)
     await controller.close()
+  })
+  it('returns a completed snapshot at each polling interval instead of re-announcing a just-started refresh', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(header.createdAt)
+    let scans = 0
+    const controller = new UsageController(context({}), {
+      listSessions: async () => { scans++; return [{ header, live: false, persisted: true }] },
+      observeSession: async () => ({ header, inheritedEventCount: 0, cursor: 0, projections: { values: { providerUsage: state } }, [Symbol.dispose]: () => {} }),
+    })
+    try {
+      expect(controller.report({}).coverage.loading).toBe(true)
+      await flush()
+      expect(controller.report({}).coverage.loading).toBe(false)
+      for (let round = 1; round <= 3; round++) {
+        now.mockReturnValue(header.createdAt + round * 16_000)
+        expect(controller.report({}).coverage).toMatchObject({ totalSessions: 1, processedSessions: 1, loading: false })
+        await flush()
+      }
+      expect(scans).toBe(4) // Background refreshes still discover new/changed history.
+    } finally { await controller.close(); now.mockRestore() }
+  })
+  it('still reports a genuinely pending maintenance scan and completes with read failures intact', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(header.createdAt)
+    let round = 0
+    let release!: () => void
+    const controller = new UsageController(context({}), {
+      listSessions: async () => ++round === 1 ? [{ header, live: false, persisted: true }] : [{ header, live: false, persisted: true }, { header: { ...header, id: 'broken' }, live: false, persisted: true }],
+      observeSession: async id => {
+        if (round > 1 && id === header.id) await new Promise<void>(resolve => { release = resolve })
+        if (id === 'broken') throw new Error('private details')
+        return { header, inheritedEventCount: 0, cursor: 0, projections: { values: { providerUsage: state } }, [Symbol.dispose]: () => {} }
+      },
+    })
+    try {
+      controller.report({}); await flush()
+      now.mockReturnValue(header.createdAt + 16_000)
+      expect(controller.report({}).coverage.loading).toBe(false)
+      await flush()
+      expect(controller.report({}).coverage).toMatchObject({ totalSessions: 2, processedSessions: 0, loading: true })
+      release(); await flush(); await flush()
+      expect(controller.report({}).coverage).toMatchObject({ totalSessions: 2, processedSessions: 1, failedSessions: 1, loading: false, errors: [{ sessionId: 'broken', reason: 'session-read-failed' }] })
+    } finally { release?.(); await controller.close(); now.mockRestore() }
   })
   it('does not overwrite a newer live watermark with an older awaited historical cut', async () => {
     let release!: (value: any) => void

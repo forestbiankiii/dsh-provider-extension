@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.8.5
+
+- Fix completed history imports repeatedly showing “importing N / N”: periodic report reads previously started a fresh scan before capturing its status. Capture completed report/coverage first, then launch maintenance; initial imports and genuinely pending scans still expose progress, and unreadable history/missing usage remain explicit. Add repeated-poll, slow-maintenance/failure and UI-completion regression tests.
+
 ## 0.8.4
 
 - Preserve every heatmap cell's original data-level fill during hover. Exclude cells from the generic button hover rule and remove the cell-specific hover fill; only the outline and tooltip change. Add a source/build regression check for the CSS exclusion.

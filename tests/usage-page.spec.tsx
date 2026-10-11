@@ -340,6 +340,23 @@ describe('usage page', () => {
     expect(lastSignal.aborted).toBe(true)
   })
 
+  it('removes indexing messages when import finishes while preserving missing-usage disclosure', async () => {
+    vi.useFakeTimers()
+    let loading = true
+    const call = vi.fn(async (_channel, endpoint) => ({ ok: true, value: endpoint === 'usage/balances' ? balances : { ...report(), coverage: { ...report().coverage, totalSessions: 34, processedSessions: loading ? 33 : 34, loading } } }))
+    render(<UsagePage rpc={{ call } as unknown as ClientConnectionRpc} t={t} language={language} />)
+    await act(async () => { await Promise.resolve(); await Promise.resolve() })
+    expect(screen.getAllByText(t('indexing', { done: 33, total: 34 }))).toHaveLength(2)
+    loading = false
+    await act(async () => { await vi.advanceTimersByTimeAsync(3_000) })
+    expect(screen.queryByText(/History is being indexed/)).toBeNull()
+    expect(screen.getByText(t('indexed', { done: 34, total: 34 }))).toBeTruthy()
+    expect(screen.getByText(t('reportedOnly', { missing: 1, partial: 0 }))).toBeTruthy()
+    expect(screen.queryByRole('progressbar', { name: en.coverage })).toBeNull()
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
+    expect(screen.queryByText(/History is being indexed/)).toBeNull()
+    expect(call.mock.calls.filter(args => args[1] === 'usage/balances')).toHaveLength(1)
+  })
   it('polls reports only while visible and never polls balances', async () => {
     vi.useFakeTimers()
     let hidden = false
