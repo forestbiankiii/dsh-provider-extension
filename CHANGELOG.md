@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.8.8
+
+- Register the missing `codex-subscription/models` authenticated HTTP route. The account-specific model handler existed but was absent from the transport endpoint list, so both settings views received HTTP 404. Add regression coverage through the actual route registration and request-envelope dispatch, including account identity forwarding and wrong-method rejection.
+
 ## 0.8.7
 
 - Add account-card actions to inspect each Codex quota reset credit, its provider-reported expiry, and choose which credit to redeem. Missing expiry stays explicitly unknown. Reading details never redeems a credit; redemption requires a selected credit, acknowledgement, and the Host's five-second confirmation delay.

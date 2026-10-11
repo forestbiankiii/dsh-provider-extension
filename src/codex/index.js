@@ -342,6 +342,7 @@ const RPC_ENDPOINTS = Object.freeze([
 	"account/rename",
 	"account/remove",
 	"usage",
+	"models",
 	"diagnostics",
 	"preferences/status",
 	"preferences/models",
