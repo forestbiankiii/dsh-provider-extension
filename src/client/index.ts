@@ -23,6 +23,7 @@ import { accountRpcFallback } from './account-rpc.ts'
 import { forceCatalogReload } from './catalog-refresh.ts'
 import { assertSelectionSucceeded } from './selection.ts'
 import { applyUsagePage } from './usage/index.tsx'
+import { cssText as usageCssText } from './usage/UsagePage.module.css'
 
 export { ProviderPanel } from './ProviderPanel.tsx'
 export type { ProviderPanelInjected, ProviderPanelProps } from './ProviderPanel.tsx'
@@ -138,7 +139,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = 'dsh-provider-extension'
-    tag.textContent = `${cssText}\n${settingsCssText}`
+    tag.textContent = `${cssText}\n${settingsCssText}\n${usageCssText}`
     document.head.appendChild(tag)
     return () => { tag.remove() }
   }, 'dsh-provider-extension: styles')
@@ -165,7 +166,8 @@ export function apply(ctx: ClientContext): void {
       selectCodexAccount: async (id) => { await codexAccounts.select(id) },
       renameCodexAccount: async (id, label) => { await codexAccounts.renameAccount(id, label) },
       removeCodexAccount: async (id) => { await codexAccounts.removeAccount(id) },
-      resetCodexQuota: async (id) => { await codexAccounts.consumeResetCredit(id) },
+      codexReset: { rpc, t: ctx.locale.bind('providerUsage'), locale: ctx.locale.getSnapshot().active === 'zh' ? 'zh-CN' : 'en-US' },
+      onCodexReset: async (id) => { await codexAccounts.readQuotaForAccount(id); window.dispatchEvent(new Event('dsh-codex-subscription:refresh-quick-quota')) },
       loadAntigravity: async () => { await antigravity.load() },
       refreshAntigravityModels: async () => {
         await antigravity.refreshModels()

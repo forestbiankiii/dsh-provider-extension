@@ -86,6 +86,20 @@
 .quotaWindow progress::-moz-progress-bar { background: var(--account-brand); border-radius: 99px; }
 .quotaWindow small { font-size: 11px; }
 .quotaNote { display: block; margin-top: 6px; }
+.resetCredits { margin-top: 12px; min-width: 0; font-size: 12px; color: var(--dsw-alias-label-primary); }
+.resetCredits button { font: inherit; cursor: pointer; padding: 6px 10px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l1); border-radius: 7px; }
+.resetCredits button:disabled { opacity: .5; cursor: not-allowed; }
+.resetCredits button:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; }
+.resetDetails { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.resetDetails p { font-size: 12px; margin: 6px 0; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
+.resetCredit { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0; }
+.resetCredit > div { min-width: 0; overflow-wrap: anywhere; }
+.resetCredit small, .resetConfirmation > small { display: block; margin-top: 4px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
+.resetCredit button { flex: none; }
+.resetConfirmation { margin-top: 8px; }
+.resetConfirmation label { display: flex; align-items: flex-start; gap: 8px; line-height: 1.6; }
+.resetCredits .resetConfirmation input { width: 14px; height: 14px; margin: 3px 0 0; padding: 0; flex: none; accent-color: var(--dsw-alias-brand-primary); }
+.resetActions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .balance { display: flex; gap: 16px 36px; flex-wrap: wrap; margin: 14px 0 12px; }
 .balance > div, .metricGrid > div { display: flex; flex-direction: column; gap: 8px; }
 .balance span, .metricGrid span { color: var(--dsw-alias-label-secondary); font-size: 12px; }

@@ -3,7 +3,6 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client'
 import { UsagePage } from './UsagePage.tsx'
 import { en, zh, NS } from './locales.ts'
-import { cssText } from './UsagePage.module.css'
 
 // These root-scoped contracts are supplied by the live shell, not a runtime import.
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -22,7 +21,7 @@ export function applyUsagePage(ctx: Context, rpc: ClientConnectionRpc): void {
   ctx.slots.inject('main', () => ctx.slots.register({
     name: 'main', key: 'provider-usage', locale: NS,
     inject: () => ({ rpc, language: () => ctx.locale.getSnapshot().active }),
-  }, props => <><style>{cssText}</style><UsagePage {...props} /></>))
+  }, UsagePage))
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
     name: 'sidebar.panellist', id: 'provider-usage', order: 10,
     label: () => ctx.locale.bind(NS)('title'),

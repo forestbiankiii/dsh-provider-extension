@@ -141,7 +141,7 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
       started = true; setBalancePending(true); setBalanceError(false)
       try {
         const value = await call<UsageBalances>(rpc, 'usage/balances', {
-          version: 'dsh-provider-extension/0.8.6', locale: language() === 'zh' ? 'zh-CN' : 'en-US', timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60,
+          version: 'dsh-provider-extension/0.8.7', locale: language() === 'zh' ? 'zh-CN' : 'en-US', timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60,
         }, request.signal)
         if (!request.signal.aborted) {
           if (!value.deepseek || !Array.isArray(value.deepseek.wallets) || !Array.isArray(value.deepseek.bonusWallets) || !Array.isArray(value.providers)) throw new Error('Invalid balance response')
@@ -211,7 +211,7 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
           {balancePending && !accountData ? <p role="status">{t('balanceLoading')}</p> : balance?.status !== 'ready' || balanceError ? <p role="status">{t(balanceStatus)}</p> : null}<p>{t('balanceHint')}</p>
         </section> },
         ...providerBalances.map(provider => ({ id: `${provider.provider}/${provider.accountId ?? ''}`, label: provider.accountId ? `${provider.name} · ${provider.label}` : provider.name,
-          content: <ProviderBalances providers={[provider]} t={t} locale={locale} /> })),
+          content: <ProviderBalances providers={[provider]} t={t} locale={locale} rpc={rpc} onReset={() => { setBalanceRevision(value => value + 1); window.dispatchEvent(new Event('dsh-codex-subscription:refresh-quick-quota')) }} /> })),
       ]} />
       {balanceError && <p role="status">{t('accountBalancesFailed')}</p>}
     </section>

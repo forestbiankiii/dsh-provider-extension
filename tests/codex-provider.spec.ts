@@ -91,6 +91,21 @@ describe('Codex subscription account integration', () => {
     expect(controller.store.getSnapshot().restoreFailed).toBe(true)
   })
 
+  it('refreshes quota after a selected-account reset without switching the inference account', async () => {
+    const call = vi.fn(async (_namespace: string, endpoint: string) => ({ ok: true, value: endpoint.endsWith('/status') ? { authenticated: true, accounts } : usage }))
+    const controller = new CodexAccountsController({ call } as never)
+    await controller.load()
+    await waitForUsage(controller)
+    call.mockClear()
+    await controller.readQuotaForAccount('personal')
+    expect(call).toHaveBeenCalledExactlyOnceWith('/api', 'codex-subscription/usage', { id: 'personal', force: true })
+    expect(controller.store.getSnapshot().accounts.find(account => account.active)?.id).toBe('work')
+    expect(controller.store.getSnapshot().usage.personal).toMatchObject({ status: 'ready', value: { weeklyPercent: 76 } })
+    await expect(controller.readQuotaForAccount('missing')).rejects.toThrow('Unknown Codex account')
+    expect(call).toHaveBeenCalledOnce()
+    controller.dispose()
+  })
+
   it('retains the previous roster when switching fails', async () => {
     const call = vi.fn()
       .mockImplementationOnce(() => ok({ authenticated: true, accounts }))

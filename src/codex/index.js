@@ -3435,7 +3435,7 @@ function credentialsOf(auth, credential) {
 }
 function expirationOf(value) {
 	if (value === void 0 || value === null) return void 0;
-	if (Number.isSafeInteger(value) && value > 0) return value * 1e3;
+	if (Number.isSafeInteger(value) && value > 0 && Number.isFinite(new Date(value * 1e3).getTime())) return value * 1e3;
 	if (typeof value === "string" && value.length > 0 && value.length <= 64) {
 		const parsed = Date.parse(value);
 		if (Number.isFinite(parsed) && parsed > 0) return parsed;
@@ -3444,7 +3444,7 @@ function expirationOf(value) {
 }
 function parseDetails(value, now) {
 	if (!record(value) || !Number.isSafeInteger(value.available_count) || value.available_count < 0 || !Array.isArray(value.credits)) throw new Error("ChatGPT returned malformed quota reset details");
-	if (value.available_count === 0) throw new Error("No quota reset is available");
+	if (value.available_count === 0) return { availableCount: 0, credits: [] };
 	const available = value.credits.filter((credit) => record(credit) && typeof credit.id === "string" && credit.id.length > 0 && credit.id.length <= 256 && typeof credit.status === "string" && credit.status.toLowerCase() === "available").map((credit) => {
 		return {
 			credit,
@@ -3550,7 +3550,7 @@ function createCodexResetCreditService(options) {
 		async prepare({ creditRef, signal } = {}) {
 			const credentials = await resolveCredentials(signal);
 			for (const [challengeId, challenge] of challenges) {
-				if (challenge.accountId === credentials.accountId && challenge.uncertain === false && challenge.creditRef === creditRef) if (now() > challenge.expiresAt) challenges.delete(challengeId);
+				if (challenge.accountId === credentials.accountId && challenge.uncertain === false && challenge.creditRef === creditRef) if (now() >= challenge.expiresAt) challenges.delete(challengeId);
 				else return {
 					challengeId,
 					availableCount: challenge.availableCount,
@@ -3561,7 +3561,7 @@ function createCodexResetCreditService(options) {
 					...challenge.description === void 0 ? {} : { description: challenge.description }
 				};
 				if (challenge.accountId !== credentials.accountId || challenge.uncertain !== true || creditRef !== void 0 && challenge.creditRef !== creditRef) continue;
-				if (now() > challenge.expiresAt) {
+				if (now() >= challenge.expiresAt) {
 					challenges.delete(challengeId);
 					continue;
 				}
@@ -3618,7 +3618,7 @@ function createCodexResetCreditService(options) {
 			if (challenge === void 0) throw new Error("This quota reset confirmation is no longer valid");
 			if (challenge.state === "pending") throw new Error("This quota reset is already in progress");
 			if (now() < challenge.readyAt) throw new Error("Wait before confirming this quota reset");
-			if (now() > challenge.expiresAt) {
+			if (now() >= challenge.expiresAt) {
 				challenges.delete(challengeId);
 				throw new Error("This quota reset confirmation is no longer valid");
 			}
@@ -3677,10 +3677,11 @@ function createCodexResetCreditService(options) {
 					throw new Error(UNCERTAIN_RESET_RESULT);
 				}
 				retryable = false;
-				usageReader.clear();
+				// Redemption is already complete; a forecast persistence failure must not invite another consume.
+				try { await usageReader.clear(); } catch {}
 				return result;
 			} finally {
-				if (retryable && now() <= challenge.expiresAt) {
+				if (retryable && now() < challenge.expiresAt) {
 					challenge.state = "prepared";
 					challenge.uncertain = true;
 				} else challenges.delete(challengeId);
@@ -3703,6 +3704,29 @@ const publicError = (code, message) => ({
 	}
 });
 function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, getAccountAuth, accountModels, network, resetCreditService, preferences, diagnosticsReader, modelCatalog, originalImages, resolveInheritedOriginal }) {
+	// Account-bound challenges never switch the active inference account.
+	const accountResetServices = new Map();
+	const resetServiceFor = async (id) => {
+		if ((await accountVault.readById(id))?.type !== "oauth") throw new Error("ChatGPT subscription is not signed in");
+		let service = accountResetServices.get(id);
+		if (!service) {
+			if (accountResetServices.size >= 64) throw new Error("Too many quota reset account sessions");
+			service = createCodexResetCreditService({
+				getAuth: ({ signal }) => getAccountAuth(id, signal),
+				readCredential: async () => {
+					const credential = await accountVault.readById(id);
+					if (credential?.type !== "oauth") return credential;
+					const jwt = decodeJwtPayload(credential.access);
+					return { ...credential, accountId: credential.accountId ?? jwt?.["https://api.openai.com/auth"]?.chatgpt_account_id ?? jwt?.["https://api.openai.com/auth"]?.account_id };
+				},
+				// Clear only this account's forecast, not the active account's history.
+				usageReader: { clear: () => usageReader.clearScope(id) },
+				fetch: (input, init) => network?.fetch ? network.fetch("quota-reset", input, init) : fetch(input, init)
+			});
+			accountResetServices.set(id, service);
+		}
+		return service;
+	};
 	return async (endpoint, payload, signal) => {
 		if (endpoint === "image/original/chunk") try {
 			signal.throwIfAborted();
@@ -3825,12 +3849,15 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 		}
 		if (endpoint === "reset-credit/inspect" || endpoint === "reset-credit/prepare" || endpoint === "reset-credit/consume") try {
 			signal.throwIfAborted();
+			const targeted = payload != null && Object.hasOwn(payload, "id");
+			if (targeted && (typeof payload.id !== "string" || payload.id.length === 0 || payload.id.length > 512 || !getAccountAuth || !accountVault)) return publicError("bad-request", "Invalid Codex account");
+			const service = targeted ? await resetServiceFor(payload.id) : resetCreditService;
 			return {
 				ok: true,
-				value: endpoint === "reset-credit/inspect" ? await resetCreditService.inspect({ signal }) : endpoint === "reset-credit/prepare" ? await resetCreditService.prepare({
+				value: endpoint === "reset-credit/inspect" ? await service.inspect({ signal }) : endpoint === "reset-credit/prepare" ? await service.prepare({
 					creditRef: payload?.creditRef,
 					signal
-				}) : await resetCreditService.consume({
+				}) : await service.consume({
 					challengeId: payload?.challengeId,
 					acknowledged: payload?.acknowledged,
 					signal
@@ -3847,7 +3874,8 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 				"This quota reset confirmation is no longer valid",
 				"This quota reset is already in progress",
 				"Wait before confirming this quota reset",
-				"You must acknowledge that one quota reset will be consumed",
+				"You must acknowledge that this may consume one quota reset",
+				UNCERTAIN_RESET_RESULT,
 				"The signed-in ChatGPT account changed"
 			]);
 			const fallback = endpoint === "reset-credit/inspect" ? "Could not read quota reset details" : endpoint === "reset-credit/prepare" ? "Could not prepare a quota reset" : "Could not use the quota reset";
@@ -3855,10 +3883,16 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 			return publicError("internal", message);
 		}
 		const result = await authHandler(endpoint, payload, signal);
-		if (endpoint === "account/remove" && result.ok === true && typeof payload?.id === "string") await usageReader.clearScope(payload.id);
+		if (endpoint === "account/remove" && result.ok === true && typeof payload?.id === "string") {
+			await usageReader.clearScope(payload.id);
+			accountResetServices.get(payload.id)?.clear();
+			accountResetServices.delete(payload.id);
+		}
 		if (endpoint === "logout" && result.ok === true) {
 			await usageReader.clear();
 			resetCreditService.clear();
+			for (const service of accountResetServices.values()) service.clear();
+			accountResetServices.clear();
 			modelCatalog?.clear();
 		} else if (result.ok === true && (endpoint === "account/select" || endpoint === "account/remove" || endpoint === "login/status" && result.value?.authenticated === true)) {
 			usageReader.clearCache();

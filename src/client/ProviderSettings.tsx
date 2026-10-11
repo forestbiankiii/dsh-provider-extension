@@ -22,6 +22,7 @@ import css from './ProviderSettings.module.css'
 import { ProviderIcon } from './ProviderIcon.tsx'
 import { ClaudeSettings } from './ClaudeSettings.tsx'
 import type { ClaudeClientState } from './providers/claude.ts'
+import { CodexResetCredits, type CodexResetCreditsProps } from './usage/CodexResetCredits.tsx'
 
 /** Per-surface actions and stores injected by the client plugin. */
 export interface ProviderSettingsInjected {
@@ -43,7 +44,8 @@ export interface ProviderSettingsInjected {
   selectCodexAccount?: (id: string) => Promise<void>
   renameCodexAccount?: (id: string, label: string) => Promise<void>
   removeCodexAccount: (id: string) => Promise<void>
-  resetCodexQuota?: (id: string) => Promise<void>
+  codexReset?: Pick<CodexResetCreditsProps, 'rpc' | 't' | 'locale'>
+  onCodexReset?: (id: string) => Promise<void>
   loadAntigravity: () => Promise<void>
   refreshAntigravityModels: () => Promise<void>
   loginAntigravity: () => Promise<void>
@@ -175,7 +177,7 @@ function formatResetSeconds(epochSeconds?: number): string {
 
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
 export function ProviderSettings({
-  useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, resetCodexQuota,
+  useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, codexReset, onCodexReset,
   loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota,
   useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, useClaude, loadClaude, loginClaude, loadClaudeModels, t,
 }: ProviderSettingsProps): ReactNode {
@@ -567,19 +569,7 @@ export function ProviderSettings({
                               <span className={css.cockpitMuted}>Team Name:</span>
                               <span className={css.cockpitText}>个人账户</span>
                             </div>
-                            {usage?.status === 'ready' && usage.value.resetCredits !== undefined ? (
-                              <button
-                                type="button"
-                                className={css.cockpitResetBtn}
-                                onClick={e => {
-                                  e.stopPropagation()
-                                  if (resetCodexQuota) void resetCodexQuota(account.id)
-                                }}
-                                title="消耗重置额度重置 5h 额度"
-                              >
-                                ⟳ 重置 {usage.value.resetCredits}
-                              </button>
-                            ) : null}
+                            {codexReset && usage?.status === 'ready' && usage.value.resetCredits !== undefined && <CodexResetCredits {...codexReset} key={account.id} accountId={account.id} label={account.label} availableCount={usage.value.resetCredits} onReset={() => onCodexReset?.(account.id)} />}
                           </div>
 
                           {/* Sub-row 2: 登录方式与用户 ID */}
@@ -1473,19 +1463,7 @@ export function ProviderSettings({
                                 <span className={css.cockpitMuted}>Team Name:</span>
                                 <span className={css.cockpitText}>个人账户</span>
                               </div>
-                              {usage?.status === 'ready' && usage.value.resetCredits !== undefined ? (
-                                <button
-                                  type="button"
-                                  className={css.cockpitResetBtn}
-                                  onClick={e => {
-                                    e.stopPropagation()
-                                    if (resetCodexQuota) void resetCodexQuota(account.id)
-                                  }}
-                                  title="消耗重置额度重置 5h 额度"
-                                >
-                                  ⟳ 重置 {usage.value.resetCredits}
-                                </button>
-                              ) : null}
+                              {codexReset && usage?.status === 'ready' && usage.value.resetCredits !== undefined && <CodexResetCredits {...codexReset} key={account.id} accountId={account.id} label={account.label} availableCount={usage.value.resetCredits} onReset={() => onCodexReset?.(account.id)} />}
                             </div>
 
                             {/* Sub-row 2: 登录方式与用户 ID */}

@@ -449,19 +449,16 @@ export class CodexAccountsController {
     }
   }
 
-  /** Consume one quota reset credit for an account. */
-  async consumeResetCredit(id: string): Promise<void> {
+  /** Refresh after an explicit account-bound reset without switching inference accounts. */
+  async readQuotaForAccount(id: string): Promise<void> {
+    if (!this.store.getSnapshot().accounts.some(account => account.id === id)) throw new Error('Unknown Codex account')
+    const generation = this.generation
+    this.setUsage(id, LOADING)
     try {
-      const prepare = await call(this.rpc, 'reset-credit/prepare' as any, {}) as { challengeId?: string }
-      if (prepare?.challengeId) {
-        await call(this.rpc, 'reset-credit/consume' as any, {
-          challengeId: prepare.challengeId,
-          acknowledged: true,
-        })
-        await this.readQuota(id)
-      }
+      const value = decodeQuota(await call(this.rpc, 'usage', { id, force: true }))
+      if (!this.disposed && generation === this.generation) this.setUsage(id, { status: 'ready', value })
     } catch (error) {
-      this.setUsage(id, { status: 'error', message: failureMessage(error) })
+      if (!this.disposed && generation === this.generation) this.setUsage(id, { status: 'error', message: failureMessage(error) })
       throw error
     }
   }

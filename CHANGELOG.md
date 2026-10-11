@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.8.7
+
+- Add account-card actions to inspect each Codex quota reset credit, its provider-reported expiry, and choose which credit to redeem. Missing expiry stays explicitly unknown. Reading details never redeems a credit; redemption requires a selected credit, acknowledgement, and the Host's five-second confirmation delay.
+- Bind reset inspection, preparation and consumption to the explicit saved account without switching the active inference account. Keep challenges and opaque credit references account-scoped, reject cross-account/expired confirmations, preserve idempotency on uncertain outcomes, and refresh quotas after redemption. Replace the old settings reset shortcut with the same confirmed flow; only the user can redeem credits.
+
 ## 0.8.6
 
 - Hide the Anthropic Claude provider from the composer provider picker until the official Claude Code CLI confirms a signed-in account. Missing, signed-out, checking and failed CLI states remain hidden; the provider appears reactively once login is confirmed. Probe CLI status at startup and avoid a duplicate status call when the settings view opens during that check.

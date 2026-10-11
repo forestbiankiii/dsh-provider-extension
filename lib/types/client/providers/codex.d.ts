@@ -96,8 +96,8 @@ export declare class CodexAccountsController {
     login(): Promise<void>;
     /** Rename one saved ChatGPT account. */
     renameAccount(id: string, label: string): Promise<void>;
-    /** Consume one quota reset credit for an account. */
-    consumeResetCredit(id: string): Promise<void>;
+    /** Refresh after an explicit account-bound reset without switching inference accounts. */
+    readQuotaForAccount(id: string): Promise<void>;
     /** Remove one saved ChatGPT account. */
     removeAccount(id: string): Promise<void>;
     /** Reload the roster only when a surface already asked for it. */

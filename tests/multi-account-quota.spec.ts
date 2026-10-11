@@ -14,7 +14,7 @@ const source = readFileSync(new URL('../src/codex/index.js', import.meta.url), '
 // Exercise the actual vendored vault/store, isolated from unrelated DSH adapter imports.
 const region = (name: string) => source.split(`//#region src/${name}.js\n`)[1]!.split('//#endregion')[0]!
 const { Vault, Store, rpc } = new Function('randomUUID', 'readCodexAccountUsage', 'CODEX_USAGE_URL', 'USER_AGENT', 'DEFAULT_TIMEOUT_MS$1', 'parseCodexUsage',
-  `${region('account-vault')}\n${region('credential-store').split('/** Return only account state')[0]}\n${region('subscription-rpc')}\nreturn { Vault: DshOAuthAccountVault, Store: DshOAuthCredentialStore, rpc: createSubscriptionRpcHandler }`)(randomUUID, readCodexAccountUsage, 'https://chatgpt.com/backend-api/wham/usage', 'test', 15000, (value: unknown) => value)
+  `${region('account-vault')}\n${region('credential-store').split('/** Return only account state')[0]}\n${region('reset-credits')}\n${region('subscription-rpc')}\nreturn { Vault: DshOAuthAccountVault, Store: DshOAuthCredentialStore, rpc: createSubscriptionRpcHandler }`)(randomUUID, readCodexAccountUsage, 'https://chatgpt.com/backend-api/wham/usage', 'test', 15000, (value: unknown) => value)
 
 function vaultFixture() {
   const credential = (accountId: string, expires: number) => ({ type: 'oauth', accountId, access: `${accountId}-old`, refresh: `${accountId}-refresh`, expires, email: `${accountId}@example.com` })

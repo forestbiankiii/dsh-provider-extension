@@ -3,8 +3,10 @@ import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import type { UsageProviderBalance } from '../../usage/types.ts'
 import type { UsageKey } from './locales.ts'
 import css from './UsagePage.module.css'
+import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client'
+import { CodexResetCredits } from './CodexResetCredits.tsx'
 
-export function ProviderBalances({ providers, t, locale }: { providers: UsageProviderBalance[]; t: Translate<UsageKey>; locale: string }) {
+export function ProviderBalances({ providers, t, locale, rpc, onReset }: { providers: UsageProviderBalance[]; t: Translate<UsageKey>; locale: string; rpc?: ClientConnectionRpc; onReset?: () => void }) {
   const number = (value: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value)
   const status: Record<Exclude<UsageProviderBalance['status'], 'ready'>, UsageKey> = {
     'signed-out': 'quotaSignedOut', failed: 'quotaFailed', unsupported: 'quotaUnsupported', inactive: 'quotaInactive', unavailable: 'quotaUnavailable',
@@ -27,6 +29,7 @@ export function ProviderBalances({ providers, t, locale }: { providers: UsagePro
       })}
       {(provider.credits !== null || provider.unlimitedCredits) && <p>{t('quotaCredits')}: <strong>{provider.unlimitedCredits ? t('quotaUnlimited') : provider.credits}</strong><small className={css.quotaNote}>{t('quotaCreditsHint')}</small></p>}
       {provider.resetCredits !== null && <p>{t('quotaResetCredits')}: <strong>{number(provider.resetCredits)}</strong></p>}
+      {rpc && provider.provider === 'openai-codex' && provider.accountId && provider.resetCredits !== null && <CodexResetCredits key={provider.accountId} rpc={rpc} accountId={provider.accountId} label={provider.label} availableCount={provider.resetCredits} t={t} locale={locale} onReset={onReset} />}
     </>}
   </section>)}</>
 }
