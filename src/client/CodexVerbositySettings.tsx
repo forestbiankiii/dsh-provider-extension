@@ -67,10 +67,9 @@ export function CodexVerbositySettings({ rpc, subscribe, t }: CodexVerbosityProp
     <p className={css.note}>{t('codexVerbosityHint')}</p>
     {view && !view.writable && <p className={css.note}>{t('codexVerbosityReadOnly')}</p>}
     {error && <p className={css.error} role="alert">{error}</p>}
-    <div className={css.actions}>
-      <button type="button" className={css.action} disabled={reading || pending} onClick={() => { setSaved(false); setRevision(value => value + 1) }}>{t('providerRefresh')}</button>
+    {(reading || pending || saved) && <div className={css.actions}>
       {(reading || pending) ? <span className={css.note} role="status">{t(pending ? 'providerWorking' : 'providerChecking')}</span>
-        : saved ? <span className={css.saveSuccessMsg} role="status">{t('codexVerbositySaved')}</span> : null}
-    </div>
+        : <span className={css.saveSuccessMsg} role="status">{t('codexVerbositySaved')}</span>}
+    </div>}
   </div>
 }

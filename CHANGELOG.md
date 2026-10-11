@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.10.1
+
+- Remove the redundant Refresh button from the Codex response-detail setting in both Settings views. Retain automatic saves, configuration-change synchronization, error messages and fresh reads when reopening; omit the empty status row when idle.
+
 ## 0.10.0
 
 - Add the explicitly approved Codex response-detail control: Default / Concise / Balanced / Detailed, shared once per provider in both quick and full Settings. Read the acknowledged Host value, persist automatically on selection, disable duplicate/read-only writes, show failures and refresh external changes. No browser-only preference storage.

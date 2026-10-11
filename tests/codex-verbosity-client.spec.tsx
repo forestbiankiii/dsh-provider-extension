@@ -23,6 +23,7 @@ describe('Codex response detail control', () => {
     await waitFor(() => expect(select.disabled).toBe(false))
     expect([...select.options].map(option => option.textContent)).toEqual([copy.codexVerbosityDefault, copy.codexVerbosityLow, copy.codexVerbosityMedium, copy.codexVerbosityHigh])
     expect(f.call).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: copy.providerRefresh })).toBeNull()
     for (const value of ['low', 'medium', 'high', 'default']) {
       fireEvent.change(select, { target: { value } })
       await waitFor(() => expect(select.disabled).toBe(false))
@@ -61,11 +62,13 @@ describe('Codex response detail control', () => {
     await waitFor(() => expect(select.value).toBe('low'))
     f.view.unmount(); expect(f.dispose).toHaveBeenCalledOnce()
   })
-  it('shows a failed initial read and supports an explicit refresh', async () => {
+  it('shows initial failures and re-reads on reopening without a separate refresh button', async () => {
     const call = vi.fn().mockResolvedValueOnce({ ok: false, error: { message: 'offline' } }).mockResolvedValueOnce({ ok: true, value: { outputVerbosity: 'medium', outputVerbosityWritable: true } })
-    render(<CodexVerbositySettings rpc={{ call } as never} t={key => en[key]} />)
+    const view = render(<CodexVerbositySettings rpc={{ call } as never} t={key => en[key]} />)
     await screen.findByText('offline')
-    fireEvent.click(screen.getByRole('button', { name: en.providerRefresh }))
+    expect(screen.queryByRole('button', { name: en.providerRefresh })).toBeNull()
+    view.unmount()
+    render(<CodexVerbositySettings rpc={{ call } as never} t={key => en[key]} />)
     await waitFor(() => expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('medium'))
   })
   it('rejects malformed or non-acknowledged responses instead of using browser-only state', async () => {
