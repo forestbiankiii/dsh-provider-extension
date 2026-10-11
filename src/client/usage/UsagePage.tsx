@@ -65,7 +65,20 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
   const providerBalances = accountData?.providers ?? []
   const [balancePending, setBalancePending] = useState(false)
   const [balanceError, setBalanceError] = useState(false)
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [heatHover, setHeatHover] = useState<{ date: string; left: number; top: number; above: boolean } | null>(null)
+  const heatTooltipId = useId()
+  const heatCloseTimer = useRef<ReturnType<typeof setTimeout>>()
+  const cancelHeatClose = () => { clearTimeout(heatCloseTimer.current); heatCloseTimer.current = undefined }
+  const closeHeat = () => { cancelHeatClose(); setHeatHover(null) }
+  const leaveHeat = () => { cancelHeatClose(); heatCloseTimer.current = setTimeout(closeHeat, 100) }
+  const showHeat = (date: string, cell: HTMLButtonElement) => {
+    cancelHeatClose()
+    const bounds = cell.getBoundingClientRect()
+    const viewport = cell.closest(`.${css.page}`)?.getBoundingClientRect()
+    const above = Math.min(window.innerHeight, viewport?.bottom || window.innerHeight) - bounds.bottom < 200 && bounds.top - Math.max(0, viewport?.top ?? 0) > 200
+    setHeatHover({ date, left: cell.offsetLeft + cell.offsetWidth / 2, top: cell.offsetTop + (above ? -8 : cell.offsetHeight + 8), above })
+  }
+  useEffect(() => () => { clearTimeout(heatCloseTimer.current) }, [])
   const [rank, setRank] = useState<'providers' | 'models' | 'workspaces' | 'sessions'>('providers')
   const [page, setPage] = useState(0)
   const queryKey = JSON.stringify(query)
@@ -75,7 +88,7 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
   useEffect(() => {
     const element = heatViewport.current
     if (!element) return
-    const resize = (width: number) => { if (width > 0) setHeatCount(heatmapDayCount(width)) }
+    const resize = (width: number) => { if (width > 0) { closeHeat(); setHeatCount(heatmapDayCount(width)) } }
     resize(element.clientWidth)
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(entries => { if (entries[0]) resize(entries[0].contentRect.width) })
@@ -87,7 +100,7 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
     let disposed = false
     let timer: ReturnType<typeof setTimeout> | undefined
     let request: AbortController | undefined
-    setReport(null); setError(false); setPage(0); setSelectedDate(null)
+    setReport(null); setError(false); setPage(0); closeHeat()
     const read = async () => {
       if (disposed || document.hidden) return
       request?.abort(); request = new AbortController()
@@ -128,7 +141,7 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
       started = true; setBalancePending(true); setBalanceError(false)
       try {
         const value = await call<UsageBalances>(rpc, 'usage/balances', {
-          version: 'dsh-provider-extension/0.8.2', locale: language() === 'zh' ? 'zh-CN' : 'en-US', timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60,
+          version: 'dsh-provider-extension/0.8.3', locale: language() === 'zh' ? 'zh-CN' : 'en-US', timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60,
         }, request.signal)
         if (!request.signal.aborted) {
           if (!value.deepseek || !Array.isArray(value.deepseek.wallets) || !Array.isArray(value.deepseek.bonusWallets) || !Array.isArray(value.providers)) throw new Error('Invalid balance response')
@@ -158,7 +171,7 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
   const days = calendarDays(endDate, query.days || 365)
   const daily = new Map(report?.daily.map(day => [day.date, day]))
   const maximum = Math.max(1, ...heatDays.map(date => daily.get(date)?.metrics.totalTokens ?? 0))
-  const selected = selectedDate ? daily.get(selectedDate) : undefined
+  const selected = heatHover ? daily.get(heatHover.date) : undefined
   const metrics = report?.overview.period
   const money = (metrics: UsageMetrics | undefined) => metrics?.costs.length
     ? metrics.costs.map(cost => `${cost.currency} ${new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(cost.amount)}`).join(' · ')
@@ -171,7 +184,7 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
   const modelOptions = options.models.filter(model => !query.provider || model.provider === query.provider)
   const balanceStatus = balanceError ? 'balanceFailed' : balance?.status === 'signed-out' ? 'signedOut' : balance?.status === 'failed' ? 'balanceFailed' : 'balanceUnavailable'
 
-  return <section className={css.page} aria-label={t('title')}>
+  return <section className={css.page} aria-label={t('title')} onScroll={closeHeat}>
     <header className={css.header}><div><h1>{t('title')}</h1><p>{t('intro')}</p></div><button type="button" onClick={refresh}>{pending ? t('updating') : t('refresh')}</button></header>
     <div className={css.filters}>
       <label>{t('range')}<select value={query.days} onChange={event => setQuery(current => ({ ...current, days: Number(event.target.value) as UsageQuery['days'] }))}>{ranges.map(value => <option key={value} value={value}>{t(value === 0 ? 'all' : `days${value}`)}</option>)}</select></label>
@@ -209,10 +222,19 @@ export function UsagePage({ rpc, t, language }: UsagePageProps) {
           const tokens = day?.metrics.totalTokens ?? 0
           const level = tokens === 0 ? 0 : Math.max(1, Math.ceil(tokens / maximum * 4))
           const label = t('dayTitle', { date, tokens: tokenNumber(tokens), steps: number(day?.metrics.requests ?? 0) })
-          return <button type="button" key={date} className={css.heatCell} data-level={level} aria-label={label} title={label} aria-pressed={selectedDate === date} onClick={() => setSelectedDate(selectedDate === date ? null : date)} />
-        })}</div><div className={css.heatDates}><span>{heatDays[0]}</span><span>{heatDays.at(-1)}</span></div></div></div>
+          return <button type="button" key={date} className={css.heatCell} data-level={level} data-active={heatHover?.date === date} aria-label={label} aria-describedby={heatHover?.date === date ? heatTooltipId : undefined}
+            onMouseEnter={event => showHeat(date, event.currentTarget)} onMouseLeave={leaveHeat}
+            onFocus={event => showHeat(date, event.currentTarget)} onBlur={closeHeat} onKeyDown={event => { if (event.key === 'Escape') closeHeat() }} />
+        })}</div><div className={css.heatDates}><span>{heatDays[0]}</span><span>{heatDays.at(-1)}</span></div>
+          {heatHover && <div id={heatTooltipId} role="tooltip" className={`${css.trendTooltip} ${css.heatTooltip}`} data-above={heatHover.above}
+            style={{ left: `clamp(8px, ${heatHover.left - 110}px, max(8px, calc(100% - 228px)))`, top: heatHover.top }} onMouseEnter={cancelHeatClose} onMouseLeave={leaveHeat}>
+            <strong>{heatHover.date}</strong>
+            {selected ? <dl>{([
+              ['tokens', selected.metrics.totalTokens], ['steps', selected.metrics.requests], ['input', selected.metrics.inputTokens], ['output', selected.metrics.outputTokens],
+            ] as const).map(([key, value]) => <div key={key}><dt>{t(key)}</dt><dd title={number(value)}>{key === 'steps' ? number(value) : tokenNumber(value)}</dd></div>)}<div><dt>{t('cost')}</dt><dd>{money(selected.metrics)}</dd></div></dl> : <small>{t('dayUnknown')}</small>}
+          </div>}
+        </div></div>
         <div className={css.inlineMetrics}><span>{t('activeDays')}: {number(report.overview.activeDays)}</span><span>{t('streak')}: {number(report.overview.streak)}</span><span>{t('longestStreak')}: {number(report.overview.longestStreak)}</span></div>
-        {selectedDate && <div className={css.selectedDay}><div className={css.sectionHeading}><h3>{t('selectedDay', { date: selectedDate })}</h3><button type="button" onClick={() => setSelectedDate(null)}>{t('closeDay')}</button></div>{selected ? <div className={css.inlineMetrics}><span>{t('tokens')}: {tokenNumber(selected.metrics.totalTokens)}</span><span title={t('stepsHint')}>{t('steps')}: {number(selected.metrics.requests)}</span><span>{t('input')}: {tokenNumber(selected.metrics.inputTokens)}</span><span>{t('output')}: {tokenNumber(selected.metrics.outputTokens)}</span><span>{t('cost')}: {money(selected.metrics)}</span></div> : <p>{t('dayUnknown')}</p>}</div>}
       </section>
       <section className={css.panel} aria-label={t('trend')}><h2>{t('trend')}</h2>{query.days === 0 && <p>{t('yearOnly')}</p>}<Trend days={days} daily={daily} t={t} number={number} tokenNumber={tokenNumber} /><div className={css.inlineMetrics}>{(['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning'] as const).map((key, i) => <span key={key}>{t(key)}: {tokenNumber([metrics!.inputTokens, metrics!.outputTokens, metrics!.cacheReadTokens, metrics!.cacheWriteTokens, metrics!.reasoningTokens][i]!)}</span>)}</div></section>
       <section className={css.panel} aria-label={t('performance')}><h2>{t('performance')}</h2><div className={css.metricGrid}>

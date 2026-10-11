@@ -37,6 +37,44 @@ function setup(value = report(), providers: UsageProviderBalance[] = []) {
 }
 
 describe('usage page', () => {
+  it('opens heatmap details on hover/focus, permits hovering the popup and never pins on click', async () => {
+    const { call } = setup(report(150_000_000))
+    const cell = await screen.findByRole('button', { name: /2026-09-30: 1.5亿 tokens/ })
+    expect(cell.hasAttribute('title')).toBe(false)
+    fireEvent.click(cell)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    fireEvent.mouseEnter(cell)
+    const tooltip = screen.getByRole('tooltip')
+    expect(within(tooltip).getByText('2026-09-30')).toBeTruthy()
+    expect(within(tooltip).getAllByText('1.5亿')).toHaveLength(2)
+    expect(cell.getAttribute('aria-describedby')).toBe(tooltip.id)
+    fireEvent.mouseLeave(cell)
+    fireEvent.mouseEnter(tooltip)
+    await new Promise(resolve => setTimeout(resolve, 150))
+    expect(screen.getByRole('tooltip')).toBe(tooltip)
+    fireEvent.mouseLeave(tooltip)
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull())
+    fireEvent.focus(cell)
+    expect(screen.getByRole('tooltip')).toBeTruthy()
+    fireEvent.keyDown(cell, { key: 'Escape' })
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    fireEvent.focus(cell)
+    fireEvent.blur(cell)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    expect(call.mock.calls.filter(args => args[1] === 'usage/balances')).toHaveLength(1)
+  })
+  it('shows an unknown-day hint and positions lower-edge heatmap popups above their cell', async () => {
+    setup()
+    const cell = await screen.findByRole('button', { name: /2026-09-29: 0 tokens/ })
+    const bottom = window.innerHeight - 10
+    vi.spyOn(cell, 'getBoundingClientRect').mockReturnValue({ x: 900, y: bottom - 20, top: bottom - 20, bottom, left: 900, right: 920, width: 20, height: 20, toJSON: () => ({}) })
+    fireEvent.mouseEnter(cell)
+    const tooltip = screen.getByRole('tooltip')
+    expect(tooltip.getAttribute('data-above')).toBe('true')
+    expect(within(tooltip).getByText(en.dayUnknown)).toBeTruthy()
+    fireEvent.mouseLeave(cell)
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull())
+  })
   it.each([[0, '0'], [9999, '9,999'], [10_000, '1万'], [12_000, '1.2万'], [123_456, '12.35万'], [100_000_000, '1亿'], [150_000_000, '1.5亿'], [1_234_567_890, '12.35亿']] as const)('formats Token count %s as %s', (value, expected) => {
     expect(formatTokenCount(value)).toBe(expected)
   })
@@ -86,15 +124,15 @@ describe('usage page', () => {
     expect(walletHeading.parentElement?.nextElementSibling?.textContent).toMatch(/^Checked /)
     expect(screen.getByText(t('reportedOnly', { missing: 1, partial: 0 }))).toBeTruthy()
     expect(screen.getByRole('img', { name: new RegExp(en.trend) }).querySelector('polyline')?.getAttribute('points')).toBeTruthy()
-    expect(view.container.querySelectorAll('[data-level][aria-pressed]')).toHaveLength(84)
+    expect(view.container.querySelectorAll('[data-level][aria-label]')).toHaveLength(84)
     expect(screen.queryByText(en.less)).toBeNull()
     expect(screen.queryByText(en.more)).toBeNull()
     expect(view.container.querySelectorAll('i[data-level]')).toHaveLength(0)
     expect(screen.queryByText('Channel 20')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: en.next }))
     expect(screen.getByText('Channel 20')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /2026-09-30: 100 tokens/ }))
-    expect(screen.getByRole('heading', { name: 'Selected day: 2026-09-30' })).toBeTruthy()
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /2026-09-30: 100 tokens/ }))
+    expect(within(screen.getByRole('tooltip')).getByText('2026-09-30')).toBeTruthy()
     fireEvent.click(screen.getByText(en.prices))
     const inputs = screen.getAllByRole('spinbutton') as HTMLInputElement[]
     expect(inputs).toHaveLength(4)
@@ -261,7 +299,7 @@ describe('usage page', () => {
     await screen.findByRole('heading', { name: en.activity })
     const resize = (width: number) => act(() => resized([{ contentRect: { width } } as ResizeObserverEntry], {} as ResizeObserver))
     resize(380)
-    let cells = [...view.container.querySelectorAll('[data-level][aria-pressed]')]
+    let cells = [...view.container.querySelectorAll('[data-level][aria-label]')]
     expect(cells).toHaveLength(112)
     expect(cells[0]?.getAttribute('aria-label')).toContain(calendarDays('2026-09-30', 112)[0])
     expect(cells.at(-1)?.getAttribute('aria-label')).toContain('2026-09-30')
@@ -273,11 +311,11 @@ describe('usage page', () => {
     expect(activity.textContent).toContain(calendarDays('2026-09-30', 112)[0])
     expect((cells[0]?.parentElement as HTMLElement).style.gridTemplateColumns).toBe('repeat(16, 20px)')
     resize(1900)
-    cells = [...view.container.querySelectorAll('[data-level][aria-pressed]')]
+    cells = [...view.container.querySelectorAll('[data-level][aria-label]')]
     expect(cells).toHaveLength(364)
     expect((cells[0]?.parentElement as HTMLElement).style.gridTemplateColumns).toBe('repeat(52, 20px)')
     resize(188)
-    cells = [...view.container.querySelectorAll('[data-level][aria-pressed]')]
+    cells = [...view.container.querySelectorAll('[data-level][aria-label]')]
     expect(cells).toHaveLength(56)
     view.unmount()
     expect(disconnect).toHaveBeenCalledOnce()

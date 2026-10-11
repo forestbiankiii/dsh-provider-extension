@@ -90,7 +90,7 @@
 .balance span, .metricGrid span { color: var(--dsw-alias-label-secondary); font-size: 12px; }
 .balance strong { font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .heatScroll { width: 100%; padding: 8px 0; }
-.heatCalendar { width: 100%; }
+.heatCalendar { width: 100%; position: relative; }
 .heatmap { display: grid; grid-template-rows: repeat(7, 20px); grid-auto-flow: column; justify-content: space-between; gap: 4px; width: 100%; }
 .page .heatCell { padding: 0; border-radius: 3px; border: 0; box-sizing: border-box; min-width: 0; min-height: 0; width: 20px; height: 20px; aspect-ratio: 1; background: var(--dsw-alias-bg-layer-2); }
 .heatDates { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--dsw-alias-label-secondary); font-size: 11px; }
@@ -98,11 +98,12 @@
 .page .heatCell[data-level='2'] { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, var(--dsw-alias-bg-layer-2)); }
 .page .heatCell[data-level='3'] { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 70%, var(--dsw-alias-bg-layer-2)); }
 .page .heatCell[data-level='4'] { background: var(--dsw-alias-brand-primary); }
-.page .heatCell[aria-pressed='true'] { outline: 2px solid var(--dsw-alias-label-primary); outline-offset: 1px; }
+.page .heatCell[data-active='true'] { outline: 2px solid var(--dsw-alias-label-primary); outline-offset: 1px; }
 .page .heatCell:hover { background: var(--dsw-alias-brand-primary); }
 .inlineMetrics { display: flex; flex-wrap: wrap; gap: 10px 24px; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1.8; }
-.selectedDay { border-top: 1px solid var(--usage-border, var(--dsw-alias-border-l1)); padding-top: 14px; margin-top: 14px; }
-.selectedDay .sectionHeading { margin-bottom: 10px; }
+.heatCalendar .heatTooltip { z-index: 2; pointer-events: auto; background: var(--dsw-alias-bg-overlay); box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent); }
+.heatTooltip[data-above='true'] { transform: translateY(-100%); }
+.heatTooltip dd { max-width: 65%; text-align: right; overflow-wrap: anywhere; }
 .trendWrap { position: relative; }
 .trend { width: 100%; height: auto; display: block; color: var(--dsw-alias-brand-primary); }
 .trend:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: 8px; }
