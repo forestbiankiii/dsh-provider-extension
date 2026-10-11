@@ -21,10 +21,10 @@ export declare const usageStateSchema: z.ZodObject<{
         provider: z.ZodString;
         model: z.ZodString;
         status: z.ZodEnum<{
+            unknown: "unknown";
             cancelled: "cancelled";
             pending: "pending";
             failed: "failed";
-            unknown: "unknown";
             succeeded: "succeeded";
         }>;
         finalized: z.ZodBoolean;
@@ -80,10 +80,10 @@ export declare const usageProjectionDefinition: {
             provider: z.ZodString;
             model: z.ZodString;
             status: z.ZodEnum<{
+                unknown: "unknown";
                 cancelled: "cancelled";
                 pending: "pending";
                 failed: "failed";
-                unknown: "unknown";
                 succeeded: "succeeded";
             }>;
             finalized: z.ZodBoolean;
@@ -125,10 +125,10 @@ export declare const usageProjectionDefinition: {
                 provider: z.ZodString;
                 model: z.ZodString;
                 status: z.ZodEnum<{
+                    unknown: "unknown";
                     cancelled: "cancelled";
                     pending: "pending";
                     failed: "failed";
-                    unknown: "unknown";
                     succeeded: "succeeded";
                 }>;
                 finalized: z.ZodBoolean;

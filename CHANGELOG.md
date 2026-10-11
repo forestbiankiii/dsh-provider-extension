@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.9.0
+
+- First staged Codex expansion increment (awaiting user acceptance): set the native DSH default model for new conversations from either Settings surface, with the current default, per-model default badges, explicit save actions and persistence failures. Use the installed `agentDefaultModel` owner, without selecting a Session model or switching accounts. Changing the model clears incompatible previous reasoning selection; keeping the same Codex model retains its reasoning.
+- Validate the active saved account and its exact catalog on the Host, recheck account selection after catalog reads, reject unsupported/no-op persistence and duplicate writes, and share one operation between the authenticated page route and deferred `codex_default_model` tool. Keep browser model-visibility preferences independent and refresh native catalog/default observations after settings changes.
+- Record the remaining expansion roadmap, excluding web search. Only this increment is implemented; subsequent items wait for user acceptance. Add Host, transport, tool, client-response and both-settings-view regressions.
+
 ## 0.8.10
 
 - Remove the redundant account/selection hint above the reset-credit list in Settings and Statistics. Keep account binding, credit expiry details and explicit confirmation unchanged.

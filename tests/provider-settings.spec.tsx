@@ -19,7 +19,7 @@ const codexAccounts: CodexAccountsState = {
   usage: { work: { status: 'ready', value: { weeklyPercent: 76 } } },
 }
 
-function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emptyAccounts, catalogLoader?: (accountId: string) => Promise<readonly { id: string; name: string }[]>, codexReset?: ProviderSettingsProps['codexReset']) {
+function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emptyAccounts, catalogLoader?: (accountId: string) => Promise<readonly { id: string; name: string }[]>, codexReset?: ProviderSettingsProps['codexReset'], defaults?: Pick<ProviderSettingsProps, 'readDefaultModel' | 'setDefaultModel' | 'subscribeDefaultModel'>) {
   const loadAccounts = vi.fn(async () => {})
   const refreshAntigravityModels = vi.fn(async () => {})
   const loadCodexModels = catalogLoader ?? vi.fn(async () => [{ id: 'host-model', name: 'Host Model' }, { id: 'gpt-6-astra', name: 'GPT-6 Astra' }])
@@ -36,6 +36,7 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
     loadAccounts,
     loadCodexModels,
     ...(codexReset ? { codexReset } : {}),
+    ...defaults,
     readQuota: vi.fn(async () => {}),
     loginCodex,
     renameCodexAccount,
@@ -54,6 +55,53 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
 }
 
 describe('provider settings surface', () => {
+  it.each(['quick', 'detail'])('sets the native new-conversation default explicitly in %s settings', async mode => {
+    const readDefaultModel = vi.fn(async () => ({ selection: { provider: 'openai-codex', model: 'host-model' }, activeAccountId: 'work' }))
+    const setDefaultModel = vi.fn(async (_id: string, model: string) => ({ selection: { provider: 'openai-codex', model }, activeAccountId: 'work' }))
+    bench({ status: 'ready' }, codexAccounts, undefined, undefined, { readDefaultModel, setDefaultModel })
+    if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
+    else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
+    fireEvent.click(screen.getByRole('button', { name: en.quotaView }))
+    const button = await screen.findByRole('button', { name: en.defaultModelSetAria.replace('{model}', 'GPT-6 Astra') })
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false))
+    expect(setDefaultModel).not.toHaveBeenCalled()
+    expect(screen.getByText(en.defaultModelBadge)).toBeTruthy()
+    fireEvent.click(button)
+    await screen.findByText(en.defaultModelSaved)
+    expect(setDefaultModel).toHaveBeenCalledExactlyOnceWith('work', 'gpt-6-astra')
+    expect(screen.getByText(en.defaultModelBadge).closest('li')!.textContent).toContain('GPT-6 Astra')
+    expect(codexAccounts.accounts[0]!.active).toBe(true)
+  })
+  it('retains the previous default and shows persistence failure instead of a success badge', async () => {
+    const readDefaultModel = vi.fn(async () => ({ selection: { provider: 'openai-codex', model: 'host-model' }, activeAccountId: 'work' }))
+    const setDefaultModel = vi.fn(async () => { throw Error('Default write failed') })
+    bench({ status: 'ready' }, codexAccounts, undefined, undefined, { readDefaultModel, setDefaultModel })
+    fireEvent.click(screen.getByText(en.providerCodex)); fireEvent.click(screen.getByRole('button', { name: en.quotaView }))
+    const button = await screen.findByRole('button', { name: en.defaultModelSetAria.replace('{model}', 'GPT-6 Astra') })
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(button)
+    expect(await screen.findByText('Default write failed')).toBeTruthy()
+    expect(screen.getByText(en.defaultModelBadge).closest('li')!.textContent).toContain('Host Model')
+    expect(screen.queryByText(en.defaultModelSaved)).toBeNull()
+  })
+  it('does not automatically select inactive accounts or make hidden models the default', async () => {
+    const state = { ...codexAccounts, accounts: [{ ...codexAccounts.accounts[0]!, active: false }] }
+    const controls = { readDefaultModel: vi.fn(async () => ({ selection: { provider: 'deepseek-account', model: 'native-default' }, activeAccountId: 'personal' })), setDefaultModel: vi.fn() }
+    bench({ status: 'ready' }, state, undefined, undefined, controls)
+    fireEvent.click(screen.getByText(en.providerCodex)); fireEvent.click(screen.getByRole('button', { name: en.quotaView }))
+    await screen.findByText(en.defaultModelActiveOnly)
+    expect((screen.getByRole('button', { name: en.defaultModelSetAria.replace('{model}', 'GPT-6 Astra') }) as HTMLButtonElement).disabled).toBe(true)
+    expect(controls.setDefaultModel).not.toHaveBeenCalled()
+    cleanup()
+    bench({ status: 'ready' }, codexAccounts, undefined, undefined, { ...controls, readDefaultModel: vi.fn(async () => ({ selection: { provider: 'deepseek-account', model: 'native-default' }, activeAccountId: 'work' })) })
+    fireEvent.click(screen.getByText(en.providerCodex)); fireEvent.click(screen.getByRole('button', { name: en.quotaView }))
+    const button = await screen.findByRole('button', { name: en.defaultModelSetAria.replace('{model}', 'GPT-6 Astra') })
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'GPT-6 Astra' }))
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+    expect(controls.setDefaultModel).not.toHaveBeenCalled()
+  })
+
   it.each(['quick', 'detail'])('puts the reset credit panel below quota as a full-width sibling in %s settings', async mode => {
     const call = vi.fn(async () => ({ ok: true, value: { availableCount: 3, credits: [{ ref: 'one', name: 'Full reset (Weekly + 5 hr)', expiresAt: Date.now() + 3600000 }] } }))
     const t = (key: keyof typeof resetEn, args?: Record<string, unknown>) => resetEn[key].replace(/\{(\w+)\}/g, (_, k: string) => String(args?.[k] ?? ''))

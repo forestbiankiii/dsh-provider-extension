@@ -23,6 +23,12 @@ Each provider gets its own module under `src/client/providers/`. Nothing is clai
 
 Host integrations are included in this bundle, with upstream provenance and licenses recorded in THIRD-PARTY-NOTICES. Do not enable a second adapter owning the same route. Antigravity and Codex credentials stay in their Host integrations; Claude differs by leaving authentication entirely to the official CLI.
 
+## Codex default for new conversations
+
+Open **Provider Extension → OpenAI Codex → active account → quota/model details** and click **Set default** beside an enabled catalog model. The native DSH default is shown above the list, and the chosen model gains a **Default** badge only after its save is acknowledged. This is one DSH-wide default, not a separate default per account. Inactive accounts must be selected explicitly first; the action never switches accounts or overwrites existing Session model selections. As with DSH's original picker, a later model selection in a conversation may update the native default again.
+
+Requires the Host's native default-model owner and persistent configuration editor. Older deployments report an explicit failure instead of storing a browser-only substitute. Expansion progress and the user acceptance gate are recorded in [CODEX-ROADMAP.md](CODEX-ROADMAP.md).
+
 ## Claude subscription via the official CLI
 
 Install the unmodified official Claude Code CLI on PATH, restart DSH, then open **Provider Extension → Anthropic Claude**. The login button opens the official `claude auth login` in a visible Windows terminal; other platforms show the same command to run yourself. Finish login and refresh status. Choose Anthropic Claude and a Sonnet/Opus/Haiku alias in the composer. Authentication and account switching stay in the CLI: this extension never imports, stores, exports or rewrites its tokens. The current CLI authentication may instead use API-key/third-party billing; the settings view displays that distinction. Follow [Anthropic’s authentication and credential rules](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use).

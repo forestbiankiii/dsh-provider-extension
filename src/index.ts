@@ -13,6 +13,7 @@ import { registerAccountRoutes } from './antigravity/account-routes.ts'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { applyUsage } from './usage/index.ts'
 import type { ProviderBalanceReaders } from './usage/provider-balances.ts'
+import { applyDefaultModel } from './default-model.ts'
 
 export const name = 'provider-extension'
 export const Config = Schema.object({
@@ -65,6 +66,8 @@ export function apply(ctx: Context, config: ClaudeConfig = {}): void {
   } catch (error) {
     ctx.logger?.warn(`Failed to mount Codex subscription: ${String(error)}`)
   }
+
+  applyDefaultModel(ctx, () => balanceReaders.codex)
 
   // 6. Mount OpenCode Go adapter, live catalog, usage service, and remotes
   try {
