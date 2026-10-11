@@ -33,7 +33,7 @@ describe('published artifact contract', () => {
   })
 
   it('keeps heatmap cells fixed-size while their grid spans the available width', () => {
-    const cell = client.match(/\.dpe_heatCell_[^{]+\{([^}]+)\}/)?.[1]
+    const cell = client.match(/\.dpe_heatCell_[\w-]+\{([^}]+)\}/)?.[1]
     const grid = client.match(/\.dpe_heatmap_[^{]+\{([^}]+)\}/)?.[1]
     const viewport = client.match(/\.dpe_heatScroll_[^{]+\{([^}]+)\}/)?.[1]
     expect(cell).toContain('width:20px')
@@ -41,6 +41,13 @@ describe('published artifact contract', () => {
     expect(grid).toContain('width:100%')
     expect(grid).toContain('justify-content:space-between')
     expect(viewport).not.toContain('max-width')
+  })
+  it('keeps data-level heatmap fills unchanged on hover instead of inheriting the ordinary button fill', () => {
+    const css = readFileSync(new URL('../src/client/usage/UsagePage.module.css', import.meta.url), 'utf8')
+    expect(css).toContain('.page button:where(:not(.heatCell)):hover:not(:disabled)')
+    expect(css).not.toMatch(/\.heatCell:hover\s*\{[^}]*background/)
+    expect(css).toContain(".page .heatCell[data-active='true'] { outline:")
+    expect(client).toMatch(/:where\(:not\(\.dpe_heatCell_[^)]+\)\)/)
   })
   it('themes the native filter picker without adding a custom dropdown runtime', () => {
     expect(client).toContain('appearance:base-select')

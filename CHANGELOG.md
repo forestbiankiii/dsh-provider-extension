@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.8.4
+
+- Preserve every heatmap cell's original data-level fill during hover. Exclude cells from the generic button hover rule and remove the cell-specific hover fill; only the outline and tooltip change. Add a source/build regression check for the CSS exclusion.
+
 ## 0.8.3
 
 - Replace click-selected heatmap details with an anchored hover/focus tooltip showing date, Tokens, steps, input/output and estimated cost. Hovering the popup keeps it open; leaving closes it, Escape/blur dismisses it, and clicks no longer pin an inline panel. Clamp horizontal placement, flip lower-edge popups above their cell, and dismiss stale anchors on scroll/resize/filter changes. Keep 万/亿 Token formatting and unknown-day hints; no extra provider queries.
