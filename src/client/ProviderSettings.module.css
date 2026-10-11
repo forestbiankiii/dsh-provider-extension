@@ -811,14 +811,6 @@
   border-top: 1px solid var(--dsw-alias-border-l2);
 }
 
-.defaultModelStatus { display: grid; gap: 5px; padding: 10px 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
-.defaultModelStatus strong { color: var(--dsw-alias-label-primary); font-weight: 600; overflow-wrap: anywhere; }
-.defaultModelStatus small { font-size: 11px; line-height: 1.5; }
-.defaultModelStatus [role='alert'] { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--dsw-alias-state-error-primary); overflow-wrap: anywhere; }
-.defaultModelStatus [role='status'] { color: var(--dsw-alias-state-success-primary); }
-.defaultModelBadge { padding: 3px 7px; border-radius: 5px; font-size: 11px; color: var(--dsw-alias-brand-primary); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, var(--dsw-alias-bg-layer-1)); white-space: nowrap; }
-.action.defaultModelAction { padding: 4px 8px; min-height: 26px; font-size: 11px; white-space: nowrap; }
-
 .models,
 .accounts {
   display: flex;

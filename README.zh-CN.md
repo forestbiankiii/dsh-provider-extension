@@ -23,12 +23,6 @@
 
 Host 接入实现已包含在此 Bundle 中，上游来源和许可证记录在 THIRD-PARTY-NOTICES。不要重复启用占用同一路由的适配器。Antigravity／Codex 凭据保留在各自 Host 模块；Claude 则完全由官方 CLI 管理登录。
 
-## Codex 新会话默认模型
-
-打开 **提供商拓展 → OpenAI Codex → 当前活动账号 → 额度／模型详情**，在已启用的目录模型旁点击 **设为默认**。列表上方显示 DSH 原生默认模型，保存确认后该模型显示 **默认** 标记。这是 DSH 全局默认，不是每个账号各存一份；非活动账号需先手动切换，设置操作不会切换账号或覆盖已有会话的模型选择。DSH 原生选择器本身也会更新默认值，因此之后在会话里选择其他模型时，默认值可能随之变化。
-
-需要宿主提供原生默认模型服务及可持久化的配置编辑器；旧宿主会明确报错，不用浏览器本地偏好冒充成功。后续拓展及逐项验收状态见 [CODEX-ROADMAP.md](CODEX-ROADMAP.md)。
-
 ## Claude 订阅：通过官方 CLI 接入
 
 先安装未修改的官方 Claude Code CLI 并加入 PATH，重启 DSH，再打开「提供商拓展 → Anthropic Claude」。Windows 上的登录按钮会在可见终端启动官方 `claude auth login`，其他平台请自行执行该命令。完成登录后刷新状态，在输入区选择 Anthropic Claude 和 Sonnet／Opus／Haiku 模型别名。登录及账号切换仍由官方 CLI 管理，本插件不导入、保存、导出或改写其 Token。CLI 也可能使用 API Key／第三方计费，设置页会明确提示。请遵守 [Anthropic 的认证及凭据规则](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use)。

@@ -1,6 +1,6 @@
 /** Settings page: Level 1 hub with expandable quick views, and Level 2 provider-only detail view. */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { maskedEmail, type CodexAccountsState, type CodexAccountView } from './providers/codex.ts'
@@ -23,7 +23,6 @@ import { ProviderIcon } from './ProviderIcon.tsx'
 import { ClaudeSettings } from './ClaudeSettings.tsx'
 import type { ClaudeClientState } from './providers/claude.ts'
 import { CodexResetCredits, type CodexResetCreditsProps } from './usage/CodexResetCredits.tsx'
-import type { DefaultModelView } from '../default-model.ts'
 
 /** Per-surface actions and stores injected by the client plugin. */
 export interface ProviderSettingsInjected {
@@ -40,9 +39,6 @@ export interface ProviderSettingsInjected {
   loadAccounts: () => Promise<void>
   /** Same authoritative Host catalog used by the composer, not a hardcoded product list. */
   loadCodexModels?: (accountId: string) => Promise<readonly ModelCatalogModel[]>
-  readDefaultModel?: () => Promise<DefaultModelView>
-  setDefaultModel?: (accountId: string, model: string) => Promise<DefaultModelView>
-  subscribeDefaultModel?: (listener: () => void) => () => void
   readQuota: (id: string) => Promise<void>
   loginCodex: () => Promise<void>
   selectCodexAccount?: (id: string) => Promise<void>
@@ -183,8 +179,7 @@ function formatResetSeconds(epochSeconds?: number): string {
 export function ProviderSettings({
   useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, codexReset, onCodexReset,
   loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota,
-  useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, useClaude, loadClaude, loginClaude, loadClaudeModels,
-  readDefaultModel, setDefaultModel, subscribeDefaultModel, t,
+  useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, useClaude, loadClaude, loginClaude, loadClaudeModels, t,
 }: ProviderSettingsProps): ReactNode {
   const claude = useClaude ? useClaude(snapshot => snapshot) : undefined
   const accounts = useAccounts(snapshot => snapshot)
@@ -286,41 +281,6 @@ export function ProviderSettings({
   }>>({})
   const codexAccountIds = accounts.accounts.map(account => account.id).join('\u0000')
   const codexOpen = selectedProvider === 'codex' || expanded.codex === true
-  const activeCodexId = accounts.accounts.find(account => account.active)?.id
-  const [defaultView, setDefaultView] = useState<DefaultModelView | null>(null)
-  const [defaultRevision, setDefaultRevision] = useState(0)
-  const [defaultReading, setDefaultReading] = useState(false)
-  const [defaultPending, setDefaultPending] = useState<string | null>(null)
-  const [defaultError, setDefaultError] = useState<string | null>(null)
-  const [defaultSaved, setDefaultSaved] = useState(false)
-  const defaultSaving = useRef(false)
-  const mounted = useRef(true)
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
-  useEffect(() => {
-    if (!codexOpen || !subscribeDefaultModel) return
-    return subscribeDefaultModel(() => setDefaultRevision(value => value + 1))
-  }, [codexOpen, subscribeDefaultModel])
-  useEffect(() => {
-    if (!codexOpen || !readDefaultModel) return
-    let cancelled = false
-    setDefaultReading(true)
-    void readDefaultModel().then(value => {
-      if (!cancelled) { setDefaultView(value); setDefaultError(null) }
-    }).catch(error => {
-      if (!cancelled) setDefaultError(String(error instanceof Error ? error.message : error))
-    }).finally(() => { if (!cancelled) setDefaultReading(false) })
-    return () => { cancelled = true }
-  }, [codexOpen, activeCodexId, defaultRevision, catalogRefresh, readDefaultModel])
-  const chooseDefaultModel = async (accountId: string, model: string) => {
-    if (!setDefaultModel || defaultSaving.current) return
-    defaultSaving.current = true; setDefaultPending(model); setDefaultError(null); setDefaultSaved(false)
-    try {
-      const value = await setDefaultModel(accountId, model)
-      if (mounted.current) { setDefaultView(value); setDefaultSaved(true) }
-    } catch (error) {
-      if (mounted.current) setDefaultError(String(error instanceof Error ? error.message : error))
-    } finally { defaultSaving.current = false; if (mounted.current) setDefaultPending(null) }
-  }
   useEffect(() => {
     if (!codexOpen || accounts.accounts.length === 0 || !loadCodexModels) return
     let cancelled = false
@@ -351,24 +311,12 @@ export function ProviderSettings({
     const missing = [...enabled ?? []].filter(id => !catalog.models.some(model => model.id === id))
     return <>
       <p className={css.note}>{t('codexModelsScope')}</p>
-      {readDefaultModel && setDefaultModel && <div className={css.defaultModelStatus}>
-        <span>{t('defaultModelCurrent')}: <strong>{defaultView ? (defaultView.selection.provider === 'openai-codex' ? codexCatalogs[activeCodexId ?? '']?.models.find(model => model.id === defaultView.selection.model)?.name ?? defaultView.selection.model : `${defaultView.selection.provider}/${defaultView.selection.model}`) : t('providerChecking')}</strong></span>
-        <small>{t(account.active ? 'defaultModelScope' : 'defaultModelActiveOnly')}</small>
-        {defaultSaved && <small role="status">{t('defaultModelSaved')}</small>}
-        {defaultError && <div role="alert"><span>{defaultError}</span><button type="button" className={css.action} disabled={defaultReading || defaultPending !== null} onClick={() => { setDefaultSaved(false); setDefaultRevision(value => value + 1) }}>{t('providerRefresh')}</button></div>}
-      </div>}
       {missing.length > 0 ? <p className={css.note}>{t('codexModelsMissing', { models: missing.join(', ') })}</p> : null}
       {catalog.models.length === 0 ? <p className={css.note}>{t('empty')}</p> : null}
       <ul className={css.models}>
         {catalog.models.map(model => <li key={model.id}>
           <span className={css.modelName}>{model.name}</span>
           <div className={css.modelToggleRow}>
-            {readDefaultModel && setDefaultModel && (defaultView?.selection.provider === 'openai-codex' && defaultView.selection.model === model.id
-              ? <span className={css.defaultModelBadge}>{t('defaultModelBadge')}</span>
-              : <button type="button" className={`${css.action} ${css.defaultModelAction}`} aria-label={t('defaultModelSetAria', { model: model.name })}
-                title={t(!account.active ? 'defaultModelActiveOnly' : 'defaultModelScope')}
-                disabled={!account.active || defaultView?.activeAccountId !== account.id || defaultReading || defaultPending !== null || (enabled ? !enabled.has(model.id) : disabled.has(model.id))}
-                onClick={() => { void chooseDefaultModel(account.id, model.id) }}>{defaultPending === model.id ? t('providerWorking') : t('defaultModelSet')}</button>)}
             <label className={css.switch} title={t('modelToggle')}>
               <input type="checkbox" aria-label={model.name}
                 checked={enabled ? enabled.has(model.id) : !disabled.has(model.id)}

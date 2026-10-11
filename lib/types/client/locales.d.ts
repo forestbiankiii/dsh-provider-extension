@@ -59,13 +59,6 @@ export declare const en: {
     readonly codexFetchModels: "Reload model list";
     readonly codexModels: "Models in this account’s catalog";
     readonly codexModelsScope: "These switches only control this account’s picker. They do not grant model access.";
-    readonly defaultModelCurrent: "DSH default model";
-    readonly defaultModelSet: "Set default";
-    readonly defaultModelBadge: "Default";
-    readonly defaultModelSetAria: "Use {model} as the default for new conversations";
-    readonly defaultModelScope: "Applies to new conversations across DSH; existing conversation selections are unchanged.";
-    readonly defaultModelActiveOnly: "Switch to this account before setting its default model.";
-    readonly defaultModelSaved: "Default model saved. New conversations will use it.";
     readonly codexModelsMissing: "Saved selections not in the current catalog (preferences retained): {models}";
     readonly antigravityAccounts: "Google accounts";
     readonly antigravityNoAccounts: "No Google account connected yet. Sign in to add an account.";

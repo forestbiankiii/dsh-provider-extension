@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.9.1
+
+- Remove the rejected new-conversation default-model feature: both Settings controls, native-default reads/writes, authenticated endpoint, Agent tool and dedicated implementation. Preserve DSH's original selection behavior and do not reset any user model setting.
+- Require explicit user confirmation before implementing each future feature. Record this agreement and the rejected feature in AGENTS and the candidate roadmap; the remaining list is not an approved implementation plan.
+
 ## 0.9.0
 
 - First staged Codex expansion increment (awaiting user acceptance): set the native DSH default model for new conversations from either Settings surface, with the current default, per-model default badges, explicit save actions and persistence failures. Use the installed `agentDefaultModel` owner, without selecting a Session model or switching accounts. Changing the model clears incompatible previous reasoning selection; keeping the same Codex model retains its reasoning.

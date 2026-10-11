@@ -24,7 +24,6 @@ import { forceCatalogReload } from './catalog-refresh.ts'
 import { assertSelectionSucceeded } from './selection.ts'
 import { applyUsagePage } from './usage/index.tsx'
 import { cssText as usageCssText } from './usage/UsagePage.module.css'
-import { defaultModelRequest } from './default-model.ts'
 
 export { ProviderPanel } from './ProviderPanel.tsx'
 export type { ProviderPanelInjected, ProviderPanelProps } from './ProviderPanel.tsx'
@@ -162,13 +161,6 @@ export function apply(ctx: ClientContext): void {
       loadClaude, loginClaude, loadClaudeModels,
       loadAccounts: async () => { await codexAccounts.load() },
       loadCodexModels: async (accountId: string) => await codexAccounts.readAccountModels(accountId),
-      readDefaultModel: async () => defaultModelRequest(rpc, { action: 'get' }),
-      subscribeDefaultModel: listener => ctx.remote.$on('settings/document-updated', () => listener()),
-      setDefaultModel: async (accountId, model) => {
-        const result = await defaultModelRequest(rpc, { action: 'set', accountId, model })
-        forceCatalogReload(ctx.modelDirectories)
-        return result
-      },
       readQuota: readCodexQuota,
       loginCodex: async () => { await codexAccounts.login() },
       selectCodexAccount: async (id) => { await codexAccounts.select(id) },

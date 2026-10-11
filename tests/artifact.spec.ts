@@ -7,6 +7,13 @@ const patch = readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf
 const clientSource = readFileSync(new URL('../src/client/index.ts', import.meta.url), 'utf8')
 
 describe('published artifact contract', () => {
+  it('does not ship the rejected custom default-model UI, endpoint or Agent tool', () => {
+    const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
+    expect(host).not.toContain('codex_default_model')
+    expect(host).not.toContain('provider-extension/default-model')
+    expect(client).not.toContain('provider-extension/default-model')
+    expect(client).not.toContain('defaultModelSetAria')
+  })
   it('ships a Claude schema-only bridge alongside the host bundle, without a second token collector', () => {
     const bridge = readFileSync(new URL('../lib/claude-bridge.mjs', import.meta.url), 'utf8')
     const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
