@@ -7,6 +7,7 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import { type CodexAccountsState } from './providers/codex.ts';
 import { type AntigravityState } from './providers/antigravity.ts';
 import { type OpencodeState } from './providers/opencode.ts';
+import { type ClaudeClientState } from './providers/claude.ts';
 /** Per-session injected seat dependencies. */
 export interface ProviderPanelInjected {
     /** Addressed subagent sessions cannot use Agent-bound model selection. */
@@ -18,6 +19,8 @@ export interface ProviderPanelInjected {
         accounts: SnapshotStore<CodexAccountsState>;
         /** Antigravity controller store with accounts and quota. */
         antigravity?: SnapshotStore<AntigravityState>;
+        /** Official CLI login status; only a confirmed signed-in account is offered as a provider. */
+        claude: SnapshotStore<ClaudeClientState>;
     };
     /** Load the session's shared model directory. */
     loadDirectory: (force?: boolean) => Promise<void>;
@@ -48,4 +51,4 @@ export declare function sliderIndexFromPoint(clientX: number, rect: {
     width: number;
 }, count: number, previous?: number): number;
 /** Render separate provider and model controls inside the official model seat. */
-export declare function ProviderPanel({ locked, available, useDirectory, useAccounts, useAntigravity, loadDirectory, loadAccounts, selectAccount, readQuota, select, loadAntigravity, selectAntigravityAccount, readAntigravityQuota, useOpencode, readOpencodeUsage, t, }: ProviderPanelProps): ReactNode;
+export declare function ProviderPanel({ locked, available, useDirectory, useAccounts, useAntigravity, loadDirectory, loadAccounts, selectAccount, readQuota, select, loadAntigravity, selectAntigravityAccount, readAntigravityQuota, useClaude, useOpencode, readOpencodeUsage, t, }: ProviderPanelProps): ReactNode;

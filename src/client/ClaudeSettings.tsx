@@ -17,7 +17,7 @@ export function ClaudeSettings({ state, load, login, loadModels, t }: {
   const [enabled, setEnabled] = useState(() => claudeEnabledModels())
   const [modelError, setModelError] = useState(false)
   useEffect(() => {
-    void load?.()
+    if (state?.status === 'idle') void load?.()
     let cancelled = false
     void loadModels?.().then(value => { if (!cancelled) setModels(value) }).catch(() => { if (!cancelled) setModelError(true) })
     return () => { cancelled = true }

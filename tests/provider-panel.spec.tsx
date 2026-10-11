@@ -7,8 +7,9 @@ import { en } from '../src/client/locales.ts'
 import css from '../src/client/ProviderPanel.module.css'
 import { saveCodexEnabledModels, CODEX_ENABLED_MODELS_KEY } from '../src/client/codex-visibility.ts'
 import type { CodexAccountsState } from '../src/client/providers/codex.ts'
+import type { ClaudeClientState } from '../src/client/providers/claude.ts'
 afterEach(cleanup)
-function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean; provider?: string } = {}) {
+function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean; claude?: ClaudeClientState['status']; provider?: string } = {}) {
   const currentProvider = options.provider ?? 'a'
   const state: ModelDirectoryState = { current: { provider: currentProvider, model: 'sol', reasoningEffort: 'high' }, routable: true,
     groups: options.empty ? [] : [
@@ -18,11 +19,13 @@ function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean; prov
       ] },
       { id: 'b', name: 'Provider B', models: [{ id: 'beta', name: 'Beta' }] },
       ...options.codex ? [{ id: 'openai-codex', name: 'ChatGPT subscription', models: [{ id: 'codex', name: 'Codex' }] }] : [],
+      ...(options.claude ? [{ id: 'anthropic-claude-cli', name: 'Anthropic Claude', models: [{ id: 'sonnet', name: 'Claude Sonnet' }] }] : []),
     ], status: 'ready', error: null, failures: [] }
   const accountState: CodexAccountsState = { status: 'ready', error: null, accounts: options.codex ? [
     { id: 'work', label: 'Work', email: 'work@example.com', active: true },
     { id: 'personal', label: 'Personal', email: 'personal@example.com', active: false },
   ] : [], usage: options.codex ? { work: { status: 'ready', value: { weeklyPercent: 76 } } } : {} }
+  const claudeState: ClaudeClientState = { status: options.claude ?? 'idle', label: null, plan: null, authMethod: null, errorCode: null, loginStarted: false }
   const select = vi.fn(async () => { if (options.fail) throw new Error('rejected') })
   const selectAccount = vi.fn(async () => { if (options.fail) throw new Error('account rejected') })
   const readQuota = vi.fn(async () => { if (options.fail) throw new Error('quota rejected') })
@@ -31,11 +34,12 @@ function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean; prov
   const props = { locked: false, available: true,
     useDirectory: (selector: (s: ModelDirectoryState) => unknown) => selector(state),
     useAccounts: (selector: (s: CodexAccountsState) => unknown) => selector(accountState),
+    useClaude: (selector: (s: ClaudeClientState) => unknown) => selector(claudeState),
     select, selectAccount, readQuota, loadDirectory, loadAccounts,
     t: (key: keyof typeof en, args?: Record<string, unknown>) => en[key].replace(/\{(\w+)\}/g, (_, k: string) => String(args?.[k] ?? '')) } as unknown as ProviderPanelProps
   const view = render(<ProviderPanel {...props} />)
   fireEvent.click(screen.getByRole('button', { name: en.title }))
-  return { select, selectAccount, readQuota, loadDirectory, loadAccounts, view, state, props }
+  return { select, selectAccount, readQuota, loadDirectory, loadAccounts, view, state, claudeState, props }
 }
 describe('model panel component', () => {
   it('opens the OpenCode model pane without silently falling back to the current provider', async () => {
@@ -62,6 +66,22 @@ describe('model panel component', () => {
     fireEvent.click(screen.getByRole('option', { name: /OpenCode/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Select Live OpenCode' }))
     await waitFor(() => expect(b.select).toHaveBeenCalledWith({ provider: 'opencode-go', model: 'live-opencode' }))
+  })
+  it.each(['idle', 'checking', 'signed-out', 'missing', 'failed'] as const)('hides Claude from the provider picker unless the official CLI confirms login (%s)', async status => {
+    const b = bench({ claude: status })
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    fireEvent.click(screen.getByRole('button', { name: en.providerTitle }))
+    expect(screen.queryByRole('option', { name: /Anthropic Claude/ })).toBeNull()
+    b.claudeState.status = 'ready'
+    b.view.rerender(<ProviderPanel {...b.props} />)
+    expect(screen.getByRole('option', { name: /Anthropic Claude/ })).toBeTruthy()
+  })
+  it('does not add the Claude provider group when the official CLI has no account', async () => {
+    const b = bench({ claude: 'signed-out' })
+    await waitFor(() => expect(b.loadDirectory).toHaveBeenCalledOnce())
+    fireEvent.click(screen.getByRole('button', { name: en.providerTitle }))
+    expect(screen.queryByRole('option', { name: /Claude Sonnet/ })).toBeNull()
+    expect(screen.queryByRole('option', { name: /Anthropic Claude/ })).toBeNull()
   })
   it.each([
     ['deepseek-official', 'DeepSeek', en.providerDeepseekApi, en.deepseekApiHint],

@@ -16,7 +16,7 @@ import {
   selectionForRow, sameSelection, type ProviderPanelModel, loadDisabledModels, getDisabledModelsForAccount, MODELS_VISIBILITY_EVENT,
 } from './selection.ts'
 import { codexEnabledModels } from './codex-visibility.ts'
-import { claudeEnabledModels } from './providers/claude.ts'
+import { claudeEnabledModels, type ClaudeClientState } from './providers/claude.ts'
 import css from './ProviderPanel.module.css'
 
 /** Per-session injected seat dependencies. */
@@ -30,6 +30,8 @@ export interface ProviderPanelInjected {
     accounts: SnapshotStore<CodexAccountsState>
     /** Antigravity controller store with accounts and quota. */
     antigravity?: SnapshotStore<AntigravityState>
+    /** Official CLI login status; only a confirmed signed-in account is offered as a provider. */
+    claude: SnapshotStore<ClaudeClientState>
   }
   /** Load the session's shared model directory. */
   loadDirectory: (force?: boolean) => Promise<void>
@@ -140,13 +142,14 @@ export function ProviderPanel({
   locked, available, useDirectory, useAccounts, useAntigravity,
   loadDirectory, loadAccounts, selectAccount, readQuota, select,
   loadAntigravity, selectAntigravityAccount, readAntigravityQuota,
-  useOpencode, readOpencodeUsage, t,
+  useClaude, useOpencode, readOpencodeUsage, t,
 }: ProviderPanelProps): ReactNode {
   const directory = useDirectory(snapshot => snapshot)
   const accounts = useAccounts(snapshot => snapshot)
   const fallbackAgState: AntigravityState = { status: 'idle', accounts: [], usage: {} }
   const antigravity: AntigravityState = useAntigravity ? useAntigravity(snapshot => snapshot) : fallbackAgState
   const opencode = useOpencode ? useOpencode(snapshot => snapshot) : undefined
+  const claudeStatus = useClaude ? useClaude(snapshot => snapshot.status) : 'idle'
   const [open, setOpen] = useState<OpenPane>(null)
   const [providerDraft, setProviderDraft] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
@@ -229,8 +232,9 @@ export function ProviderPanel({
 
   const authoritativeGroup = activeGroup({ ...directory, current })
   // The row and browsed group must use one catalog. Never advertise static fallback models as loaded.
-  const providerGroups = directory.groups.some(candidate => isOpencodeProvider(candidate.id)) ? directory.groups : [
-    ...directory.groups, { id: 'opencode-go', name: t('providerOpenCode'), models: [] },
+  const signedInGroups = directory.groups.filter(candidate => candidate.id !== 'anthropic-claude-cli' || claudeStatus === 'ready')
+  const providerGroups = signedInGroups.some(candidate => isOpencodeProvider(candidate.id)) ? signedInGroups : [
+    ...signedInGroups, { id: 'opencode-go', name: t('providerOpenCode'), models: [] },
   ]
   const group = providerGroups.find(candidate => candidate.id === providerDraft) ?? authoritativeGroup
   const activeAgAccount = antigravity.accounts.find(account => account.active) ?? antigravity.accounts[0]

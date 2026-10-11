@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.8.6
+
+- Hide the Anthropic Claude provider from the composer provider picker until the official Claude Code CLI confirms a signed-in account. Missing, signed-out, checking and failed CLI states remain hidden; the provider appears reactively once login is confirmed. Probe CLI status at startup and avoid a duplicate status call when the settings view opens during that check.
+
 ## 0.8.5
 
 - Fix completed history imports repeatedly showing “importing N / N”: periodic report reads previously started a fresh scan before capturing its status. Capture completed report/coverage first, then launch maintenance; initial imports and genuinely pending scans still expose progress, and unreadable history/missing usage remain explicit. Add repeated-poll, slow-maintenance/failure and UI-completion regression tests.

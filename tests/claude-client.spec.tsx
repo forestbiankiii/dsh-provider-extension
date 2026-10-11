@@ -17,7 +17,7 @@ it('replaces the roadmap with CLI login controls and independent Claude model sw
   fireEvent.click(screen.getByRole('button', { name: en.claudeCliLogin }))
   expect(login).toHaveBeenCalledOnce()
   fireEvent.click(screen.getByRole('button', { name: en.claudeCliRefresh }))
-  expect(load).toHaveBeenCalledTimes(2)
+  expect(load).toHaveBeenCalledOnce()
   expect(screen.queryByText(en.roadmapNotice)).toBeNull()
 })
 it('shows the same working Claude settings inside the provider hub and detail view', async () => {

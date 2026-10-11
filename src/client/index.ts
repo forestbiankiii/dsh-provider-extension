@@ -132,6 +132,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => {
     void codexAccounts.load().catch(() => {})
     void antigravity.load().catch(() => {})
+    void claude.load().catch(() => {})
     return () => {}
   }, 'dsh-provider-extension: startup self-check')
   ctx.effect(() => {
@@ -195,7 +196,7 @@ export function apply(ctx: ClientContext): void {
       const directory = ctx.modelDirectories.directoryFor(sessionId as SessionId)
       return {
         available: (ctx.sessions as unknown as { subagentAddress?: (id: SessionId) => unknown }).subagentAddress?.(sessionId as SessionId) === undefined,
-        hooks: { directory: directory.store, accounts: codexAccounts.store, antigravity: antigravity.store },
+        hooks: { directory: directory.store, accounts: codexAccounts.store, antigravity: antigravity.store, claude: claude.store },
         loadDirectory: async (force = false) => {
           if (force) {
             if (isCodexProvider(directory.store.getSnapshot().current?.provider)) await codexAccounts.refreshModels()
