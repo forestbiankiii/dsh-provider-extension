@@ -65,6 +65,17 @@ export declare const en: {
     readonly codexVerbositySaved: "Response detail saved.";
     readonly codexVerbosityHint: "Applies to subsequent Codex requests in this DSH profile when the model supports it. Default follows the model; this is a preference, not a length limit.";
     readonly codexVerbosityReadOnly: "This setting is read-only in the current Host.";
+    readonly codexContext: "Context length";
+    readonly codexContextStandard: "Standard";
+    readonly codexContextExtended: "Extended";
+    readonly codexContextCustom: "Custom";
+    readonly codexContextHint: "Applies to subsequent Codex requests in this profile. Standard follows the model catalog; Extended uses its reported maximum. Larger contexts may consume more input tokens. Not a spending limit or a way to unlock capacity. Grouped variants share the smaller limit; without an override each model retains its default.";
+    readonly codexContextRange: "Default {standard} · Custom range {minimum}–{maximum} tokens";
+    readonly codexContextFixed: "Fixed";
+    readonly codexContextSave: "Save custom lengths";
+    readonly codexContextSaved: "Context length saved.";
+    readonly codexContextInvalid: "Enter a whole token count within each model’s range.";
+    readonly codexContextNoModels: "No context metadata in the current model catalog.";
     readonly codexModels: "Models in this account’s catalog";
     readonly codexModelsScope: "These switches only control this account’s picker. They do not grant model access.";
     readonly codexModelsMissing: "Saved selections not in the current catalog (preferences retained): {models}";

@@ -243,35 +243,19 @@ function clampModelContext(value, maximum, fallback = DEFAULT_CUSTOM_CONTEXT_WIN
 	return Math.max(Math.min(MIN_CUSTOM_CONTEXT_WINDOW, maximum), Math.min(Number.isSafeInteger(value) ? value : fallback, maximum));
 }
 function contextModelGroups(models) {
-	const groups = /* @__PURE__ */ new Map();
+	const groups = new Map();
 	for (const model of models ?? []) {
-		if (model?.id === "gpt-5.3-codex-spark") {
-			groups.set(model.id, {
-				key: model.id,
-				label: model.name ?? model.id,
-				maximum: 128e3,
-				fixed: true
-			});
-			continue;
-		}
 		const key = customContextModelKey(model?.id);
 		if (!validModelKey(key)) continue;
-		const maximum = modelContextMaximum(model);
-		if (key !== "gpt-5.6") {
-			groups.set(key, {
-				key,
-				label: model.name ?? model.id,
-				maximum,
-				...Object.hasOwn(CUSTOM_CONTEXT_MODEL_FIELDS, key) ? {} : { default: clampModelContext(model.contextWindow, maximum) }
-			});
-			continue;
-		}
-		const variant = String(model.name ?? model.id).replace(/^GPT-5\.6[ -]/iu, "");
+		const standard = Number.isSafeInteger(model.contextWindow) && model.contextWindow > 0 ? model.contextWindow : modelContextMaximum(model);
+		const fixed = model.id === "gpt-5.3-codex-spark";
 		const current = groups.get(key);
+		const maximum = Math.min(current?.maximum ?? Infinity, fixed ? standard : modelContextMaximum(model));
 		groups.set(key, {
-			key,
-			label: `GPT-5.6 ${current === void 0 ? variant : `${current.label.replace(/^GPT-5\.6 /u, "")} / ${variant}`}`,
-			maximum: Math.min(current?.maximum ?? maximum, maximum)
+			key, label: current ? `${current.label} / ${model.name ?? model.id}` : model.name ?? model.id,
+			maximum, minimum: Math.min(MIN_CUSTOM_CONTEXT_WINDOW, maximum),
+			default: Math.min(current?.default ?? standard, standard, maximum),
+			fixed
 		});
 	}
 	return [...groups.values()];
@@ -352,6 +336,81 @@ const RPC_ENDPOINTS = Object.freeze([
 	"reset-credit/consume",
 	"image/original/chunk"
 ]);
+//#endregion
+//#region src/context-length.js
+function snapshotCodexProfile(profile) {
+	// The adapter resolves models again during dispatch: pin the catalog used at preparation.
+	const models = profile.piProvider.getModels().map(model => ({ ...model }));
+	return Object.freeze({ ...profile, piProvider: Object.freeze({ ...profile.piProvider, getModels: () => models }) });
+}
+function createContextPreferences({ owner, settings, models, writable = false, onChange = () => {} }) {
+	const current = () => owner?.current() ?? { mode: normalizeContextMode(settings.get()[CONTEXT_MODE_FIELD]), models: readCapabilitySettings(settings.get())[CUSTOM_CONTEXT_OVERRIDES_FIELD] };
+	let previous = JSON.stringify(current());
+	const notify = () => {
+		const key = JSON.stringify(current());
+		if (key !== previous) { previous = key; onChange(); }
+	};
+	const groups = () => contextModelGroups(models());
+	const resolveWindow = key => {
+		const value = current();
+		if (Object.hasOwn(value.models, key)) return value.models[key];
+		if (owner) return undefined;
+		const field = CUSTOM_CONTEXT_MODEL_FIELDS[key];
+		return field === undefined ? undefined : normalizeCustomContextWindow(settings.get()[field] ?? CUSTOM_CONTEXT_MODEL_DEFAULTS[key], CUSTOM_CONTEXT_MODEL_CAPS[key]);
+	};
+	return {
+		current, notify, resolveWindow,
+		status: () => ({ contextMode: current().mode, customContextModels: current().models,
+			contextWritable: owner?.writable ?? writable,
+			contextModels: groups().map(group => ({ ...group, effective: group.fixed || current().mode === "standard" ? group.default : current().mode === "extended" ? group.maximum : clampModelContext(resolveWindow(group.key), group.maximum, group.default) })) }),
+		async update(patch, signal) {
+			const old = current();
+			const next = { mode: patch.contextMode ?? old.mode, models: { ...old.models, ...patch.customContextModels } };
+			const fail = message => { throw Object.assign(new Error(message), { code: "invalid-context-preference" }); };
+			if (!["standard", "extended", "custom"].includes(next.mode)) fail("Invalid Codex context mode");
+			const limits = groups();
+			for (const [key, size] of Object.entries(next.models)) {
+				if (Object.hasOwn(old.models, key) && old.models[key] === size) continue;
+				const group = limits.find(group => group.key === key);
+				if (!group) fail(`Model ${key} is not in the current Codex catalog`);
+				if (group.fixed) fail(`${key} has a fixed context capacity`);
+				if (!Number.isSafeInteger(size) || size < group.minimum || size > group.maximum) fail(`${key}: context tokens must be an integer from ${group.minimum} to ${group.maximum}`);
+			}
+			if (owner) await owner.save(next, signal);
+			else await settings.update(patch);
+			notify();
+		}
+	};
+}
+function createContextLengthTool(handler) {
+	return {
+		name: "codex_context_length", deferLoading: true,
+		description: "Read or set Codex context capacity for subsequent requests. Returns up to 64 model groups and their limits. Larger contexts may consume more input tokens; this is not a spending limit or a model switch.",
+		parameters: { type: "object", properties: {
+			action: { type: "string", enum: ["get", "set"] },
+			contextMode: { type: "string", enum: ["standard", "extended", "custom"], description: "Required for set. Standard follows the catalog; extended uses its maximum; custom uses saved per-model sizes." },
+			model: { type: "string", description: "Optional with custom mode; exact group key returned by get. Must be paired with tokens." },
+			tokens: { type: "integer", description: "Paired with model in custom mode; must fit its reported minimum/maximum." }
+		}, required: ["action"], additionalProperties: false },
+		isConcurrencySafe: args => args?.action === "get",
+		output: { schema: { type: "object" }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value) }] },
+		async execute(args, exec) {
+			if (!args || typeof args !== "object" || Array.isArray(args) || !["get", "set"].includes(args.action) || Object.keys(args).some(key => !["action", "contextMode", "model", "tokens"].includes(key))) throw new Error("Invalid Codex context request");
+			if (args.action === "get" && Object.keys(args).length !== 1 || args.action === "set" && !["standard", "extended", "custom"].includes(args.contextMode)) throw new Error("Invalid Codex context mode");
+			const hasModel = Object.hasOwn(args, "model"), hasTokens = Object.hasOwn(args, "tokens");
+			if (hasModel !== hasTokens || hasModel && (args.contextMode !== "custom" || !validModelKey(args.model) || !Number.isSafeInteger(args.tokens))) throw new Error("Model and integer tokens are paired only in custom mode");
+			let payload = {};
+			if (args.action === "set") {
+				payload = { contextMode: args.contextMode };
+				if (hasModel) payload.customContextModels = { [args.model]: args.tokens };
+			}
+			const response = await handler(args.action === "get" ? "preferences/status" : "preferences/update", payload, exec.signal);
+			if (!response.ok) throw new Error(response.error?.message ?? "Could not update Codex context length");
+			const value = response.value;
+			return { contextMode: value.contextMode, writable: value.contextWritable, models: (value.contextModels ?? []).slice(0, 64).map(group => ({ ...group, saved: value.customContextModels?.[group.key] })), truncated: (value.contextModels?.length ?? 0) > 64 };
+		}
+	};
+}
 //#endregion
 //#region src/output-verbosity-tool.js
 function createOutputVerbosityTool(handler) {
@@ -1785,7 +1844,8 @@ function mergeModel(baseModels, remote) {
 		reasoning: remote.reasoning,
 		thinkingLevelMap: remote.thinkingLevelMap,
 		...remote.contextWindow === void 0 ? {} : { contextWindow: remote.contextWindow },
-		...remote.maxContextWindow === void 0 ? {} : { maxContextWindow: remote.maxContextWindow },
+		// Never borrow another model's larger capacity when the server only reports its standard window.
+		maxContextWindow: remote.maxContextWindow ?? remote.contextWindow ?? (base.id === remote.id ? base.maxContextWindow : undefined),
 		...base.id === remote.id ? {} : { cost: {
 			input: 0,
 			output: 0,
@@ -3815,6 +3875,7 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 				}
 				if (Object.keys(patch).length === 0) return publicError("internal", "Invalid preference update");
 				if (Object.hasOwn(patch, OUTPUT_VERBOSITY_FIELD) && (preferences.status().outputVerbosityWritable ?? preferences.status().writable) !== true) return publicError("internal", "Codex response detail settings are read-only");
+				if ([CONTEXT_MODE_FIELD, CUSTOM_CONTEXT_OVERRIDES_FIELD, CUSTOM_CONTEXT_WINDOW_FIELD, ...Object.values(CUSTOM_CONTEXT_MODEL_FIELDS)].some(field => Object.hasOwn(patch, field)) && (preferences.status().contextWritable ?? preferences.status().writable) !== true) return publicError("read-only", "Codex context length settings are read-only");
 				await preferences.update(patch, signal);
 			}
 			return {
@@ -3823,6 +3884,7 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 			};
 		} catch (error) {
 			if (signal.aborted) throw error;
+			if (error?.code === "invalid-context-preference") return publicError("invalid-input", error.message);
 			return publicError("internal", "Could not update preferences");
 		}
 		if (endpoint === "usage") try {
@@ -3975,7 +4037,7 @@ function createSearchProviderSwitcher(loader) {
 		}
 	});
 }
-function apply(ctx, { outputVerbosityOwner } = {}) {
+function apply(ctx, { outputVerbosityOwner, contextLengthOwner } = {}) {
 	let settings;
 	const defaultSettings = {
 		imageModel: DEFAULT_IMAGE_MODEL,
@@ -4051,17 +4113,12 @@ function apply(ctx, { outputVerbosityOwner } = {}) {
 		baseModels: () => baseProvider.getModels(),
 		fetch: (input, init) => network.fetch("catalog", input, init)
 	});
+	const contextPreferences = createContextPreferences({ owner: contextLengthOwner, settings, writable: ctx.settings?.writable ?? false, models: () => modelCatalog.getModels(baseProvider.getModels()), onChange: () => notifyCatalogChanged() });
 	const provider = openaiCodexSubscriptionProvider({
 		resolveSpeedMode: () => settings.get()[SPEED_MODE_FIELD],
 		resolveOutputVerbosity: () => outputVerbosityOwner?.current() ?? normalizeOutputVerbosity(settings.get()[OUTPUT_VERBOSITY_FIELD]),
-		resolveContextMode: () => normalizeContextMode(settings.get()[CONTEXT_MODE_FIELD]),
-		resolveCustomContextWindow: (modelKey) => {
-			const overrides = readCapabilitySettings(settings.get())[CUSTOM_CONTEXT_OVERRIDES_FIELD];
-			if (Object.hasOwn(overrides, modelKey)) return overrides[modelKey];
-			const field = CUSTOM_CONTEXT_MODEL_FIELDS[modelKey];
-			if (field === void 0) return void 0;
-			return normalizeCustomContextWindow(settings.get()[field] ?? CUSTOM_CONTEXT_MODEL_DEFAULTS[modelKey], CUSTOM_CONTEXT_MODEL_CAPS[modelKey]);
-		},
+		resolveContextMode: () => contextPreferences.current().mode,
+		resolveCustomContextWindow: contextPreferences.resolveWindow,
 		catalog: modelCatalog,
 		runNetwork: network.run
 	});
@@ -4076,20 +4133,24 @@ function apply(ctx, { outputVerbosityOwner } = {}) {
 			[CONTEXT_MODE_FIELD]: normalizeContextMode(settings.get()[CONTEXT_MODE_FIELD]),
 			[CUSTOM_CONTEXT_WINDOW_FIELD]: normalizeCustomContextWindow(settings.get()[CUSTOM_CONTEXT_WINDOW_FIELD]),
 			...Object.fromEntries(Object.entries(CUSTOM_CONTEXT_MODEL_FIELDS).map(([modelKey, field]) => [field, normalizeCustomContextWindow(settings.get()[field] ?? CUSTOM_CONTEXT_MODEL_DEFAULTS[modelKey], CUSTOM_CONTEXT_MODEL_CAPS[modelKey])])),
-			contextModels: contextModelGroups(modelCatalog.getModels(baseProvider.getModels())),
+			...contextPreferences.status(),
 			catalogStatus: modelCatalog.status(),
 			verbosityModels: provider.getModels().filter((model) => modelCatalog.metadata(model.id)?.supportVerbosity ?? model.id !== "gpt-5.3-codex-spark").map((model) => model.id),
 			fastModels: provider.getModels().filter((model) => modelCatalog.metadata(model.id)?.supportsFast ?? supportsCodexFastMode(model.id)).map((model) => model.id),
 			writable: ctx.settings?.writable ?? false
 		}),
 		update: async (patch, signal) => {
-			if (outputVerbosityOwner && Object.hasOwn(patch, OUTPUT_VERBOSITY_FIELD)) {
-				await outputVerbosityOwner.save(patch[OUTPUT_VERBOSITY_FIELD], signal);
-				const { [OUTPUT_VERBOSITY_FIELD]: _verbosity, ...remaining } = patch;
-				if (Object.keys(remaining).length > 0) await settings.update(remaining);
-				return;
+			const remaining = { ...patch };
+			if (contextLengthOwner && [CUSTOM_CONTEXT_WINDOW_FIELD, ...Object.values(CUSTOM_CONTEXT_MODEL_FIELDS)].some(field => Object.hasOwn(patch, field))) throw Object.assign(new Error("Use per-model customContextModels for Codex context settings"), { code: "invalid-context-preference" });
+			if (Object.hasOwn(patch, CONTEXT_MODE_FIELD) || Object.hasOwn(patch, CUSTOM_CONTEXT_OVERRIDES_FIELD)) {
+				await contextPreferences.update({ ...Object.hasOwn(patch, CONTEXT_MODE_FIELD) ? { contextMode: patch.contextMode } : {}, ...Object.hasOwn(patch, CUSTOM_CONTEXT_OVERRIDES_FIELD) ? { customContextModels: patch.customContextModels } : {} }, signal);
+				delete remaining.contextMode; delete remaining.customContextModels;
 			}
-			return settings.update(patch);
+			if (outputVerbosityOwner && Object.hasOwn(remaining, OUTPUT_VERBOSITY_FIELD)) {
+				await outputVerbosityOwner.save(remaining[OUTPUT_VERBOSITY_FIELD], signal);
+				delete remaining[OUTPUT_VERBOSITY_FIELD];
+			}
+			if (Object.keys(remaining).length > 0) await settings.update(remaining);
 		}
 	};
 	const authModels = createModels({ credentials: store });
@@ -4112,13 +4173,13 @@ function apply(ctx, { outputVerbosityOwner } = {}) {
 	const profiles = () => {
 		const key = JSON.stringify([
 			modelCatalog.revision(),
-			normalizeContextMode(settings.get()[CONTEXT_MODE_FIELD]),
+			contextPreferences.current(),
 			settings.get()[CUSTOM_CONTEXT_OVERRIDES_FIELD],
 			...Object.values(CUSTOM_CONTEXT_MODEL_FIELDS).map((field) => settings.get()[field])
 		]);
 		if (key !== profileKey) {
 			profileKey = key;
-			profileSnapshot = /* @__PURE__ */ new Map([[PROVIDER, profile]]);
+			profileSnapshot = new Map([[PROVIDER, snapshotCodexProfile(profile)]]);
 		}
 		return profileSnapshot;
 	};
@@ -4158,6 +4219,7 @@ function apply(ctx, { outputVerbosityOwner } = {}) {
 	// Re-publish the owned route atomically after its advertised models change.
 	// This notifies the official directory cache without fabricating model entries.
 	notifyCatalogChanged = () => adapterRegistration.replace?.([PROVIDER]);
+	ctx.on("settings/document-updated", () => contextPreferences.notify());
 	ctx.effect(() => () => {
 		notifyCatalogChanged = () => {};
 		modelCatalog.clear();
@@ -4275,6 +4337,7 @@ function apply(ctx, { outputVerbosityOwner } = {}) {
 		resolveInheritedOriginal: (sessionId, assetId) => inheritedOriginalImageRef(ctx.get?.("sessions")?.get?.(sessionId), assetId)
 	});
 	ctx.effect(() => ctx.tools.register(createOutputVerbosityTool(handler)), "codex-subscription: response detail tool");
+	ctx.effect(() => ctx.tools.register(createContextLengthTool(handler)), "codex-subscription: context length tool");
 	ctx.effect(() => {
 		modelCatalog.refresh().catch((error) => ctx.logger?.debug?.("could not refresh Codex model catalog: %s", error.message));
 	}, "codex-subscription: official model catalog");

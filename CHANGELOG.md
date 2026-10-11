@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.11.0
+
+- Add the explicitly approved Codex context-length control in both provider Settings views: Standard / Extended / Custom, current model limits and effective capacities, and explicit saves for edited per-model token counts. Persist one atomic volatile native config field, preserve other providers/preferences and inactive-model overrides, acknowledge saves, retain unsaved drafts through external refreshes, and reject invalid/fixed-model writes. Do not add spending limits, image-fidelity settings or search controls.
+- Reuse the preference RPC and a deferred, bounded `codex_context_length` tool. Rebuild provider snapshots and invalidate the official route directory on changes; pin model metadata in each profile snapshot so already-prepared calls keep their previous capacity. Never inherit a different model's larger template maximum when official metadata only advertises a smaller window. Larger capacity does not unlock server entitlement and may increase input-token usage.
+- Add regression tests for model-specific bounds, dynamic model groups, persistence, failures, cancellation, shared tool operations, both Settings surfaces and locale parity. Include a no-network smoke check against an explicitly chosen installed PiAiAdapter, covering both reported budgets and actual fake-stream model selection. Live UI/persistence acceptance remains for the user after restarting DSH.
+
 ## 0.10.1
 
 - Remove the redundant Refresh button from the Codex response-detail setting in both Settings views. Retain automatic saves, configuration-change synchronization, error messages and fresh reads when reopening; omit the empty status row when idle.

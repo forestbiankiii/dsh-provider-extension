@@ -168,6 +168,10 @@ export function apply(ctx: ClientContext): void {
       removeCodexAccount: async (id) => { await codexAccounts.removeAccount(id) },
       codexReset: { rpc, t: ctx.locale.bind('providerUsage'), locale: ctx.locale.getSnapshot().active === 'zh' ? 'zh-CN' : 'en-US' },
       codexVerbosity: { rpc, subscribe: listener => ctx.remote.$on('settings/document-updated', () => listener()) },
+      codexContext: { rpc, subscribe: listener => {
+        const disposers = [ctx.remote.$on('settings/document-updated', () => listener()), ctx.remote.$on('llm/adapters-updated', () => listener())]
+        return () => { disposers.forEach(dispose => dispose()) }
+      } },
       onCodexReset: async (id) => { await codexAccounts.readQuotaForAccount(id); window.dispatchEvent(new Event('dsh-codex-subscription:refresh-quick-quota')) },
       loadAntigravity: async () => { await antigravity.load() },
       refreshAntigravityModels: async () => {

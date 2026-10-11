@@ -29,6 +29,12 @@ Host 接入实现已包含在此 Bundle 中，上游来源和许可证记录在 
 
 界面会显示保存确认或失败，宿主无法持久化时为只读。延迟加载的 `codex_output_verbosity` 工具调用同一偏好操作。更新后重启 DSH，再检查四档选择及再次重启后的保留情况。后续功能仍需单独确认，候选及验收状态见 [CODEX-ROADMAP.md](CODEX-ROADMAP.md)。
 
+## Codex 上下文长度
+
+在「提供商拓展 → OpenAI Codex」选择「上下文长度」：**标准**跟随模型目录默认值，**扩展**使用目录提供的最大值，**自定义**按模型填写 token 数。切换模式自动保存；修改数字后点「保存自定义长度」。显示范围来自当前宿主模型目录，官方返回的元数据优先，实际仍受服务端限制。固定容量模型保持固定，同组变体按较小上限校验。它不会切换或解锁模型／账号，不是费用限额；更大的上下文可能增加输入 token 消耗。
+
+设置通过原生配置持久化，只影响后续请求；已经准备好的请求保留原容量快照。其他偏好和暂时不在目录中的模型设置不会被清除。延迟加载的 `codex_context_length` 工具复用相同 RPC 操作，一次最多返回 64 个模型组。更新后重启 DSH，再测试模式和自定义值在再次重启后是否保留；选回「标准」恢复跟随目录默认容量。自动测试使用模拟写入和流，没有改动真实配置或发送付费模型请求。本地可用 `node scripts/verify-context-runtime.mjs <DSH安装app目录>` 重跑实际适配器检查，检查不连接提供商。完整 Agent 首轮提示 token 差值及页面效果仍需重启后的实机验收。
+
 ## Claude 订阅：通过官方 CLI 接入
 
 先安装未修改的官方 Claude Code CLI 并加入 PATH，重启 DSH，再打开「提供商拓展 → Anthropic Claude」。Windows 上的登录按钮会在可见终端启动官方 `claude auth login`，其他平台请自行执行该命令。完成登录后刷新状态，在输入区选择 Anthropic Claude 和 Sonnet／Opus／Haiku 模型别名。登录及账号切换仍由官方 CLI 管理，本插件不导入、保存、导出或改写其 Token。CLI 也可能使用 API Key／第三方计费，设置页会明确提示。请遵守 [Anthropic 的认证及凭据规则](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use)。

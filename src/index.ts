@@ -13,11 +13,13 @@ import { registerAccountRoutes } from './antigravity/account-routes.ts'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { applyUsage } from './usage/index.ts'
 import { createOutputVerbosityOwner, outputVerbositySchema, type OutputVerbosityConfig } from './codex/output-verbosity.ts'
+import { createContextLengthOwner, contextLengthSchema, type ContextLengthConfig } from './codex/context-length.ts'
 import type { ProviderBalanceReaders } from './usage/provider-balances.ts'
 
 export const name = 'provider-extension'
 export const Config = Schema.object({
   codexOutputVerbosity: outputVerbositySchema,
+  codexContextLength: contextLengthSchema,
   claudeExecutable: Schema.string().default('claude').description('Official Claude Code executable; no shell command string.'),
   claudeStreamIdleTimeoutMs: Schema.natural().default(300000).description('Claude CLI output idle timeout in milliseconds.'),
   claudeUnsupportedFields: Schema.union(['error', 'ignore'] as const).default('error').description('Reject unsupported temperature/maxTokens/stop by default; ignore explicitly drops them.'),
@@ -33,7 +35,7 @@ export const inject = [
 ]
 
 /** Mount Host-side Antigravity and Codex services, LLM adapters, RPC routes, and tools. */
-export function apply(ctx: Context, config: ClaudeConfig & { codexOutputVerbosity?: OutputVerbosityConfig } = {}): void {
+export function apply(ctx: Context, config: ClaudeConfig & { codexOutputVerbosity?: OutputVerbosityConfig; codexContextLength?: ContextLengthConfig } = {}): void {
   const balanceReaders: ProviderBalanceReaders = {}
   // One feature failing here used to abort the whole mount, which removed the
   // LLM adapters below (a request then failed with NO_ADAPTER), so contain it.
@@ -63,7 +65,7 @@ export function apply(ctx: Context, config: ClaudeConfig & { codexOutputVerbosit
 
   // 5. Mount ChatGPT / Codex subscription service, LLM adapter, account RPC, and tools
   try {
-    balanceReaders.codex = applyCodexSubscription(ctx, { outputVerbosityOwner: createOutputVerbosityOwner(ctx, config.codexOutputVerbosity) })
+    balanceReaders.codex = applyCodexSubscription(ctx, { outputVerbosityOwner: createOutputVerbosityOwner(ctx, config.codexOutputVerbosity), contextLengthOwner: createContextLengthOwner(ctx, config.codexContextLength) })
   } catch (error) {
     ctx.logger?.warn(`Failed to mount Codex subscription: ${String(error)}`)
   }

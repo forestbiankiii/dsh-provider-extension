@@ -3,14 +3,29 @@ import type { Context } from '@deepseek-ai/cordis';
 import { type ClaudeConfig } from './claude/index.ts';
 import Schema from '@deepseek-ai/schemastery';
 import { type OutputVerbosityConfig } from './codex/output-verbosity.ts';
+import { type ContextLengthConfig } from './codex/context-length.ts';
 export declare const name = "provider-extension";
 export declare const Config: Schema<Schemastery.ObjectS<{
     codexOutputVerbosity: Schema<"default" | "low" | "medium" | "high", "default" | "low" | "medium" | "high">;
+    codexContextLength: Schema<Schemastery.ObjectS<{
+        mode: Schema<"standard" | "extended" | "custom", "standard" | "extended" | "custom">;
+        models: Schema<import("@deepseek-ai/cosmokit").Dict<number, string>, import("@deepseek-ai/cosmokit").Dict<number, string>>;
+    }>, Schemastery.ObjectT<{
+        mode: Schema<"standard" | "extended" | "custom", "standard" | "extended" | "custom">;
+        models: Schema<import("@deepseek-ai/cosmokit").Dict<number, string>, import("@deepseek-ai/cosmokit").Dict<number, string>>;
+    }>>;
     claudeExecutable: Schema<string, string>;
     claudeStreamIdleTimeoutMs: Schema<number, number>;
     claudeUnsupportedFields: Schema<"error" | "ignore", "error" | "ignore">;
 }>, Schemastery.ObjectT<{
     codexOutputVerbosity: Schema<"default" | "low" | "medium" | "high", "default" | "low" | "medium" | "high">;
+    codexContextLength: Schema<Schemastery.ObjectS<{
+        mode: Schema<"standard" | "extended" | "custom", "standard" | "extended" | "custom">;
+        models: Schema<import("@deepseek-ai/cosmokit").Dict<number, string>, import("@deepseek-ai/cosmokit").Dict<number, string>>;
+    }>, Schemastery.ObjectT<{
+        mode: Schema<"standard" | "extended" | "custom", "standard" | "extended" | "custom">;
+        models: Schema<import("@deepseek-ai/cosmokit").Dict<number, string>, import("@deepseek-ai/cosmokit").Dict<number, string>>;
+    }>>;
     claudeExecutable: Schema<string, string>;
     claudeStreamIdleTimeoutMs: Schema<number, number>;
     claudeUnsupportedFields: Schema<"error" | "ignore", "error" | "ignore">;
@@ -19,6 +34,7 @@ export declare const inject: string[];
 /** Mount Host-side Antigravity and Codex services, LLM adapters, RPC routes, and tools. */
 export declare function apply(ctx: Context, config?: ClaudeConfig & {
     codexOutputVerbosity?: OutputVerbosityConfig;
+    codexContextLength?: ContextLengthConfig;
 }): void;
 export * from './antigravity/index.ts';
 export { AntigravitySearchProvider, ANTIGRAVITY_SEARCH_PROVIDER_ID } from './antigravity/search.ts';
