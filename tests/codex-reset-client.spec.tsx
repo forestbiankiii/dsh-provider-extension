@@ -31,6 +31,7 @@ describe('quota-reset card actions', () => {
     expect(screen.getByText(t('resetExpires', { time: new Date(now + 3600000).toLocaleString('en-US') }))).toBeTruthy()
     expect(screen.getByText(en.resetExpiryUnknown)).toBeTruthy()
     expect(screen.getByText('Reset credit 2')).toBeTruthy()
+    expect(screen.queryByText(/Selecting a credit opens confirmation/)).toBeNull()
     expect(f.call).toHaveBeenCalledExactlyOnceWith('/api', 'codex-subscription/reset-credit/inspect', { id: 'non-active' }, expect.any(AbortSignal))
     expect(f.onReset).not.toHaveBeenCalled()
   })

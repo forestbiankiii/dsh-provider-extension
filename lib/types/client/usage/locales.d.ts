@@ -76,7 +76,6 @@ export declare const en: {
     resetSectionTitle: string;
     resetExpand: string;
     resetCollapse: string;
-    resetListHint: string;
     resetEarliest: string;
     resetFullQuota: string;
     resetSelection: string;

@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.8.10
+
+- Remove the redundant account/selection hint above the reset-credit list in Settings and Statistics. Keep account binding, credit expiry details and explicit confirmation unchanged.
+
 ## 0.8.9
 
 - Move Codex reset credits out of the flex account-metadata row into a full-width section below quotas in both settings views. Use a compact count header, numbered credit rows, aligned expiry/action metadata, an earliest-expiry hint, and localized labels for the provider's known full-reset credit title. Reuse the same theme-token styles in Statistics and remove the duplicate count there.

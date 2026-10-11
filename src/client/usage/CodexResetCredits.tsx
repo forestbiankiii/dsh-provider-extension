@@ -101,7 +101,6 @@ export function CodexResetCredits({ rpc, accountId, label, availableCount, t, lo
       <span className={css.resetToggleHint}>{t(open ? 'resetCollapse' : 'resetExpand')}<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d={open ? 'm4 10 4-4 4 4' : 'm4 6 4 4 4-4'} /></svg></span>
     </button>
     {open && <div id={detailsId} className={css.resetDetails} role="group" aria-label={t('resetForAccount', { name: label })} aria-busy={pending}>
-      {!challenge && <p>{t('resetListHint', { name: label })}</p>}
       {pending && <small className={css.resetProgress} role="status">{t('resetPending')}</small>}
       {error && <div className={css.resetNotice} role="alert"><p>{t(challenge ? 'resetUncertain' : 'resetFailed')}</p>{!challenge && <button type="button" disabled={pending} onClick={() => { void inspect() }}>{t('retry')}</button>}</div>}
       {result && <p className={css.resetResult} role="status">{t(result)}</p>}
