@@ -1141,6 +1141,19 @@
   border-bottom: 1px solid var(--dsw-alias-border-l1);
 }
 
+.codexLayout { container-type: inline-size; }
+.codexColumns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 16px; }
+.codexSettings { display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow-wrap: anywhere; }
+.codexSettings > .verbositySetting { margin: 0; }
+.codexAccounts { min-width: 0; overflow-wrap: anywhere; }
+.codexAccounts .accountCardTop { flex-wrap: wrap; }
+.codexAccounts .accountIdentityCol { flex-basis: 140px; }
+.codexColumns[data-has-settings="false"] { grid-template-columns: minmax(0, 1fr); }
+.codexColumns[data-has-settings="false"] .codexSettings { display: none; }
+@container (max-width: 520px) {
+  .codexColumns { grid-template-columns: minmax(0, 1fr); }
+}
+
 .verbositySetting { margin: 14px 0; padding: 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-2); }
 .verbositySetting .fieldLabel { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .verbositySetting select, .contextSetting input[type="number"] { padding: 5px 12px; min-height: 30px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; }

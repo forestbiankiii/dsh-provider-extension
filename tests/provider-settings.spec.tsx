@@ -56,6 +56,25 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
 }
 
 describe('provider settings surface', () => {
+  it.each(['quick', 'detail'])('places shared Codex controls and account cards in separate %s columns', async mode => {
+    const call = vi.fn(async () => ({ ok: true, value: { outputVerbosity: 'medium', outputVerbosityWritable: true, contextMode: 'standard', customContextModels: {}, contextModels: [], contextWritable: true } }))
+    bench({ status: 'ready' }, codexAccounts, undefined, undefined, { rpc: { call } as never }, { rpc: { call } as never })
+    if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
+    else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
+    const verbosity = await screen.findByRole('combobox', { name: en.codexVerbosity })
+    const context = screen.getByRole('combobox', { name: en.codexContext })
+    const settings = verbosity.closest(`.${settingsCss.codexSettings}`)!
+    expect(settings).toBeTruthy()
+    expect(settings.contains(context)).toBe(true)
+    const accounts = screen.getByText('Work').closest(`.${settingsCss.codexAccounts}`)!
+    expect(accounts).toBeTruthy()
+    expect(accounts.parentElement).toBe(settings.parentElement)
+    expect(settings.nextElementSibling).toBe(accounts)
+    expect(accounts.querySelector('select')).toBeNull()
+    expect(settings.querySelector(`.${settingsCss.accountCardButton}`)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en.quotaView }))
+    expect(await screen.findByRole('checkbox', { name: 'Host Model' })).toBeTruthy()
+  })
   it.each(['quick', 'detail'])('exposes context length once in the %s provider settings', async mode => {
     const call = vi.fn(async () => ({ ok: true, value: { contextMode: 'standard', customContextModels: {}, contextModels: [], contextWritable: true } }))
     bench({ status: 'ready' }, codexAccounts, undefined, undefined, undefined, { rpc: { call } as never })

@@ -457,215 +457,222 @@ export function ProviderSettings({
                 onClick={refreshCodexModels}
               >{t('codexFetchModels')}</button>
             </div>
-            {codexVerbosity && <CodexVerbositySettings {...codexVerbosity} t={t} />}
-            {codexContext && <CodexContextSettings {...codexContext} t={t} />}
+            <div className={css.codexLayout}>
+              <div className={css.codexColumns} data-has-settings={Boolean(codexVerbosity || codexContext)}>
+                <div className={css.codexSettings}>
+                  {codexVerbosity && <CodexVerbositySettings {...codexVerbosity} t={t} />}
+                  {codexContext && <CodexContextSettings {...codexContext} t={t} />}
+                </div>
+                <div className={css.codexAccounts}>
+                  {accounts.accounts.length === 0 ? (
+                    <p className={css.note}>{t('codexNoAccounts')}</p>
+                  ) : (
+                    <div className={css.accounts}>
+                      {accounts.accounts.map(account => {
+                        const usage = accounts.usage[account.id]
+                        const usageVal = usage?.status === 'ready' ? usage.value : undefined
+                        const weekly = usageVal?.weeklyPercent
+                        const email = maskedEmail(account.email)
+                        const isEditing = editingCodexAccountId === account.id
+                        const isQuotaOpen = expandedCodexQuotaAccounts[account.id] === true
+                        return (
+                          <div
+                            key={account.id}
+                            className={css.accountCardButton}
+                            role="button"
+                            aria-label={isQuotaOpen ? t('quotaHide') : t('quotaView')}
+                            tabIndex={0}
+                            onClick={() => toggleCodexAccountQuota(account.id)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                toggleCodexAccountQuota(account.id)
+                              }
+                            }}
+                          >
+                            <div className={css.accountCardTop}>
+                              <div className={css.accountIdentityCol}>
+                                <div className={css.accountTitleRow}>
+                                  {isEditing ? (
+                                    <input
+                                      className={css.renameInput}
+                                      value={editingCodexAccountLabel}
+                                      onChange={e => setEditingCodexAccountLabel(e.target.value)}
+                                      onClick={e => e.stopPropagation()}
+                                      onBlur={() => { void saveRenameCodex(account.id) }}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter') void saveRenameCodex(account.id)
+                                        if (e.key === 'Escape') setEditingCodexAccountId(null)
+                                      }}
+                                      autoFocus
+                                    />
+                                  ) : (
+                                    <span
+                                      className={css.accountName}
+                                      onClick={e => {
+                                        e.stopPropagation()
+                                        startRenameCodex(account.id, account.label)
+                                      }}
+                                      title="点击直接重命名"
+                                    >
+                                      {account.label}
+                                    </span>
+                                  )}
+                                  {account.active ? (
+                                    <span className={css.cockpitCurrentBadge}>
+                                      {t('accountCurrent')}
+                                    </span>
+                                  ) : null}
+                                  <span className={css.accountTierBadge} data-tier="Pro">
+                                    {account.planType ?? 'PLUS'}
+                                  </span>
+                                  {weekly !== undefined ? (
+                                    <span className={css.accountTierBadge} data-tier="Pro">
+                                      {t('weeklyQuota', { value: weekly })}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                {email === undefined ? null : <span className={css.note}>{email}</span>}
+                              </div>
+                              <div className={css.actions} onClick={e => e.stopPropagation()}>
+                                {confirmingDeleteId === account.id ? (
+                                  <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
+                                    <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
+                                    <button
+                                      type="button"
+                                      className={`${css.action} ${css.danger}`}
+                                      onClick={e => {
+                                        e.stopPropagation()
+                                        setConfirmingDeleteId(null)
+                                        void removeCodexAccount(account.id).catch(() => {})
+                                      }}
+                                    >{t('confirmYes')}</button>
+                                    <button
+                                      type="button"
+                                      className={css.action}
+                                      onClick={e => {
+                                        e.stopPropagation()
+                                        setConfirmingDeleteId(null)
+                                      }}
+                                    >{t('confirmNo')}</button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className={css.action}
+                                    disabled={accounts.switchingId !== undefined}
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      setConfirmingDeleteId(account.id)
+                                    }}
+                                  >{t('accountRemove')}</button>
+                                )}
+                                <span className={css.accountChevron} data-open={isQuotaOpen}>▼</span>
+                              </div>
+                            </div>
 
-            {accounts.accounts.length === 0 ? (
-              <p className={css.note}>{t('codexNoAccounts')}</p>
-            ) : (
-              <div className={css.accounts}>
-                {accounts.accounts.map(account => {
-                  const usage = accounts.usage[account.id]
-                  const usageVal = usage?.status === 'ready' ? usage.value : undefined
-                  const weekly = usageVal?.weeklyPercent
-                  const email = maskedEmail(account.email)
-                  const isEditing = editingCodexAccountId === account.id
-                  const isQuotaOpen = expandedCodexQuotaAccounts[account.id] === true
-                  return (
-                    <div
-                      key={account.id}
-                      className={css.accountCardButton}
-                      role="button"
-                      aria-label={isQuotaOpen ? t('quotaHide') : t('quotaView')}
-                      tabIndex={0}
-                      onClick={() => toggleCodexAccountQuota(account.id)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          toggleCodexAccountQuota(account.id)
-                        }
-                      }}
-                    >
-                      <div className={css.accountCardTop}>
-                        <div className={css.accountIdentityCol}>
-                          <div className={css.accountTitleRow}>
-                            {isEditing ? (
-                              <input
-                                className={css.renameInput}
-                                value={editingCodexAccountLabel}
-                                onChange={e => setEditingCodexAccountLabel(e.target.value)}
-                                onClick={e => e.stopPropagation()}
-                                onBlur={() => { void saveRenameCodex(account.id) }}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter') void saveRenameCodex(account.id)
-                                  if (e.key === 'Escape') setEditingCodexAccountId(null)
-                                }}
-                                autoFocus
-                              />
-                            ) : (
-                              <span
-                                className={css.accountName}
-                                onClick={e => {
-                                  e.stopPropagation()
-                                  startRenameCodex(account.id, account.label)
-                                }}
-                                title="点击直接重命名"
-                              >
-                                {account.label}
-                              </span>
+                            {isQuotaOpen && (
+                              <div className={css.cockpitPanel} onClick={e => e.stopPropagation()}>
+                                {/* Account metadata stays separate from the full-width reset section. */}
+                                <div className={css.cockpitSubRow}>
+                                  <div className={css.cockpitTeam}>
+                                    <span className={css.cockpitMuted}>Team Name:</span>
+                                    <span className={css.cockpitText}>个人账户</span>
+                                  </div>
+                                </div>
+
+                                {/* Sub-row 2: 登录方式与用户 ID */}
+                                <div className={css.cockpitUserRow}>
+                                  <span>使用 Google / Password 登录</span>
+                                  {account.accountId ? (
+                                    <>
+                                      <span className={css.cockpitDivider}>|</span>
+                                      <span title={account.accountId}>
+                                        用户 ID: {account.accountId.slice(0, 18)}...
+                                      </span>
+                                    </>
+                                  ) : null}
+                                </div>
+
+                                {/* 5h 额度条 (PRO 账号无 5h 限额，不展示) */}
+                                {(!account.planType || account.planType.toUpperCase() !== 'PRO') && (
+                                  <div className={css.cockpitQuotaSection}>
+                                    <div className={css.cockpitQuotaHeader}>
+                                      <span className={css.cockpitQuotaTitle}>5h</span>
+                                      <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent ?? 100}%</span>
+                                    </div>
+                                    <div className={css.cockpitTrack}>
+                                      <div
+                                        className={css.cockpitFill5h}
+                                        style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 100))}%` }}
+                                      />
+                                    </div>
+                                    <div className={css.cockpitTimeSub}>
+                                      {formatCockpitTime(usageVal?.shortResetsAt)}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Weekly 额度条 */}
+                                <div className={css.cockpitQuotaSection}>
+                                  <div className={css.cockpitQuotaHeader}>
+                                    <span className={css.cockpitQuotaTitle}>Weekly</span>
+                                    <span className={css.cockpitQuotaValWeekly}>{usageVal?.weeklyPercent ?? 100}%</span>
+                                  </div>
+                                  <div className={css.cockpitTrack}>
+                                    <div
+                                      className={css.cockpitFillWeekly}
+                                      style={{ width: `${Math.min(100, Math.max(0, usageVal?.weeklyPercent ?? 100))}%` }}
+                                    />
+                                  </div>
+                                  <div className={css.cockpitTimeSub}>
+                                    {formatCockpitTime(usageVal?.weeklyResetsAt)}
+                                  </div>
+                                </div>
+
+                                {/* 订阅有效期 Banner */}
+                                {account.subscriptionUntil ? (
+                                  <div className={css.cockpitSubBanner}>
+                                    <div className={css.cockpitSubLeft}>
+                                      <span>订阅有效期 {calcDaysRemaining(new Date(account.subscriptionUntil).getTime())}</span>
+                                    </div>
+                                    <div className={css.cockpitSubRight}>
+                                      {formatDateTime(new Date(account.subscriptionUntil).getTime())}
+                                    </div>
+                                  </div>
+                                ) : null}
+
+                                {codexReset && usage?.status === 'ready' && usage.value.resetCredits !== undefined && <CodexResetCredits {...codexReset} key={account.id} accountId={account.id} label={account.label} availableCount={usage.value.resetCredits} onReset={() => onCodexReset?.(account.id)} />}
+
+                                <div className={css.accountModelsBlock}>
+                                  <div className={css.blockHeadRow}>
+                                    <span className={css.quotaGroupTitle}>{t('codexModels')}</span>
+                                  </div>
+                                  {renderCodexModels(account)}
+                                </div>
+
+                                {usage?.status === 'error' && (
+                                  <div className={css.quotaErrorRow}>
+                                    <span className={css.note}>{t('quotaFailedShort')}</span>
+                                    <button
+                                      type="button"
+                                      className={css.action}
+                                      onClick={() => { void readQuota(account.id).catch(() => {}) }}
+                                    >
+                                      {t('readQuota')}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             )}
-                            {account.active ? (
-                              <span className={css.cockpitCurrentBadge}>
-                                {t('accountCurrent')}
-                              </span>
-                            ) : null}
-                            <span className={css.accountTierBadge} data-tier="Pro">
-                              {account.planType ?? 'PLUS'}
-                            </span>
-                            {weekly !== undefined ? (
-                              <span className={css.accountTierBadge} data-tier="Pro">
-                                {t('weeklyQuota', { value: weekly })}
-                              </span>
-                            ) : null}
                           </div>
-                          {email === undefined ? null : <span className={css.note}>{email}</span>}
-                        </div>
-                        <div className={css.actions} onClick={e => e.stopPropagation()}>
-                          {confirmingDeleteId === account.id ? (
-                            <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
-                              <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
-                              <button
-                                type="button"
-                                className={`${css.action} ${css.danger}`}
-                                onClick={e => {
-                                  e.stopPropagation()
-                                  setConfirmingDeleteId(null)
-                                  void removeCodexAccount(account.id).catch(() => {})
-                                }}
-                              >{t('confirmYes')}</button>
-                              <button
-                                type="button"
-                                className={css.action}
-                                onClick={e => {
-                                  e.stopPropagation()
-                                  setConfirmingDeleteId(null)
-                                }}
-                              >{t('confirmNo')}</button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              className={css.action}
-                              disabled={accounts.switchingId !== undefined}
-                              onClick={e => {
-                                e.stopPropagation()
-                                setConfirmingDeleteId(account.id)
-                              }}
-                            >{t('accountRemove')}</button>
-                          )}
-                          <span className={css.accountChevron} data-open={isQuotaOpen}>▼</span>
-                        </div>
-                      </div>
-
-                      {isQuotaOpen && (
-                        <div className={css.cockpitPanel} onClick={e => e.stopPropagation()}>
-                          {/* Account metadata stays separate from the full-width reset section. */}
-                          <div className={css.cockpitSubRow}>
-                            <div className={css.cockpitTeam}>
-                              <span className={css.cockpitMuted}>Team Name:</span>
-                              <span className={css.cockpitText}>个人账户</span>
-                            </div>
-                          </div>
-
-                          {/* Sub-row 2: 登录方式与用户 ID */}
-                          <div className={css.cockpitUserRow}>
-                            <span>使用 Google / Password 登录</span>
-                            {account.accountId ? (
-                              <>
-                                <span className={css.cockpitDivider}>|</span>
-                                <span title={account.accountId}>
-                                  用户 ID: {account.accountId.slice(0, 18)}...
-                                </span>
-                              </>
-                            ) : null}
-                          </div>
-
-                          {/* 5h 额度条 (PRO 账号无 5h 限额，不展示) */}
-                          {(!account.planType || account.planType.toUpperCase() !== 'PRO') && (
-                            <div className={css.cockpitQuotaSection}>
-                              <div className={css.cockpitQuotaHeader}>
-                                <span className={css.cockpitQuotaTitle}>5h</span>
-                                <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent ?? 100}%</span>
-                              </div>
-                              <div className={css.cockpitTrack}>
-                                <div
-                                  className={css.cockpitFill5h}
-                                  style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 100))}%` }}
-                                />
-                              </div>
-                              <div className={css.cockpitTimeSub}>
-                                {formatCockpitTime(usageVal?.shortResetsAt)}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Weekly 额度条 */}
-                          <div className={css.cockpitQuotaSection}>
-                            <div className={css.cockpitQuotaHeader}>
-                              <span className={css.cockpitQuotaTitle}>Weekly</span>
-                              <span className={css.cockpitQuotaValWeekly}>{usageVal?.weeklyPercent ?? 100}%</span>
-                            </div>
-                            <div className={css.cockpitTrack}>
-                              <div
-                                className={css.cockpitFillWeekly}
-                                style={{ width: `${Math.min(100, Math.max(0, usageVal?.weeklyPercent ?? 100))}%` }}
-                              />
-                            </div>
-                            <div className={css.cockpitTimeSub}>
-                              {formatCockpitTime(usageVal?.weeklyResetsAt)}
-                            </div>
-                          </div>
-
-                          {/* 订阅有效期 Banner */}
-                          {account.subscriptionUntil ? (
-                            <div className={css.cockpitSubBanner}>
-                              <div className={css.cockpitSubLeft}>
-                                <span>订阅有效期 {calcDaysRemaining(new Date(account.subscriptionUntil).getTime())}</span>
-                              </div>
-                              <div className={css.cockpitSubRight}>
-                                {formatDateTime(new Date(account.subscriptionUntil).getTime())}
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {codexReset && usage?.status === 'ready' && usage.value.resetCredits !== undefined && <CodexResetCredits {...codexReset} key={account.id} accountId={account.id} label={account.label} availableCount={usage.value.resetCredits} onReset={() => onCodexReset?.(account.id)} />}
-
-                          <div className={css.accountModelsBlock}>
-                            <div className={css.blockHeadRow}>
-                              <span className={css.quotaGroupTitle}>{t('codexModels')}</span>
-                            </div>
-                            {renderCodexModels(account)}
-                          </div>
-
-                          {usage?.status === 'error' && (
-                            <div className={css.quotaErrorRow}>
-                              <span className={css.note}>{t('quotaFailedShort')}</span>
-                              <button
-                                type="button"
-                                className={css.action}
-                                onClick={() => { void readQuota(account.id).catch(() => {}) }}
-                              >
-                                {t('readQuota')}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                        )
+                      })}
                     </div>
-                  )
-                })}
+                  )}
+                </div>
               </div>
-            )}
+            </div>
           </article>
         )}
 
@@ -1354,215 +1361,222 @@ export function ProviderSettings({
                   onClick={refreshCodexModels}
                 >{t('codexFetchModels')}</button>
               </div>
-              {codexVerbosity && <CodexVerbositySettings {...codexVerbosity} t={t} />}
-              {codexContext && <CodexContextSettings {...codexContext} t={t} />}
+              <div className={css.codexLayout}>
+                <div className={css.codexColumns} data-has-settings={Boolean(codexVerbosity || codexContext)}>
+                  <div className={css.codexSettings}>
+                    {codexVerbosity && <CodexVerbositySettings {...codexVerbosity} t={t} />}
+                    {codexContext && <CodexContextSettings {...codexContext} t={t} />}
+                  </div>
+                  <div className={css.codexAccounts}>
+                    {accounts.accounts.length === 0 ? (
+                      <p className={css.note}>{t('codexNoAccounts')}</p>
+                    ) : (
+                      <div className={css.accounts}>
+                        {accounts.accounts.map(account => {
+                          const usage = accounts.usage[account.id]
+                          const usageVal = usage?.status === 'ready' ? usage.value : undefined
+                          const weekly = usageVal?.weeklyPercent
+                          const email = maskedEmail(account.email)
+                          const isEditing = editingCodexAccountId === account.id
+                          const isQuotaOpen = expandedCodexQuotaAccounts[account.id] === true
+                          return (
+                            <div
+                              key={account.id}
+                              className={css.accountCardButton}
+                              role="button"
+                              aria-label={isQuotaOpen ? t('quotaHide') : t('quotaView')}
+                              tabIndex={0}
+                              onClick={() => toggleCodexAccountQuota(account.id)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  toggleCodexAccountQuota(account.id)
+                                }
+                              }}
+                            >
+                              <div className={css.accountCardTop}>
+                                <div className={css.accountIdentityCol}>
+                                  <div className={css.accountTitleRow}>
+                                    {isEditing ? (
+                                      <input
+                                        className={css.renameInput}
+                                        value={editingCodexAccountLabel}
+                                        onChange={e => setEditingCodexAccountLabel(e.target.value)}
+                                        onClick={e => e.stopPropagation()}
+                                        onBlur={() => { void saveRenameCodex(account.id) }}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter') void saveRenameCodex(account.id)
+                                          if (e.key === 'Escape') setEditingCodexAccountId(null)
+                                        }}
+                                        autoFocus
+                                      />
+                                    ) : (
+                                      <span
+                                        className={css.accountName}
+                                        onClick={e => {
+                                          e.stopPropagation()
+                                          startRenameCodex(account.id, account.label)
+                                        }}
+                                        title="点击直接重命名"
+                                      >
+                                        {account.label}
+                                      </span>
+                                    )}
+                                    {account.active ? (
+                                      <span className={css.cockpitCurrentBadge}>
+                                        {t('accountCurrent')}
+                                      </span>
+                                    ) : null}
+                                    <span className={css.accountTierBadge} data-tier="Pro">
+                                      {account.planType ?? 'PLUS'}
+                                    </span>
+                                    {weekly !== undefined ? (
+                                      <span className={css.accountTierBadge} data-tier="Pro">
+                                        {t('weeklyQuota', { value: weekly })}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {email === undefined ? null : <span className={css.note}>{email}</span>}
+                                </div>
+                                <div className={css.actions} onClick={e => e.stopPropagation()}>
+                                  {confirmingDeleteId === account.id ? (
+                                    <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
+                                      <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
+                                      <button
+                                        type="button"
+                                        className={`${css.action} ${css.danger}`}
+                                        onClick={e => {
+                                          e.stopPropagation()
+                                          setConfirmingDeleteId(null)
+                                          void removeCodexAccount(account.id).catch(() => {})
+                                        }}
+                                      >{t('confirmYes')}</button>
+                                      <button
+                                        type="button"
+                                        className={css.action}
+                                        onClick={e => {
+                                          e.stopPropagation()
+                                          setConfirmingDeleteId(null)
+                                        }}
+                                      >{t('confirmNo')}</button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className={css.action}
+                                      disabled={accounts.switchingId !== undefined}
+                                      onClick={e => {
+                                        e.stopPropagation()
+                                        setConfirmingDeleteId(account.id)
+                                      }}
+                                    >{t('accountRemove')}</button>
+                                  )}
+                                  <span className={css.accountChevron} data-open={isQuotaOpen}>▼</span>
+                                </div>
+                              </div>
 
-              {accounts.accounts.length === 0 ? (
-                <p className={css.note}>{t('codexNoAccounts')}</p>
-              ) : (
-                <div className={css.accounts}>
-                  {accounts.accounts.map(account => {
-                    const usage = accounts.usage[account.id]
-                    const usageVal = usage?.status === 'ready' ? usage.value : undefined
-                    const weekly = usageVal?.weeklyPercent
-                    const email = maskedEmail(account.email)
-                    const isEditing = editingCodexAccountId === account.id
-                    const isQuotaOpen = expandedCodexQuotaAccounts[account.id] === true
-                    return (
-                      <div
-                        key={account.id}
-                        className={css.accountCardButton}
-                        role="button"
-                        aria-label={isQuotaOpen ? t('quotaHide') : t('quotaView')}
-                        tabIndex={0}
-                        onClick={() => toggleCodexAccountQuota(account.id)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            toggleCodexAccountQuota(account.id)
-                          }
-                        }}
-                      >
-                        <div className={css.accountCardTop}>
-                          <div className={css.accountIdentityCol}>
-                            <div className={css.accountTitleRow}>
-                              {isEditing ? (
-                                <input
-                                  className={css.renameInput}
-                                  value={editingCodexAccountLabel}
-                                  onChange={e => setEditingCodexAccountLabel(e.target.value)}
-                                  onClick={e => e.stopPropagation()}
-                                  onBlur={() => { void saveRenameCodex(account.id) }}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') void saveRenameCodex(account.id)
-                                    if (e.key === 'Escape') setEditingCodexAccountId(null)
-                                  }}
-                                  autoFocus
-                                />
-                              ) : (
-                                <span
-                                  className={css.accountName}
-                                  onClick={e => {
-                                    e.stopPropagation()
-                                    startRenameCodex(account.id, account.label)
-                                  }}
-                                  title="点击直接重命名"
-                                >
-                                  {account.label}
-                                </span>
+                              {isQuotaOpen && (
+                                <div className={css.cockpitPanel} onClick={e => e.stopPropagation()}>
+                                  {/* Account metadata stays separate from the full-width reset section. */}
+                                  <div className={css.cockpitSubRow}>
+                                    <div className={css.cockpitTeam}>
+                                      <span className={css.cockpitMuted}>Team Name:</span>
+                                      <span className={css.cockpitText}>个人账户</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Sub-row 2: 登录方式与用户 ID */}
+                                  <div className={css.cockpitUserRow}>
+                                    <span>使用 Google / Password 登录</span>
+                                    {account.accountId ? (
+                                      <>
+                                        <span className={css.cockpitDivider}>|</span>
+                                        <span title={account.accountId}>
+                                          用户 ID: {account.accountId.slice(0, 18)}...
+                                        </span>
+                                      </>
+                                    ) : null}
+                                  </div>
+
+                                  {/* 5h 额度条 (PRO 账号无 5h 限额，不展示) */}
+                                  {(!account.planType || account.planType.toUpperCase() !== 'PRO') && (
+                                    <div className={css.cockpitQuotaSection}>
+                                      <div className={css.cockpitQuotaHeader}>
+                                        <span className={css.cockpitQuotaTitle}>5h</span>
+                                        <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent ?? 100}%</span>
+                                      </div>
+                                      <div className={css.cockpitTrack}>
+                                        <div
+                                          className={css.cockpitFill5h}
+                                          style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 100))}%` }}
+                                        />
+                                      </div>
+                                      <div className={css.cockpitTimeSub}>
+                                        {formatCockpitTime(usageVal?.shortResetsAt)}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Weekly 额度条 */}
+                                  <div className={css.cockpitQuotaSection}>
+                                    <div className={css.cockpitQuotaHeader}>
+                                      <span className={css.cockpitQuotaTitle}>Weekly</span>
+                                      <span className={css.cockpitQuotaValWeekly}>{usageVal?.weeklyPercent ?? 100}%</span>
+                                    </div>
+                                    <div className={css.cockpitTrack}>
+                                      <div
+                                        className={css.cockpitFillWeekly}
+                                        style={{ width: `${Math.min(100, Math.max(0, usageVal?.weeklyPercent ?? 100))}%` }}
+                                      />
+                                    </div>
+                                    <div className={css.cockpitTimeSub}>
+                                      {formatCockpitTime(usageVal?.weeklyResetsAt)}
+                                    </div>
+                                  </div>
+
+                                  {/* 订阅有效期 Banner */}
+                                  {account.subscriptionUntil ? (
+                                    <div className={css.cockpitSubBanner}>
+                                      <div className={css.cockpitSubLeft}>
+                                        <span>订阅有效期 {calcDaysRemaining(new Date(account.subscriptionUntil).getTime())}</span>
+                                      </div>
+                                      <div className={css.cockpitSubRight}>
+                                        {formatDateTime(new Date(account.subscriptionUntil).getTime())}
+                                      </div>
+                                    </div>
+                                  ) : null}
+
+                                  {codexReset && usage?.status === 'ready' && usage.value.resetCredits !== undefined && <CodexResetCredits {...codexReset} key={account.id} accountId={account.id} label={account.label} availableCount={usage.value.resetCredits} onReset={() => onCodexReset?.(account.id)} />}
+
+                                  <div className={css.accountModelsBlock}>
+                                    <div className={css.blockHeadRow}>
+                                      <span className={css.quotaGroupTitle}>{t('codexModels')}</span>
+                                    </div>
+                                    {renderCodexModels(account)}
+                                  </div>
+
+                                  {usage?.status === 'error' && (
+                                    <div className={css.quotaErrorRow}>
+                                      <span className={css.note}>{t('quotaFailedShort')}</span>
+                                      <button
+                                        type="button"
+                                        className={css.action}
+                                        onClick={() => { void readQuota(account.id).catch(() => {}) }}
+                                      >
+                                        {t('readQuota')}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               )}
-                              {account.active ? (
-                                <span className={css.cockpitCurrentBadge}>
-                                  {t('accountCurrent')}
-                                </span>
-                              ) : null}
-                              <span className={css.accountTierBadge} data-tier="Pro">
-                                {account.planType ?? 'PLUS'}
-                              </span>
-                              {weekly !== undefined ? (
-                                <span className={css.accountTierBadge} data-tier="Pro">
-                                  {t('weeklyQuota', { value: weekly })}
-                                </span>
-                              ) : null}
                             </div>
-                            {email === undefined ? null : <span className={css.note}>{email}</span>}
-                          </div>
-                          <div className={css.actions} onClick={e => e.stopPropagation()}>
-                            {confirmingDeleteId === account.id ? (
-                              <div className={css.deleteConfirmRow} onClick={e => e.stopPropagation()}>
-                                <span className={css.deleteConfirmPrompt}>{t('confirmDelete')}</span>
-                                <button
-                                  type="button"
-                                  className={`${css.action} ${css.danger}`}
-                                  onClick={e => {
-                                    e.stopPropagation()
-                                    setConfirmingDeleteId(null)
-                                    void removeCodexAccount(account.id).catch(() => {})
-                                  }}
-                                >{t('confirmYes')}</button>
-                                <button
-                                  type="button"
-                                  className={css.action}
-                                  onClick={e => {
-                                    e.stopPropagation()
-                                    setConfirmingDeleteId(null)
-                                  }}
-                                >{t('confirmNo')}</button>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                className={css.action}
-                                disabled={accounts.switchingId !== undefined}
-                                onClick={e => {
-                                  e.stopPropagation()
-                                  setConfirmingDeleteId(account.id)
-                                }}
-                              >{t('accountRemove')}</button>
-                            )}
-                            <span className={css.accountChevron} data-open={isQuotaOpen}>▼</span>
-                          </div>
-                        </div>
-
-                        {isQuotaOpen && (
-                          <div className={css.cockpitPanel} onClick={e => e.stopPropagation()}>
-                            {/* Account metadata stays separate from the full-width reset section. */}
-                            <div className={css.cockpitSubRow}>
-                              <div className={css.cockpitTeam}>
-                                <span className={css.cockpitMuted}>Team Name:</span>
-                                <span className={css.cockpitText}>个人账户</span>
-                              </div>
-                            </div>
-
-                            {/* Sub-row 2: 登录方式与用户 ID */}
-                            <div className={css.cockpitUserRow}>
-                              <span>使用 Google / Password 登录</span>
-                              {account.accountId ? (
-                                <>
-                                  <span className={css.cockpitDivider}>|</span>
-                                  <span title={account.accountId}>
-                                    用户 ID: {account.accountId.slice(0, 18)}...
-                                  </span>
-                                </>
-                              ) : null}
-                            </div>
-
-                            {/* 5h 额度条 (PRO 账号无 5h 限额，不展示) */}
-                            {(!account.planType || account.planType.toUpperCase() !== 'PRO') && (
-                              <div className={css.cockpitQuotaSection}>
-                                <div className={css.cockpitQuotaHeader}>
-                                  <span className={css.cockpitQuotaTitle}>5h</span>
-                                  <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent ?? 100}%</span>
-                                </div>
-                                <div className={css.cockpitTrack}>
-                                  <div
-                                    className={css.cockpitFill5h}
-                                    style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 100))}%` }}
-                                  />
-                                </div>
-                                <div className={css.cockpitTimeSub}>
-                                  {formatCockpitTime(usageVal?.shortResetsAt)}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Weekly 额度条 */}
-                            <div className={css.cockpitQuotaSection}>
-                              <div className={css.cockpitQuotaHeader}>
-                                <span className={css.cockpitQuotaTitle}>Weekly</span>
-                                <span className={css.cockpitQuotaValWeekly}>{usageVal?.weeklyPercent ?? 100}%</span>
-                              </div>
-                              <div className={css.cockpitTrack}>
-                                <div
-                                  className={css.cockpitFillWeekly}
-                                  style={{ width: `${Math.min(100, Math.max(0, usageVal?.weeklyPercent ?? 100))}%` }}
-                                />
-                              </div>
-                              <div className={css.cockpitTimeSub}>
-                                {formatCockpitTime(usageVal?.weeklyResetsAt)}
-                              </div>
-                            </div>
-
-                            {/* 订阅有效期 Banner */}
-                            {account.subscriptionUntil ? (
-                              <div className={css.cockpitSubBanner}>
-                                <div className={css.cockpitSubLeft}>
-                                  <span>订阅有效期 {calcDaysRemaining(new Date(account.subscriptionUntil).getTime())}</span>
-                                </div>
-                                <div className={css.cockpitSubRight}>
-                                  {formatDateTime(new Date(account.subscriptionUntil).getTime())}
-                                </div>
-                              </div>
-                            ) : null}
-
-                            {codexReset && usage?.status === 'ready' && usage.value.resetCredits !== undefined && <CodexResetCredits {...codexReset} key={account.id} accountId={account.id} label={account.label} availableCount={usage.value.resetCredits} onReset={() => onCodexReset?.(account.id)} />}
-
-                            <div className={css.accountModelsBlock}>
-                              <div className={css.blockHeadRow}>
-                                <span className={css.quotaGroupTitle}>{t('codexModels')}</span>
-                              </div>
-                              {renderCodexModels(account)}
-                            </div>
-
-                            {usage?.status === 'error' && (
-                              <div className={css.quotaErrorRow}>
-                                <span className={css.note}>{t('quotaFailedShort')}</span>
-                                <button
-                                  type="button"
-                                  className={css.action}
-                                  onClick={() => { void readQuota(account.id).catch(() => {}) }}
-                                >
-                                  {t('readQuota')}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                          )
+                        })}
                       </div>
-                    )
-                  })}
+                    )}
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </article>

@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.11.1
+
+- Split Codex response/context settings and account cards into left/right columns in both quick and full Settings views. Use container-width responsiveness to stack them on narrow panels, allow account headers to wrap, and remove redundant setting-card margins. Keep all preference/account behavior and the shared toolbar unchanged; do not affect other providers.
+
 ## 0.11.0
 
 - Add the explicitly approved Codex context-length control in both provider Settings views: Standard / Extended / Custom, current model limits and effective capacities, and explicit saves for edited per-model token counts. Persist one atomic volatile native config field, preserve other providers/preferences and inactive-model overrides, acknowledge saves, retain unsaved drafts through external refreshes, and reject invalid/fixed-model writes. Do not add spending limits, image-fidelity settings or search controls.
