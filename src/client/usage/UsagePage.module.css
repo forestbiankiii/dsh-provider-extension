@@ -86,20 +86,44 @@
 .quotaWindow progress::-moz-progress-bar { background: var(--account-brand); border-radius: 99px; }
 .quotaWindow small { font-size: 11px; }
 .quotaNote { display: block; margin-top: 6px; }
-.resetCredits { margin-top: 12px; min-width: 0; font-size: 12px; color: var(--dsw-alias-label-primary); }
-.resetCredits button { font: inherit; cursor: pointer; padding: 6px 10px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l1); border-radius: 7px; }
+.resetCredits { width: 100%; box-sizing: border-box; margin-top: 16px; min-width: 0; font-size: 12px; color: var(--dsw-alias-label-primary); border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-1); overflow: hidden; }
+.resetCredits button { font: inherit; cursor: pointer; padding: 7px 11px; line-height: 1.4; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l1); border-radius: 7px; }
+.resetCredits button:hover:not(:disabled) { border-color: var(--dsw-alias-border-l2); }
 .resetCredits button:disabled { opacity: .5; cursor: not-allowed; }
 .resetCredits button:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; }
-.resetDetails { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--dsw-alias-border-l1); }
-.resetDetails p { font-size: 12px; margin: 6px 0; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
-.resetCredit { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0; }
-.resetCredit > div { min-width: 0; overflow-wrap: anywhere; }
-.resetCredit small, .resetConfirmation > small { display: block; margin-top: 4px; font-size: 11px; color: var(--dsw-alias-label-secondary); }
-.resetCredit button { flex: none; }
-.resetConfirmation { margin-top: 8px; }
-.resetConfirmation label { display: flex; align-items: flex-start; gap: 8px; line-height: 1.6; }
+.resetCredits .resetToggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 12px 14px; border: 0; border-radius: 0; text-align: left; background: transparent; }
+.resetCredits .resetToggle:hover:not(:disabled) { background: var(--dsw-alias-bg-layer-2); }
+.resetCredits .resetToggle:focus-visible { outline-offset: -3px; }
+.resetHeading { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.resetCount { display: inline-grid; place-items: center; min-width: 22px; height: 20px; box-sizing: border-box; padding: 0 5px; border-radius: 5px; font-size: 11px; font-variant-numeric: tabular-nums; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); }
+.resetToggleHint { display: inline-flex; align-items: center; gap: 8px; flex: none; font-size: 11px; color: var(--dsw-alias-label-secondary); }
+.resetDetails { padding: 12px 14px 14px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.resetDetails p { font-size: 12px; margin: 0 0 12px; line-height: 1.65; color: var(--dsw-alias-label-secondary); }
+.resetProgress { display: block; margin-bottom: 10px; color: var(--dsw-alias-label-secondary); }
+.resetList { display: grid; gap: 8px; }
+.resetCredit { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 8px; background: var(--dsw-alias-bg-layer-2); }
+.resetNumber { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 6px; color: var(--dsw-alias-label-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
+.resetCreditBody { min-width: 0; overflow-wrap: anywhere; }
+.resetCreditTitle { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+.resetCreditTitle strong { font-weight: 600; font-size: 12px; line-height: 1.5; }
+.resetEarliest { font-size: 10px; color: var(--dsw-alias-brand-primary); }
+.resetCredit small, .resetSelected small { display: block; margin-top: 4px; font-size: 11px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; line-height: 1.5; }
+.resetCredit button { white-space: nowrap; }
+.resetConfirmation h4 { margin: 0 0 12px; font-size: 13px; font-weight: 600; outline: none; }
+.resetSelected { display: grid; gap: 4px; padding: 12px; margin-bottom: 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-2); overflow-wrap: anywhere; }
+.resetSelected > span { font-size: 11px; color: var(--dsw-alias-label-secondary); }
+.resetSelected > strong { font-size: 12px; font-weight: 600; }
+.resetSelected small { margin-top: 0; }
+.resetConfirmation label { display: flex; align-items: flex-start; gap: 8px; line-height: 1.6; cursor: pointer; }
 .resetCredits .resetConfirmation input { width: 14px; height: 14px; margin: 3px 0 0; padding: 0; flex: none; accent-color: var(--dsw-alias-brand-primary); }
-.resetActions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.resetActions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.resetCredits .resetPrimary { border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, var(--dsw-alias-border-l1)); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, var(--dsw-alias-bg-layer-2)); }
+.resetCredits .resetPrimary:hover:not(:disabled) { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 18%, var(--dsw-alias-bg-layer-2)); }
+.resetNotice { padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; }
+.resetNotice p { margin: 0; }
+.resetNotice button { margin-top: 8px; }
+.resetDetails .resetResult { padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 8%, var(--dsw-alias-bg-layer-2)); color: var(--dsw-alias-label-primary); }
+@media (max-width: 480px) { .resetCredit { grid-template-columns: minmax(0, 1fr) auto; padding: 10px; } .resetNumber { display: none; } .resetDetails { padding: 10px; } }
 .balance { display: flex; gap: 16px 36px; flex-wrap: wrap; margin: 14px 0 12px; }
 .balance > div, .metricGrid > div { display: flex; flex-direction: column; gap: 8px; }
 .balance span, .metricGrid span { color: var(--dsw-alias-label-secondary); font-size: 12px; }

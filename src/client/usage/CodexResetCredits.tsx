@@ -1,5 +1,5 @@
 /** User-only redemption. Read-only inspection never prepares or consumes a reset. */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client'
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import type { UsageKey } from './locales.ts'
@@ -32,6 +32,9 @@ export function CodexResetCredits({ rpc, accountId, label, availableCount, t, lo
   const [error, setError] = useState(false)
   const [result, setResult] = useState<UsageKey | null>(null)
   const [now, setNow] = useState(Date.now)
+  const detailsId = useId()
+  const confirmationTitle = useRef<HTMLHeadingElement>(null)
+  const toggle = useRef<HTMLButtonElement>(null)
   const request = useRef<AbortController | null>(null)
   const busy = useRef(false)
   const mounted = useRef(true)
@@ -42,7 +45,8 @@ export function CodexResetCredits({ rpc, accountId, label, availableCount, t, lo
   useEffect(() => {
     if (!challenge) return
     setNow(Date.now())
-    const timer = setInterval(() => setNow(Date.now()), 250)
+    confirmationTitle.current?.focus()
+    const timer = setInterval(() => { const current = Date.now(); setNow(current); if (current >= challenge.expiresAt) clearInterval(timer) }, 250)
     return () => clearInterval(timer)
   }, [challenge])
   const call = async (endpoint: string, payload: object, signal: AbortSignal) => {
@@ -84,34 +88,43 @@ export function CodexResetCredits({ rpc, accountId, label, availableCount, t, lo
     })
   }
   const format = (time?: number) => validTime(time) ? t('resetExpires', { time: new Date(time).toLocaleString(locale) }) : t('resetExpiryUnknown')
+  const creditTitle = (credit: Credit, index = 0) => credit.name && /^Full reset \(Weekly\s*\+\s*5\s*hr\)$/i.test(credit.name) ? t('resetFullQuota') : credit.name ?? t('resetCreditName', { index: index + 1 })
+  const earliestRef = [...details?.credits ?? []].filter(credit => credit.expiresAt !== undefined && credit.expiresAt > Date.now()).sort((a, b) => a.expiresAt! - b.expiresAt!)[0]?.ref
   const expired = !!challenge && now >= challenge.expiresAt
   const seconds = challenge ? Math.max(0, Math.ceil((challenge.readyAt - now) / 1000)) : 0
-  return <div className={css.resetCredits}>
-    <button type="button" className={css.resetToggle} disabled={pending} aria-expanded={open} onClick={() => {
-      if (open) { setOpen(false); setChallenge(null); setSelected(null); setAcknowledged(false); setError(false) }
-      else { setOpen(true); void inspect() }
-    }}>{t('resetShow', { count: details?.availableCount ?? availableCount })}</button>
-    {open && <div className={css.resetDetails} role="group" aria-label={t('resetForAccount', { name: label })}>
-      <p>{t('resetForAccount', { name: label })}</p>
-      {pending && <small role="status">{t('resetPending')}</small>}
-      {error && <div role="alert"><p>{t(challenge ? 'resetUncertain' : 'resetFailed')}</p>{!challenge && <button type="button" disabled={pending} onClick={() => { void inspect() }}>{t('retry')}</button>}</div>}
-      {result && <p role="status">{t(result)}</p>}
+  return <div className={css.resetCredits} data-open={open}>
+    <button ref={toggle} type="button" className={css.resetToggle} disabled={pending} aria-expanded={open} aria-controls={detailsId} aria-label={t('resetShow', { count: details?.availableCount ?? availableCount })} onClick={() => {
+      if (open) setOpen(false)
+      else { setOpen(true); if (!challenge) void inspect() }
+    }}>
+      <span className={css.resetHeading}><span>{t('resetSectionTitle')}</span><span className={css.resetCount}>{details?.availableCount ?? availableCount}</span></span>
+      <span className={css.resetToggleHint}>{t(open ? 'resetCollapse' : 'resetExpand')}<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d={open ? 'm4 10 4-4 4 4' : 'm4 6 4 4 4-4'} /></svg></span>
+    </button>
+    {open && <div id={detailsId} className={css.resetDetails} role="group" aria-label={t('resetForAccount', { name: label })} aria-busy={pending}>
+      {!challenge && <p>{t('resetListHint', { name: label })}</p>}
+      {pending && <small className={css.resetProgress} role="status">{t('resetPending')}</small>}
+      {error && <div className={css.resetNotice} role="alert"><p>{t(challenge ? 'resetUncertain' : 'resetFailed')}</p>{!challenge && <button type="button" disabled={pending} onClick={() => { void inspect() }}>{t('retry')}</button>}</div>}
+      {result && <p className={css.resetResult} role="status">{t(result)}</p>}
       {!challenge && details && <>
         {details.credits.length === 0 && <p>{t('resetNoCredit')}</p>}
-        {details.credits.map((credit, index) => <div className={css.resetCredit} key={credit.ref}>
-          <div><strong>{credit.name ?? t('resetCreditName', { index: index + 1 })}</strong><small>{format(credit.expiresAt)}</small></div>
-          <button type="button" disabled={pending || (credit.expiresAt !== undefined && credit.expiresAt <= Date.now())} onClick={() => { void prepare(credit) }}>{t('resetUse')}</button>
-        </div>)}
+        <div className={css.resetList}>{details.credits.map((credit, index) => <div className={css.resetCredit} key={credit.ref}>
+          <span className={css.resetNumber} aria-hidden="true">{index + 1}</span>
+          <div className={css.resetCreditBody}>
+            <div className={css.resetCreditTitle}><strong title={credit.name}>{creditTitle(credit, index)}</strong>{details.credits.length > 1 && earliestRef === credit.ref && <span className={css.resetEarliest}>{t('resetEarliest')}</span>}</div>
+            <small>{format(credit.expiresAt)}</small>
+          </div>
+          <button type="button" disabled={pending || (credit.expiresAt !== undefined && credit.expiresAt <= Date.now())} onClick={() => { void prepare(credit) }}>{credit.expiresAt !== undefined && credit.expiresAt <= Date.now() ? t('resetExpiredCredit') : t('resetUse')}</button>
+        </div>)}</div>
       </>}
       {challenge && <div className={css.resetConfirmation}>
-        <strong>{selected?.name ?? t('resetConfirmTitle')}</strong>
-        <small>{format(challenge.creditExpiresAt ?? selected?.expiresAt)}</small>
+        <h4 ref={confirmationTitle} tabIndex={-1}>{t('resetConfirmTitle')}</h4>
+        <div className={css.resetSelected}><span>{t('resetSelection', { name: label })}</span><strong title={selected?.name}>{selected ? creditTitle(selected, details?.credits.findIndex(credit => credit.ref === selected.ref) ?? 0) : t('resetCreditName', { index: 1 })}</strong><small>{format(challenge.creditExpiresAt ?? selected?.expiresAt)}</small></div>
         <p>{t('resetWarning')}</p>
         <label><input type="checkbox" checked={acknowledged} disabled={pending || expired} onChange={event => setAcknowledged(event.target.checked)} />{t('resetAcknowledge')}</label>
-        {expired && <p role="status">{t('resetConfirmationExpired')}</p>}
+        {expired && <p className={css.resetNotice} role="status">{t('resetConfirmationExpired')}</p>}
         <div className={css.resetActions}>
-          <button type="button" disabled={pending || !acknowledged || seconds > 0 || expired} onClick={consume}>{seconds > 0 ? t('resetWait', { seconds }) : t('resetConfirm')}</button>
-          <button type="button" disabled={pending} onClick={() => { setChallenge(null); setSelected(null); setAcknowledged(false); setError(false); void inspect() }}>{t('resetCancel')}</button>
+          <button type="button" disabled={pending} onClick={() => { setChallenge(null); setSelected(null); setAcknowledged(false); setError(false); toggle.current?.focus(); void inspect() }}>{t('resetCancel')}</button>
+          <button type="button" className={css.resetPrimary} disabled={pending || !acknowledged || seconds > 0 || expired} onClick={consume}>{seconds > 0 ? t('resetWait', { seconds }) : t('resetConfirm')}</button>
         </div>
       </div>}
     </div>}

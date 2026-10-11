@@ -453,7 +453,7 @@ export class CodexAccountsController {
   async readQuotaForAccount(id: string): Promise<void> {
     if (!this.store.getSnapshot().accounts.some(account => account.id === id)) throw new Error('Unknown Codex account')
     const generation = this.generation
-    this.setUsage(id, LOADING)
+    // Preserve the card and its completed-reset feedback during quota refresh.
     try {
       const value = decodeQuota(await call(this.rpc, 'usage', { id, force: true }))
       if (!this.disposed && generation === this.generation) this.setUsage(id, { status: 'ready', value })

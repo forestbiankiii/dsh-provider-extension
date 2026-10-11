@@ -73,6 +73,14 @@ export declare const en: {
     quotaResetCredits: string;
     resetShow: string;
     resetForAccount: string;
+    resetSectionTitle: string;
+    resetExpand: string;
+    resetCollapse: string;
+    resetListHint: string;
+    resetEarliest: string;
+    resetFullQuota: string;
+    resetSelection: string;
+    resetExpiredCredit: string;
     resetCreditName: string;
     resetExpires: string;
     resetExpiryUnknown: string;

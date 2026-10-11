@@ -34,6 +34,16 @@ describe('quota-reset card actions', () => {
     expect(f.call).toHaveBeenCalledExactlyOnceWith('/api', 'codex-subscription/reset-credit/inspect', { id: 'non-active' }, expect.any(AbortSignal))
     expect(f.onReset).not.toHaveBeenCalled()
   })
+  it('keeps unnamed credit numbering consistent and focuses the separate confirmation step', async () => {
+    const f = fixture()
+    await click(screen.getByRole('button', { name: /View \/ use quota resets/ }))
+    await click(screen.getAllByRole('button', { name: en.resetUse })[1]!)
+    expect(screen.getByText('Reset credit 2')).toBeTruthy()
+    expect(screen.queryByText('Reset credit 1')).toBeNull()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: en.resetConfirmTitle }))
+    expect(screen.getByText(t('resetSelection', { name: 'Gmail' }))).toBeTruthy()
+    expect(f.call.mock.calls.filter(args => args[1].endsWith('/consume'))).toHaveLength(0)
+  })
   it('requires selecting a credit, acknowledgement and countdown before account-bound consumption', async () => {
     const f = fixture(); await choose(f)
     const confirm = () => screen.getByRole('button', { name: /Confirm in|Confirm use/ }) as HTMLButtonElement
@@ -70,6 +80,11 @@ describe('quota-reset card actions', () => {
     await click(screen.getByRole('button', { name: en.resetConfirm }))
     expect(screen.getByRole('alert').textContent).toContain(en.resetUncertain)
     expect(f.call.mock.calls.filter(args => args[1].endsWith('/consume'))).toHaveLength(1)
+    const callsBeforeCollapse = f.call.mock.calls.length
+    await click(screen.getByRole('button', { name: /View \/ use quota resets/ }))
+    await click(screen.getByRole('button', { name: /View \/ use quota resets/ }))
+    expect(f.call.mock.calls.length).toBe(callsBeforeCollapse)
+    expect((screen.getByRole('checkbox', { name: en.resetAcknowledge }) as HTMLInputElement).checked).toBe(true)
     await click(screen.getByRole('button', { name: en.resetConfirm }))
     const consumes = f.call.mock.calls.filter(args => args[1].endsWith('/consume'))
     expect(consumes).toHaveLength(2)

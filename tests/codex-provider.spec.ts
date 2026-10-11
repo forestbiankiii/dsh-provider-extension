@@ -106,6 +106,20 @@ describe('Codex subscription account integration', () => {
     controller.dispose()
   })
 
+  it('keeps displayed quota and reset feedback mounted while post-reset quota is refreshing', async () => {
+    const call = vi.fn(async (_namespace: string, endpoint: string) => ({ ok: true, value: endpoint.endsWith('/status') ? { authenticated: true, accounts } : usage }))
+    const controller = new CodexAccountsController({ call } as never)
+    await controller.load(); await waitForUsage(controller)
+    const previous = controller.store.getSnapshot().usage.work
+    let finish!: (value: unknown) => void
+    call.mockImplementationOnce(() => new Promise(resolve => { finish = resolve as never }))
+    const refresh = controller.readQuotaForAccount('work')
+    expect(controller.store.getSnapshot().usage.work).toBe(previous)
+    finish({ ok: true, value: usage }); await refresh
+    expect(controller.store.getSnapshot().usage.work?.status).toBe('ready')
+    controller.dispose()
+  })
+
   it('retains the previous roster when switching fails', async () => {
     const call = vi.fn()
       .mockImplementationOnce(() => ok({ authenticated: true, accounts }))

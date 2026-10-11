@@ -28,8 +28,9 @@ export function ProviderBalances({ providers, t, locale, rpc, onReset }: { provi
         </div>
       })}
       {(provider.credits !== null || provider.unlimitedCredits) && <p>{t('quotaCredits')}: <strong>{provider.unlimitedCredits ? t('quotaUnlimited') : provider.credits}</strong><small className={css.quotaNote}>{t('quotaCreditsHint')}</small></p>}
-      {provider.resetCredits !== null && <p>{t('quotaResetCredits')}: <strong>{number(provider.resetCredits)}</strong></p>}
-      {rpc && provider.provider === 'openai-codex' && provider.accountId && provider.resetCredits !== null && <CodexResetCredits key={provider.accountId} rpc={rpc} accountId={provider.accountId} label={provider.label} availableCount={provider.resetCredits} t={t} locale={locale} onReset={onReset} />}
+      {provider.resetCredits !== null && (rpc && provider.provider === 'openai-codex' && provider.accountId
+        ? <CodexResetCredits key={provider.accountId} rpc={rpc} accountId={provider.accountId} label={provider.label} availableCount={provider.resetCredits} t={t} locale={locale} onReset={onReset} />
+        : <p>{t('quotaResetCredits')}: <strong>{number(provider.resetCredits)}</strong></p>)}
     </>}
   </section>)}</>
 }

@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.8.9
+
+- Move Codex reset credits out of the flex account-metadata row into a full-width section below quotas in both settings views. Use a compact count header, numbered credit rows, aligned expiry/action metadata, an earliest-expiry hint, and localized labels for the provider's known full-reset credit title. Reuse the same theme-token styles in Statistics and remove the duplicate count there.
+- Separate selection from redemption with a focused confirmation heading, selected-account/credit summary, acknowledgement, delayed primary action, and return-to-list control. Collapsing/reopening preserves pending confirmations (including uncertain results), without starting a new request. Keep the completed-reset section mounted while post-reset quotas refresh. Add layout, confirmation-resumption and no-flicker regressions.
+
 ## 0.8.8
 
 - Register the missing `codex-subscription/models` authenticated HTTP route. The account-specific model handler existed but was absent from the transport endpoint list, so both settings views received HTTP 404. Add regression coverage through the actual route registration and request-envelope dispatch, including account identity forwarding and wrong-method rejection.

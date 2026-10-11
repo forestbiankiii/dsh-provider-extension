@@ -563,13 +563,12 @@ export function ProviderSettings({
 
                       {isQuotaOpen && (
                         <div className={css.cockpitPanel} onClick={e => e.stopPropagation()}>
-                          {/* Sub-row 1: Team Name + 重置按钮 */}
+                          {/* Account metadata stays separate from the full-width reset section. */}
                           <div className={css.cockpitSubRow}>
                             <div className={css.cockpitTeam}>
                               <span className={css.cockpitMuted}>Team Name:</span>
                               <span className={css.cockpitText}>个人账户</span>
                             </div>
-                            {codexReset && usage?.status === 'ready' && usage.value.resetCredits !== undefined && <CodexResetCredits {...codexReset} key={account.id} accountId={account.id} label={account.label} availableCount={usage.value.resetCredits} onReset={() => onCodexReset?.(account.id)} />}
                           </div>
 
                           {/* Sub-row 2: 登录方式与用户 ID */}
@@ -632,6 +631,8 @@ export function ProviderSettings({
                               </div>
                             </div>
                           ) : null}
+
+                          {codexReset && usage?.status === 'ready' && usage.value.resetCredits !== undefined && <CodexResetCredits {...codexReset} key={account.id} accountId={account.id} label={account.label} availableCount={usage.value.resetCredits} onReset={() => onCodexReset?.(account.id)} />}
 
                           <div className={css.accountModelsBlock}>
                             <div className={css.blockHeadRow}>
@@ -1457,13 +1458,12 @@ export function ProviderSettings({
 
                         {isQuotaOpen && (
                           <div className={css.cockpitPanel} onClick={e => e.stopPropagation()}>
-                            {/* Sub-row 1: Team Name + 重置按钮 */}
+                            {/* Account metadata stays separate from the full-width reset section. */}
                             <div className={css.cockpitSubRow}>
                               <div className={css.cockpitTeam}>
                                 <span className={css.cockpitMuted}>Team Name:</span>
                                 <span className={css.cockpitText}>个人账户</span>
                               </div>
-                              {codexReset && usage?.status === 'ready' && usage.value.resetCredits !== undefined && <CodexResetCredits {...codexReset} key={account.id} accountId={account.id} label={account.label} availableCount={usage.value.resetCredits} onReset={() => onCodexReset?.(account.id)} />}
                             </div>
 
                             {/* Sub-row 2: 登录方式与用户 ID */}
@@ -1526,6 +1526,8 @@ export function ProviderSettings({
                                 </div>
                               </div>
                             ) : null}
+
+                            {codexReset && usage?.status === 'ready' && usage.value.resetCredits !== undefined && <CodexResetCredits {...codexReset} key={account.id} accountId={account.id} label={account.label} availableCount={usage.value.resetCredits} onReset={() => onCodexReset?.(account.id)} />}
 
                             <div className={css.accountModelsBlock}>
                               <div className={css.blockHeadRow}>

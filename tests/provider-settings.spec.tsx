@@ -6,6 +6,9 @@ import { en, zh } from '../src/client/locales.ts'
 import type { AntigravityState } from '../src/client/providers/antigravity.ts'
 import type { CodexAccountsState } from '../src/client/providers/codex.ts'
 import { codexEnabledModels } from '../src/client/codex-visibility.ts'
+import settingsCss from '../src/client/ProviderSettings.module.css'
+import resetCss from '../src/client/usage/UsagePage.module.css'
+import { en as resetEn } from '../src/client/usage/locales.ts'
 
 afterEach(() => { cleanup(); localStorage.clear() })
 
@@ -16,7 +19,7 @@ const codexAccounts: CodexAccountsState = {
   usage: { work: { status: 'ready', value: { weeklyPercent: 76 } } },
 }
 
-function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emptyAccounts, catalogLoader?: (accountId: string) => Promise<readonly { id: string; name: string }[]>) {
+function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emptyAccounts, catalogLoader?: (accountId: string) => Promise<readonly { id: string; name: string }[]>, codexReset?: ProviderSettingsProps['codexReset']) {
   const loadAccounts = vi.fn(async () => {})
   const refreshAntigravityModels = vi.fn(async () => {})
   const loadCodexModels = catalogLoader ?? vi.fn(async () => [{ id: 'host-model', name: 'Host Model' }, { id: 'gpt-6-astra', name: 'GPT-6 Astra' }])
@@ -32,6 +35,7 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
     useAntigravity: (selector: (state: AntigravityState) => unknown) => selector(antigravity),
     loadAccounts,
     loadCodexModels,
+    ...(codexReset ? { codexReset } : {}),
     readQuota: vi.fn(async () => {}),
     loginCodex,
     renameCodexAccount,
@@ -50,6 +54,25 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
 }
 
 describe('provider settings surface', () => {
+  it.each(['quick', 'detail'])('puts the reset credit panel below quota as a full-width sibling in %s settings', async mode => {
+    const call = vi.fn(async () => ({ ok: true, value: { availableCount: 3, credits: [{ ref: 'one', name: 'Full reset (Weekly + 5 hr)', expiresAt: Date.now() + 3600000 }] } }))
+    const t = (key: keyof typeof resetEn, args?: Record<string, unknown>) => resetEn[key].replace(/\{(\w+)\}/g, (_, k: string) => String(args?.[k] ?? ''))
+    const state: CodexAccountsState = { ...codexAccounts, usage: { work: { status: 'ready', value: { weeklyPercent: 76, resetCredits: 3 } } } }
+    bench({ status: 'ready' }, state, undefined, { rpc: { call } as never, t, locale: 'en-US' })
+    if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
+    else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
+    fireEvent.click(screen.getByRole('button', { name: en.quotaView }))
+    const button = await screen.findByRole('button', { name: /View \/ use quota resets/ })
+    const panel = button.closest(`.${resetCss.resetCredits}`)!
+    expect(panel.parentElement!.classList.contains(settingsCss.cockpitPanel)).toBe(true)
+    expect(panel.closest(`.${settingsCss.cockpitSubRow}`)).toBeNull()
+    expect(panel.previousElementSibling!.classList.contains(settingsCss.cockpitQuotaSection)).toBe(true)
+    fireEvent.click(button)
+    expect(await screen.findByText(resetEn.resetFullQuota)).toBeTruthy()
+    expect(screen.getByText('Team Name:')).toBeTruthy()
+    expect(call.mock.calls.length).toBe(1)
+  })
+
   it('uses locally bundled official marks and a brand identity on every provider card', () => {
     const { view } = bench({ status: 'ready' }, codexAccounts)
     const cards = view.container.querySelectorAll('article[data-provider]')
