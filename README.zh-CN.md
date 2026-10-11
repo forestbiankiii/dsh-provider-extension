@@ -23,6 +23,12 @@
 
 Host 接入实现已包含在此 Bundle 中，上游来源和许可证记录在 THIRD-PARTY-NOTICES。不要重复启用占用同一路由的适配器。Antigravity／Codex 凭据保留在各自 Host 模块；Claude 则完全由官方 CLI 管理登录。
 
+## Codex 回答详略
+
+在「提供商拓展 → OpenAI Codex」的快捷展开或详情页选择「回答详略」：**默认／简短／适中／详细**。这是当前 DSH 配置内各 Codex 账号共用的一个偏好，选择后通过宿主配置编辑器自动保存，仅影响后续 Codex 请求，不切换模型或账号，不改变其他渠道及搜索设置。默认跟随模型上报的默认值，没有上报时维持适配器原有的适中档；不支持此参数的模型保持原行为。它是风格偏好，不是硬性字数限制。
+
+界面会显示保存确认或失败，宿主无法持久化时为只读。延迟加载的 `codex_output_verbosity` 工具调用同一偏好操作。更新后重启 DSH，再检查四档选择及再次重启后的保留情况。后续功能仍需单独确认，候选及验收状态见 [CODEX-ROADMAP.md](CODEX-ROADMAP.md)。
+
 ## Claude 订阅：通过官方 CLI 接入
 
 先安装未修改的官方 Claude Code CLI 并加入 PATH，重启 DSH，再打开「提供商拓展 → Anthropic Claude」。Windows 上的登录按钮会在可见终端启动官方 `claude auth login`，其他平台请自行执行该命令。完成登录后刷新状态，在输入区选择 Anthropic Claude 和 Sonnet／Opus／Haiku 模型别名。登录及账号切换仍由官方 CLI 管理，本插件不导入、保存、导出或改写其 Token。CLI 也可能使用 API Key／第三方计费，设置页会明确提示。请遵守 [Anthropic 的认证及凭据规则](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use)。

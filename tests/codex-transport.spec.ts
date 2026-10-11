@@ -27,7 +27,7 @@ describe('Codex registered HTTP transport', () => {
   })
   it('registers read, preparation and consumption reset routes, not just their business handlers', () => {
     const f = fixture()
-    for (const endpoint of ['usage', 'models', 'reset-credit/inspect', 'reset-credit/prepare', 'reset-credit/consume']) expect(f.routes.has(`/api/codex-subscription/${endpoint}`)).toBe(true)
+    for (const endpoint of ['usage', 'models', 'preferences/status', 'preferences/update', 'reset-credit/inspect', 'reset-credit/prepare', 'reset-credit/consume']) expect(f.routes.has(`/api/codex-subscription/${endpoint}`)).toBe(true)
     f.dispose()
   })
   it('rejects wrong envelopes before dispatching any registered handler', async () => {

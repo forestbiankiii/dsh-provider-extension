@@ -8,6 +8,7 @@ import { type AntigravityState } from './providers/antigravity.ts';
 import { type OpencodeState } from './providers/opencode.ts';
 import type { ClaudeClientState } from './providers/claude.ts';
 import { type CodexResetCreditsProps } from './usage/CodexResetCredits.tsx';
+import { type CodexVerbosityProps } from './CodexVerbositySettings.tsx';
 /** Per-surface actions and stores injected by the client plugin. */
 export interface ProviderSettingsInjected {
     hooks: {
@@ -33,6 +34,7 @@ export interface ProviderSettingsInjected {
     removeCodexAccount: (id: string) => Promise<void>;
     codexReset?: Pick<CodexResetCreditsProps, 'rpc' | 't' | 'locale'>;
     onCodexReset?: (id: string) => Promise<void>;
+    codexVerbosity?: Omit<CodexVerbosityProps, 't'>;
     loadAntigravity: () => Promise<void>;
     refreshAntigravityModels: () => Promise<void>;
     loginAntigravity: () => Promise<void>;
@@ -55,4 +57,4 @@ export type ProviderSettingsProps = PropsRuntime<'settings.section'> & PropsLoca
 export declare const GEMINI_TIERS: readonly ["Free", "Pro", "Ultra"];
 export type GeminiTier = typeof GEMINI_TIERS[number];
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
-export declare function ProviderSettings({ useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, codexReset, onCodexReset, loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, useClaude, loadClaude, loginClaude, loadClaudeModels, t, }: ProviderSettingsProps): ReactNode;
+export declare function ProviderSettings({ useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, codexReset, onCodexReset, codexVerbosity, loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, useClaude, loadClaude, loginClaude, loadClaudeModels, t, }: ProviderSettingsProps): ReactNode;

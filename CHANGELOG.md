@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.10.0
+
+- Add the explicitly approved Codex response-detail control: Default / Concise / Balanced / Detailed, shared once per provider in both quick and full Settings. Read the acknowledged Host value, persist automatically on selection, disable duplicate/read-only writes, show failures and refresh external changes. No browser-only preference storage.
+- Persist the narrow `codexOutputVerbosity` field with the native configuration editor and mark it volatile to avoid remounting the adapter. Support both native live references and a linked older schema's primitive Config value. Reuse the subscription preference RPC and existing stream payload logic; preserve unrelated config and search preferences. The preference applies to subsequent supported-model Codex requests, not other providers or model selection, and is not a length limit.
+- Expose the same preference operation in the deferred `codex_output_verbosity` tool. Add native-owner, failure, cancellation, duplicate-write, tool/RPC, localized control and actual stream/streamSimple payload regressions. The rejected default-model controls remain absent. Live UI acceptance is pending user testing.
+
 ## 0.9.1
 
 - Remove the rejected new-conversation default-model feature: both Settings controls, native-default reads/writes, authenticated endpoint, Agent tool and dedicated implementation. Preserve DSH's original selection behavior and do not reset any user model setting.

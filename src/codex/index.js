@@ -353,6 +353,30 @@ const RPC_ENDPOINTS = Object.freeze([
 	"image/original/chunk"
 ]);
 //#endregion
+//#region src/output-verbosity-tool.js
+function createOutputVerbosityTool(handler) {
+	return {
+		name: "codex_output_verbosity",
+		description: "Read or set the Codex response-detail preference for subsequent requests in this DSH profile. A style preference, not a length limit; other providers and model selections are unchanged.",
+		deferLoading: true,
+		parameters: {
+			type: "object", properties: {
+				action: { type: "string", enum: ["get", "set"] },
+				outputVerbosity: { type: "string", enum: ["default", "low", "medium", "high"], description: "Required for set. Default follows the model; low is concise, medium balanced, high detailed." }
+			}, required: ["action"], additionalProperties: false
+		},
+		isConcurrencySafe: (args) => args?.action === "get",
+		output: { schema: { type: "object" }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value) }] },
+		execute: async (args, exec) => {
+			if (!args || typeof args !== "object" || Array.isArray(args) || !["get", "set"].includes(args.action) || Object.keys(args).some(key => !["action", "outputVerbosity"].includes(key))) throw new Error("Invalid Codex response detail request");
+			if (args.action === "get" && Object.hasOwn(args, "outputVerbosity") || args.action === "set" && !["default", "low", "medium", "high"].includes(args.outputVerbosity)) throw new Error("Invalid output verbosity preference");
+			const response = await handler(args.action === "get" ? "preferences/status" : "preferences/update", args.action === "get" ? {} : { outputVerbosity: args.outputVerbosity }, exec.signal);
+			if (!response.ok) throw new Error(response.error?.message ?? "Could not update Codex response detail");
+			return { outputVerbosity: response.value.outputVerbosity, writable: response.value.outputVerbosityWritable };
+		}
+	};
+}
+//#endregion
 //#region src/subscription-transport.js
 /** Exact routes stay inside DSH's authenticated /api bridge and body limit. */
 function registerSubscriptionTransport(connection, handler) {
@@ -3790,7 +3814,8 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 					patch[field] = payload[field];
 				}
 				if (Object.keys(patch).length === 0) return publicError("internal", "Invalid preference update");
-				await preferences.update(patch);
+				if (Object.hasOwn(patch, OUTPUT_VERBOSITY_FIELD) && (preferences.status().outputVerbosityWritable ?? preferences.status().writable) !== true) return publicError("internal", "Codex response detail settings are read-only");
+				await preferences.update(patch, signal);
 			}
 			return {
 				ok: true,
@@ -3950,7 +3975,7 @@ function createSearchProviderSwitcher(loader) {
 		}
 	});
 }
-function apply(ctx) {
+function apply(ctx, { outputVerbosityOwner } = {}) {
 	let settings;
 	const defaultSettings = {
 		imageModel: DEFAULT_IMAGE_MODEL,
@@ -4028,7 +4053,7 @@ function apply(ctx) {
 	});
 	const provider = openaiCodexSubscriptionProvider({
 		resolveSpeedMode: () => settings.get()[SPEED_MODE_FIELD],
-		resolveOutputVerbosity: () => normalizeOutputVerbosity(settings.get()[OUTPUT_VERBOSITY_FIELD]),
+		resolveOutputVerbosity: () => outputVerbosityOwner?.current() ?? normalizeOutputVerbosity(settings.get()[OUTPUT_VERBOSITY_FIELD]),
 		resolveContextMode: () => normalizeContextMode(settings.get()[CONTEXT_MODE_FIELD]),
 		resolveCustomContextWindow: (modelKey) => {
 			const overrides = readCapabilitySettings(settings.get())[CUSTOM_CONTEXT_OVERRIDES_FIELD];
@@ -4046,7 +4071,8 @@ function apply(ctx) {
 			[QUICK_QUOTA_MODE_FIELD]: normalizeQuickQuotaMode(settings.get()[QUICK_QUOTA_MODE_FIELD], settings.get()[LEGACY_QUICK_QUOTA_FIELD]),
 			[SEARCH_PROVIDER_FIELD]: settings.get()[SEARCH_PROVIDER_FIELD],
 			[SPEED_MODE_FIELD]: settings.get()[SPEED_MODE_FIELD],
-			[OUTPUT_VERBOSITY_FIELD]: normalizeOutputVerbosity(settings.get()[OUTPUT_VERBOSITY_FIELD]),
+			[OUTPUT_VERBOSITY_FIELD]: outputVerbosityOwner?.current() ?? normalizeOutputVerbosity(settings.get()[OUTPUT_VERBOSITY_FIELD]),
+			outputVerbosityWritable: outputVerbosityOwner?.writable ?? ctx.settings?.writable ?? false,
 			[CONTEXT_MODE_FIELD]: normalizeContextMode(settings.get()[CONTEXT_MODE_FIELD]),
 			[CUSTOM_CONTEXT_WINDOW_FIELD]: normalizeCustomContextWindow(settings.get()[CUSTOM_CONTEXT_WINDOW_FIELD]),
 			...Object.fromEntries(Object.entries(CUSTOM_CONTEXT_MODEL_FIELDS).map(([modelKey, field]) => [field, normalizeCustomContextWindow(settings.get()[field] ?? CUSTOM_CONTEXT_MODEL_DEFAULTS[modelKey], CUSTOM_CONTEXT_MODEL_CAPS[modelKey])])),
@@ -4056,7 +4082,15 @@ function apply(ctx) {
 			fastModels: provider.getModels().filter((model) => modelCatalog.metadata(model.id)?.supportsFast ?? supportsCodexFastMode(model.id)).map((model) => model.id),
 			writable: ctx.settings?.writable ?? false
 		}),
-		update: (patch) => settings.update(patch)
+		update: async (patch, signal) => {
+			if (outputVerbosityOwner && Object.hasOwn(patch, OUTPUT_VERBOSITY_FIELD)) {
+				await outputVerbosityOwner.save(patch[OUTPUT_VERBOSITY_FIELD], signal);
+				const { [OUTPUT_VERBOSITY_FIELD]: _verbosity, ...remaining } = patch;
+				if (Object.keys(remaining).length > 0) await settings.update(remaining);
+				return;
+			}
+			return settings.update(patch);
+		}
 	};
 	const authModels = createModels({ credentials: store });
 	authModels.setProvider(provider);
@@ -4240,6 +4274,7 @@ function apply(ctx) {
 		originalImages,
 		resolveInheritedOriginal: (sessionId, assetId) => inheritedOriginalImageRef(ctx.get?.("sessions")?.get?.(sessionId), assetId)
 	});
+	ctx.effect(() => ctx.tools.register(createOutputVerbosityTool(handler)), "codex-subscription: response detail tool");
 	ctx.effect(() => {
 		modelCatalog.refresh().catch((error) => ctx.logger?.debug?.("could not refresh Codex model catalog: %s", error.message));
 	}, "codex-subscription: official model catalog");

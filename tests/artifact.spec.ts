@@ -7,6 +7,13 @@ const patch = readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf
 const clientSource = readFileSync(new URL('../src/client/index.ts', import.meta.url), 'utf8')
 
 describe('published artifact contract', () => {
+  it('ships the approved response detail field, deferred tool and four-choice control', () => {
+    const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
+    expect(host).toContain('codexOutputVerbosity')
+    expect(host).toContain('codex_output_verbosity')
+    expect(client).toContain('codexVerbosityHigh')
+    expect(client).toContain('codex-subscription/preferences/update')
+  })
   it('does not ship the rejected custom default-model UI, endpoint or Agent tool', () => {
     const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
     expect(host).not.toContain('codex_default_model')

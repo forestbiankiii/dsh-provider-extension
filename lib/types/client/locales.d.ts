@@ -57,6 +57,14 @@ export declare const en: {
     readonly antigravityFetchModels: "Reload model list";
     readonly antigravityModelsRefreshing: "Fetching models…";
     readonly codexFetchModels: "Reload model list";
+    readonly codexVerbosity: "Response detail";
+    readonly codexVerbosityDefault: "Default";
+    readonly codexVerbosityLow: "Concise";
+    readonly codexVerbosityMedium: "Balanced";
+    readonly codexVerbosityHigh: "Detailed";
+    readonly codexVerbositySaved: "Response detail saved.";
+    readonly codexVerbosityHint: "Applies to subsequent Codex requests in this DSH profile when the model supports it. Default follows the model; this is a preference, not a length limit.";
+    readonly codexVerbosityReadOnly: "This setting is read-only in the current Host.";
     readonly codexModels: "Models in this account’s catalog";
     readonly codexModelsScope: "These switches only control this account’s picker. They do not grant model access.";
     readonly codexModelsMissing: "Saved selections not in the current catalog (preferences retained): {models}";

@@ -167,6 +167,7 @@ export function apply(ctx: ClientContext): void {
       renameCodexAccount: async (id, label) => { await codexAccounts.renameAccount(id, label) },
       removeCodexAccount: async (id) => { await codexAccounts.removeAccount(id) },
       codexReset: { rpc, t: ctx.locale.bind('providerUsage'), locale: ctx.locale.getSnapshot().active === 'zh' ? 'zh-CN' : 'en-US' },
+      codexVerbosity: { rpc, subscribe: listener => ctx.remote.$on('settings/document-updated', () => listener()) },
       onCodexReset: async (id) => { await codexAccounts.readQuotaForAccount(id); window.dispatchEvent(new Event('dsh-codex-subscription:refresh-quick-quota')) },
       loadAntigravity: async () => { await antigravity.load() },
       refreshAntigravityModels: async () => {

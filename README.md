@@ -23,6 +23,12 @@ Each provider gets its own module under `src/client/providers/`. Nothing is clai
 
 Host integrations are included in this bundle, with upstream provenance and licenses recorded in THIRD-PARTY-NOTICES. Do not enable a second adapter owning the same route. Antigravity and Codex credentials stay in their Host integrations; Claude differs by leaving authentication entirely to the official CLI.
 
+## Codex response detail
+
+Open **Providers → OpenAI Codex** and choose **Default / Concise / Balanced / Detailed** under **Response detail**. Both quick and full views share this one preference for the current DSH profile. Changes save through the native configuration editor and affect subsequent Codex requests only; they neither switch models/accounts nor alter other providers or search. Default follows the model's reported default, falling back to the adapter's usual balanced setting. Models that report no verbosity support retain their original behavior. This is a style preference, not a hard response-length limit.
+
+The control displays acknowledged saves and failures; Hosts without persistent configuration editing are read-only. The deferred `codex_output_verbosity` tool reads/sets this same narrow preference. Restart DSH after updating the linked build, then test the preference and retention after another restart. Subsequent feature additions require separate user approval, as recorded in [CODEX-ROADMAP.md](CODEX-ROADMAP.md).
+
 ## Claude subscription via the official CLI
 
 Install the unmodified official Claude Code CLI on PATH, restart DSH, then open **Provider Extension → Anthropic Claude**. The login button opens the official `claude auth login` in a visible Windows terminal; other platforms show the same command to run yourself. Finish login and refresh status. Choose Anthropic Claude and a Sonnet/Opus/Haiku alias in the composer. Authentication and account switching stay in the CLI: this extension never imports, stores, exports or rewrites its tokens. The current CLI authentication may instead use API-key/third-party billing; the settings view displays that distinction. Follow [Anthropic’s authentication and credential rules](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use).
