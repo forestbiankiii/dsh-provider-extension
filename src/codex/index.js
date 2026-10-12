@@ -2673,26 +2673,55 @@ function watchImageTool(settings, register, getFeatures = () => settings.get(), 
 function codexImageRoute(provider) {
 	return provider === PROVIDER || typeof provider === "string" && provider.startsWith(`${PROVIDER}-`);
 }
+function codexImageRoutingText(features) {
+	return [
+		"When the active route in this session is OpenAI Codex, explicitly requested image generation or editing must use `codex_image_generate`, not a text-only description.",
+		features.imageGeneration ? "Call the tool for image creation." : "Image generation is disabled. Explain that and do not bypass the switch.",
+		features.imageEditing ? "Call the tool for edits, using only images the user selected; for numbered annotations, include both the clean source and location-reference image." : "Image editing is disabled. Explain that and do not bypass the switch.",
+		"Do not call the image tool for image discussion or prompt-writing alone. Do not use another provider's image tool on the Codex route. Image operations use subscription quota."
+	].join("\n");
+}
 function installCodexImagePolicy(ctx, imageFeaturesOwner) {
-	const systemPrompt = ctx.get?.("systemPrompt");
-	const removePromptListener = systemPrompt === void 0 ? () => {} : ctx.on("system-prompt/assemble", async (_assembly, _context, next) => {
-		const assembled = await next();
-		if (!codexImageRoute(assembled.variables?.provider)) return assembled;
-		const features = imageFeaturesOwner.current();
-		const routing = [
-			"For explicit image-generation or image-edit requests in this Codex session, use the Codex image tool rather than only describing the result.",
-			features.imageGeneration ? "Call `codex_image_generate` for image creation." : "Image generation is disabled. Explain that and do not bypass the switch.",
-			features.imageEditing ? "Call `codex_image_generate` for edits, using only images the user selected." : "Image editing is disabled. Explain that and do not bypass the switch.",
-			"Do not call the image tool for image discussion or prompt-writing alone; do not switch to another image provider. These operations use subscription quota."
-		].join("\n");
-		return { ...assembled, sections: [...assembled.sections.filter(section => section.name !== "codex-subscription-image-routing"), { name: "codex-subscription-image-routing", text: routing }] };
+	const promptDisposers = new Map();
+	const installPrompt = (agent) => {
+		if (promptDisposers.has(agent)) return;
+		const systemPrompt = agent.ctx.get?.("systemPrompt");
+		if (systemPrompt === void 0) return;
+		const dispose = agent.ctx.effect(() => systemPrompt.section({
+			name: "codex-subscription-image-routing",
+			order: systemPrompt.getSectionOrder("TOOLS_SDK") + 1,
+			text: () => codexImageRoutingText(imageFeaturesOwner.current())
+		}), "codex-subscription: image request guidance");
+		promptDisposers.set(agent, dispose);
+	};
+	const removePrompt = (agent) => {
+		const dispose = promptDisposers.get(agent);
+		if (dispose === void 0) return;
+		dispose();
+		promptDisposers.delete(agent);
+	};
+	const removeCreatedListener = ctx.on("agent/created", ({ agent }) => {
+		const provider = agent.session?.requestHeader?.()?.config?.provider ?? agent.options?.provider;
+		if (codexImageRoute(provider)) installPrompt(agent);
 	});
+	const removeRequestListener = ctx.on("agent/request", async ({ agent }, next) => {
+		const config = await next();
+		if (codexImageRoute(config.provider)) installPrompt(agent);
+		else removePrompt(agent);
+		return config;
+	});
+	const removeDisposedListener = ctx.on("agent/disposed", ({ agent }) => removePrompt(agent));
 	const removeImageFallbackGuard = ctx.tools.guard(execution => {
 		if (execution.name !== "generate_image") return;
 		const provider = execution.agent?.session?.requestHeader?.()?.config?.provider ?? execution.agent?.options?.provider;
 		if (codexImageRoute(provider)) return "Codex sessions must use the Codex image tool; respect its image feature switches and do not fall back to another provider.";
 	});
-	return () => { removePromptListener(); removeImageFallbackGuard(); };
+	return () => {
+		removeCreatedListener(); removeRequestListener(); removeDisposedListener();
+		for (const dispose of promptDisposers.values()) dispose();
+		promptDisposers.clear();
+		removeImageFallbackGuard();
+	};
 }
 //#endregion
 //#region src/image-original-store.js
@@ -4174,6 +4203,7 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 			...readCapabilitySettings(settings.get()),
 			...imageFeaturesOwner.current(),
 			imageFeaturesWritable: imageFeaturesOwner.writable,
+			imageLimits: ctx.attachments?.imageLimits,
 			[QUICK_QUOTA_MODE_FIELD]: normalizeQuickQuotaMode(settings.get()[QUICK_QUOTA_MODE_FIELD], settings.get()[LEGACY_QUICK_QUOTA_FIELD]),
 			[SEARCH_PROVIDER_FIELD]: settings.get()[SEARCH_PROVIDER_FIELD],
 			[SPEED_MODE_FIELD]: speedModeOwner?.current() ?? settings.get()[SPEED_MODE_FIELD],

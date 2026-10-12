@@ -41,11 +41,15 @@ The Composer quota tooltip and each Codex account's expanded details show 5h/wee
 
 ## Codex image tools
 
-In **OpenAI Codex → Manage settings**, the separate **Image generation** and **Image editing** switches control tool availability. They save to native config and changing them does not start an image request; an explicit image request may use subscription quota. The switches are user-only and cannot be enabled through an Agent settings tool. In Codex-routed sessions, explicit image-output requests are directed to `codex_image_generate`; image discussion alone does not call it, disabled switches are not bypassed, and other provider routes are unchanged. These controls do not change input image handling, default output model/quality, or annotations.
+In **OpenAI Codex → Manage settings**, the separate **Image generation** and **Image editing** switches control tool availability. They save to native config and changing them does not start an image request; an explicit image request may use subscription quota. The switches are user-only and cannot be enabled through an Agent settings tool. In Codex-routed sessions, explicit image-output requests are directed to `codex_image_generate`; image discussion alone does not call it, disabled switches are not bypassed, and other provider routes are unchanged. They do not alter input-image handling or model/quality defaults. Annotated edits require Image editing to be enabled.
 
 ## Codex original image
 
 For a completed `codex_image_generate` call, the chat tool card keeps the generated preview and offers **View original** and **Download PNG**. The original is read from the DSH Host's private store, scoped to the current Session and validated in bounded chunks. This makes no image-provider request and uses no additional subscription quota. When an original is unavailable, the card reports it instead of reading an arbitrary host path.
+
+## Codex annotated edits
+
+When **Image editing** and annotations are enabled, open a completed image result, choose **Mark areas**, click to place numbered pins, and add a note for each area. **Continue editing** adds the clean source image, a numbered PNG location reference, and the coordinate/note prompt to the current Codex composer. It does not alter the saved original or send the request; review the prepared draft and press Send. Sending may use subscription quota.
 
 ## Codex speed mode
 

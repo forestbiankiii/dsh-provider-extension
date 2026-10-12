@@ -12,7 +12,7 @@ import { ProviderPanel } from './ProviderPanel.tsx'
 import type { ProviderPanelInjected } from './ProviderPanel.tsx'
 import { ProviderSettings } from './ProviderSettings.tsx'
 import type { ProviderSettingsInjected } from './ProviderSettings.tsx'
-import { CodexOriginalImageToolView, type CodexToolCallViewOwnerProps } from './CodexOriginalImageToolView.tsx'
+import { CodexOriginalImageToolView, type CodexOriginalImageToolViewProps, type CodexToolCallViewOwnerProps } from './CodexOriginalImageToolView.tsx'
 import { cssText } from './ProviderPanel.module.css'
 import { cssText as settingsCssText } from './ProviderSettings.module.css'
 import { CodexAccountsController, isCodexProvider } from './providers/codex.ts'
@@ -56,12 +56,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     providerExtension: ProviderPanelKey
   }
   interface SlotMap {
-    'tool.call.toolview': { kind: 'keyed'; scope: 'session'; owner: CodexToolCallViewOwnerProps; inject: { rpc: ClientConnectionRpc; sessionId: SessionId } }
+    'tool.call.toolview': { kind: 'keyed'; scope: 'session'; owner: CodexToolCallViewOwnerProps; inject: { rpc: ClientConnectionRpc; sessionId: SessionId; conversation: CodexOriginalImageToolViewProps['conversation']; isCodexRoute: () => boolean } }
   }
 }
 
 export const NS = 'providerExtension'
-export const inject = ['slots', 'locale', 'modelDirectories', 'sessions', 'remote', 'remote.session']
+export const inject = ['slots', 'locale', 'modelDirectories', 'sessions', 'remote', 'remote.session', 'conversation']
 
 /** Upper bound on one authoritative catalog round-trip before the panel reports a failure. */
 const DIRECTORY_LOAD_TIMEOUT_MS = 20_000
@@ -250,6 +250,14 @@ export function apply(ctx: ClientContext): void {
 
   ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
     name: 'tool.call.toolview', key: 'codex_image_generate', locale: NS,
-    inject: (sessionId) => ({ rpc, sessionId: sessionId as SessionId }),
+    inject: (sessionId) => {
+      const id = sessionId as SessionId
+      const directory = ctx.modelDirectories.directoryFor(id)
+      return {
+        rpc, sessionId: id,
+        conversation: ctx.get('conversation') as CodexOriginalImageToolViewProps['conversation'],
+        isCodexRoute: () => isCodexProvider(directory.store.getSnapshot().current?.provider),
+      }
+    },
   }, CodexOriginalImageToolView))
 }

@@ -834,6 +834,16 @@
 .codexOriginalImageButton:disabled { opacity: .6; cursor: default; }
 .codexOriginalImagePreview { display: block; max-width: 100%; max-height: min(70vh, 720px); object-fit: contain; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; }
 .codexOriginalOutputPreview { display: block; max-width: min(100%, 420px); max-height: min(42vh, 360px); object-fit: contain; border-radius: 8px; }
+.codexAnnotationCanvas { position: relative; display: inline-block; width: fit-content; max-width: min(100%, 420px); max-height: min(42vh, 360px); padding: 0; overflow: hidden; border: 0; border-radius: 8px; background: transparent; cursor: crosshair; }
+.codexAnnotationCanvas:focus-visible { outline: 2px solid var(--dsw-alias-border-l3); outline-offset: 2px; }
+.codexAnnotationCanvas > img { display: block; width: auto; height: auto; max-width: 100%; max-height: min(42vh, 360px); border-radius: 8px; }
+.codexAnnotationMarker { position: absolute; display: grid; place-items: center; min-width: 28px; height: 28px; padding: 0 5px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 999px; background: #e11d48; color: #fff; font-size: 12px; font-weight: 700; line-height: 1; box-shadow: 0 0 0 1px #111827; pointer-events: none; }
+.codexAnnotationHint { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.codexAnnotationNotes { display: flex; flex-direction: column; gap: 8px; margin: 0; padding-left: 22px; }
+.codexAnnotationNotes label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.codexAnnotationNotes textarea { width: 100%; min-height: 42px; padding: 7px 9px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font: inherit; resize: vertical; }
+.codexAnnotationNotes textarea:focus-visible { outline: 2px solid var(--dsw-alias-border-l3); outline-offset: 1px; }
+.codexAnnotationSuccess { margin: 0; padding: 8px 10px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font-size: 12px; }
 
 @media (prefers-reduced-motion: reduce) {
   .menu,

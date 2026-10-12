@@ -37,6 +37,14 @@ describe('published artifact contract', () => {
     expect(client).toContain('codex-subscription/image/original/chunk')
     expect(client).toContain('codex_image_generate')
   })
+  it('ships numbered Codex edit references and validates composer image limits', () => {
+    const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
+    expect(host).toContain('imageLimits')
+    expect(client).toContain('codex-location-reference.png')
+    expect(client).toContain('codex-clean-source.')
+    expect(client).toContain('codexAnnotationPrompt')
+    expect(client).toContain('Continue editing')
+  })
   it('ships the confirmed Standard/Fast preference and its deferred shared-operation tool', () => {
     const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
     expect(host).toContain('codexSpeedMode')

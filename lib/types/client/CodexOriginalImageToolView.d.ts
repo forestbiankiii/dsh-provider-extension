@@ -1,5 +1,6 @@
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client';
-import type { MessageImageLoader } from '@deepseek-ai/dsh-client-ui-conversation/client';
+import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-store';
+import type { ConversationController, InputActions, InputState, MessageImageLoader } from '@deepseek-ai/dsh-client-ui-conversation/client';
 import type { SessionId } from '@deepseek-ai/dsh-session/types';
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots';
 import type { ProviderPanelKey } from './locales.ts';
@@ -31,6 +32,10 @@ export interface CodexOriginalImageToolViewProps extends CodexToolCallViewOwnerP
     readonly sessionId: SessionId;
     readonly rpc: ClientConnectionRpc;
     readonly t: Translate<ProviderPanelKey>;
+    readonly conversation: Pick<ConversationController, 'createDraftImages' | 'releaseDraftImages'> | undefined;
+    readonly inputActions: InputActions;
+    readonly useInput: SnapshotSelectorHook<InputState>;
+    readonly isCodexRoute: () => boolean;
 }
 export declare function decodeCodexOriginalImageRef(value: unknown): CodexOriginalImageRef | undefined;
 export declare function readCodexOriginalImage(rpc: ClientConnectionRpc, sessionId: SessionId, ref: CodexOriginalImageRef, signal: AbortSignal): Promise<Blob>;

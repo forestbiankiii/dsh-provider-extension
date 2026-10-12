@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.18.0
+
+- Add numbered Codex image annotations with per-region notes. Prepare a clean source plus a PNG location reference and coordinate prompt in the current composer; do not modify the saved original or auto-send. Respect Codex route, image-edit/annotation switches, and DSH attachment limits.
+- Add tests for marker coordinates, canvas reference-size limits, existing composer-state preservation, and disabled edits.
+
 ## 0.17.0
 
 - Add Codex-route-only image instructions so explicit image requests use `codex_image_generate` while image discussion does not trigger it. Respect each image switch and block fallback to the other provider's image-generation tool in Codex-routed sessions.
