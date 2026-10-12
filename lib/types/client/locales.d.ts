@@ -78,6 +78,8 @@ export declare const en: {
     readonly codexContextExtended: "Extended";
     readonly codexContextCustom: "Custom";
     readonly codexContextHint: "Standard uses model defaults; Extended uses model maxima. Custom sets one shared size, capped per model. Larger sizes may use more tokens.";
+    readonly codexContextCapacities: "Current model sizes";
+    readonly codexContextNoModels: "Model sizes unavailable.";
     readonly codexContextEffective: "Current shared size: {size}k · model caps apply";
     readonly codexContextSize: "Shared size";
     readonly codexContextSave: "Save";

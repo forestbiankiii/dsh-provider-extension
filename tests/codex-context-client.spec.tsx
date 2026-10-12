@@ -4,9 +4,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CodexContextSettings, requestCodexContext } from '../src/client/CodexContextSettings.tsx'
 import { en, zh } from '../src/client/locales.ts'
 afterEach(cleanup)
+const catalog = [
+  { key: 'large', label: 'Large model', effective: 272000 },
+  { key: 'mini', label: 'Mini model', effective: 272000 },
+  { key: 'fixed', label: 'Fixed model', effective: 128000 },
+]
 function fixture(copy = en, writable = true, initialMode = 'standard') {
   let mode = initialMode, tokensK = 256
-  const response = () => ({ contextMode: mode, contextLengthK: tokensK, contextMaximumK: 1000, contextWritable: writable })
+  const effective = () => catalog.map(model => ({ ...model, effective: model.key === 'mini' ? Math.min(mode === 'extended' ? 400000 : mode === 'custom' ? tokensK * 1000 : 272000, 400000) : model.key === 'fixed' ? 128000 : mode === 'extended' ? 1000000 : mode === 'custom' ? tokensK * 1000 : 272000 }))
+  const response = () => ({ contextMode: mode, contextLengthK: tokensK, contextMaximumK: 1000, contextWritable: writable, contextModels: effective() })
   const call = vi.fn(async (_namespace: string, endpoint: string, payload: { contextMode?: string; contextLengthK?: number }) => {
     if (endpoint.endsWith('/update')) { mode = payload.contextMode ?? mode; tokensK = payload.contextLengthK ?? tokensK }
     return { ok: true, value: response() }
@@ -23,18 +29,22 @@ function choose(name: string, option: string) {
   fireEvent.click(screen.getByRole('option', { name: option }))
 }
 describe('Codex unified context setting', () => {
-  it.each([en, zh])('shows three localized modes and saves the selected mode', async copy => {
+  it.each([en, zh])('shows localized modes and the current actual capacity per model', async copy => {
     const f = fixture(copy); await f.ready()
     const trigger = screen.getByRole('combobox', { name: copy.codexContext }) as HTMLButtonElement
     expect(trigger.value).toBe('standard')
-    expect(screen.queryByRole('button', { name: copy.providerRefresh })).toBeNull()
+    expect(screen.getByText(copy.codexContextCapacities)).toBeTruthy()
+    expect(screen.getByText('Large model')).toBeTruthy()
+    expect(screen.getAllByText('272k')).toHaveLength(2)
+    expect(screen.getByText('128k')).toBeTruthy()
     choose(copy.codexContext, copy.codexContextExtended)
     await f.ready()
     expect(trigger.value).toBe('extended')
+    expect(screen.getByText('1,000k')).toBeTruthy()
+    expect(screen.getByText('400k')).toBeTruthy()
     expect(f.call).toHaveBeenLastCalledWith('/api', 'codex-subscription/preferences/update', { contextMode: 'extended' }, undefined)
-    expect(screen.getByText(copy.codexContextSaved)).toBeTruthy()
   })
-  it('edits and saves one shared integer K value', async () => {
+  it('edits one shared K value and shows per-model effective sizes without model-specific inputs', async () => {
     const f = fixture(en, true, 'custom'); await f.ready()
     const input = screen.getByRole('spinbutton', { name: en.codexContextSize }) as HTMLInputElement
     expect(input.value).toBe('256'); expect(input.min).toBe('128'); expect(input.max).toBe('1000')
@@ -44,7 +54,10 @@ describe('Codex unified context setting', () => {
     await f.ready()
     expect(f.call).toHaveBeenLastCalledWith('/api', 'codex-subscription/preferences/update', { contextMode: 'custom', contextLengthK: 600 }, undefined)
     expect(f.response().contextLengthK).toBe(600)
-    expect(screen.getByText(/600k/)).toBeTruthy()
+    expect(screen.getByText('600k')).toBeTruthy()
+    expect(screen.getByText('400k')).toBeTruthy()
+    expect(screen.getByText('128k')).toBeTruthy()
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(1)
   })
   it.each(['', '127', '1001', '300.5'])('blocks an invalid shared K value: %s', async draft => {
     const f = fixture(en, true, 'custom'); await f.ready()
@@ -79,10 +92,11 @@ describe('Codex unified context setting', () => {
     expect((screen.getByRole('combobox') as HTMLButtonElement).disabled).toBe(true)
     expect(f.call).toHaveBeenCalledOnce()
   })
-  it('validates model-capped context response and verifies save acknowledgement', async () => {
-    const call = vi.fn().mockResolvedValueOnce({ ok: true, value: { contextMode: 'standard', contextLengthK: 256, contextMaximumK: 1000, contextWritable: true } }).mockResolvedValueOnce({ ok: true, value: { contextMode: 'extended', contextLengthK: 256, contextMaximumK: 1000, contextWritable: true } })
-    await expect(requestCodexContext({ call } as never, { contextMode: 'extended' })).rejects.toThrow('did not accept')
-    const invalid = vi.fn().mockResolvedValueOnce({ ok: true, value: { contextMode: 'custom', contextLengthK: 1001, contextMaximumK: 1000, contextWritable: true } })
-    await expect(requestCodexContext({ call: invalid } as never)).rejects.toThrow('Invalid Codex context settings response')
+  it('rejects malformed per-model capacities and non-acknowledged mode updates', async () => {
+    const values = { contextMode: 'standard', contextLengthK: 256, contextMaximumK: 1000, contextWritable: true, contextModels: catalog }
+    const call = vi.fn().mockResolvedValueOnce({ ok: true, value: { ...values, contextMode: 'extended' } })
+    await expect(requestCodexContext({ call } as never, { contextMode: 'standard' })).rejects.toThrow('did not accept')
+    const invalid = vi.fn().mockResolvedValueOnce({ ok: true, value: { ...values, contextModels: [{ ...catalog[0], effective: 16000001 }] } })
+    await expect(requestCodexContext({ call: invalid } as never)).rejects.toThrow('Invalid Codex context model response')
   })
 })

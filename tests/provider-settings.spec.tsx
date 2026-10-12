@@ -58,7 +58,7 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
 
 describe('provider settings surface', () => {
   it.each(['quick', 'detail'])('preserves unsaved unified K value and supports keyboard tab navigation in %s', async mode => {
-    const call = vi.fn(async () => ({ ok: true, value: { contextMode: 'custom', contextLengthK: 256, contextMaximumK: 1000, contextWritable: true } }))
+    const call = vi.fn(async () => ({ ok: true, value: { contextMode: 'custom', contextLengthK: 256, contextMaximumK: 1000, contextWritable: true, contextModels: [{ key: 'gpt-6', label: 'GPT-6', effective: 256000 }] } }))
     bench({ status: 'ready' }, codexAccounts, undefined, undefined, undefined, { rpc: { call } as never })
     if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
     else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
@@ -90,7 +90,7 @@ describe('provider settings surface', () => {
     expect(call).toHaveBeenCalledOnce()
   })
   it.each(['quick', 'detail'])('switches between account and settings management in %s without duplicate controls', async mode => {
-    const call = vi.fn(async () => ({ ok: true, value: { outputVerbosity: 'medium', outputVerbosityWritable: true, speedMode: 'standard', speedModeWritable: true, fastModels: [], contextMode: 'standard', contextLengthK: 256, contextMaximumK: 1000, contextWritable: true } }))
+    const call = vi.fn(async () => ({ ok: true, value: { outputVerbosity: 'medium', outputVerbosityWritable: true, speedMode: 'standard', speedModeWritable: true, fastModels: [], contextMode: 'standard', contextLengthK: 256, contextMaximumK: 1000, contextWritable: true, contextModels: [{ key: 'gpt-6', label: 'GPT-6', effective: 256000 }] } }))
     bench({ status: 'ready' }, codexAccounts, undefined, undefined, { rpc: { call } as never }, { rpc: { call } as never }, { rpc: { call } as never })
     if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
     else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
@@ -120,7 +120,7 @@ describe('provider settings surface', () => {
     expect(call.mock.calls.length).toBe(reads)
   })
   it.each(['quick', 'detail'])('exposes context length once in the %s provider settings', async mode => {
-    const call = vi.fn(async () => ({ ok: true, value: { contextMode: 'standard', contextLengthK: 256, contextMaximumK: 1000, contextWritable: true } }))
+    const call = vi.fn(async () => ({ ok: true, value: { contextMode: 'standard', contextLengthK: 256, contextMaximumK: 1000, contextWritable: true, contextModels: [{ key: 'gpt-6', label: 'GPT-6', effective: 256000 }] } }))
     bench({ status: 'ready' }, codexAccounts, undefined, undefined, undefined, { rpc: { call } as never })
     if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
     else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)

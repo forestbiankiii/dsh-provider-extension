@@ -31,7 +31,7 @@ The control displays acknowledged saves and failures; Hosts without persistent c
 
 ## Codex context length
 
-In **OpenAI Codex → Manage settings**, **Context length** offers Standard (model defaults), Extended (model maxima), or Custom. Custom edits one shared profile-wide value such as **256k**; 1k means 1,000 tokens. Models use that value up to their own catalog maximum, so a smaller model cannot inherit another model's higher limit. Mode changes save automatically; custom size saves when you press **Save**. Larger contexts may use more input tokens and do not unlock server access.
+In **OpenAI Codex → Manage settings**, **Context length** offers Standard (model defaults), Extended (model maxima), or Custom. The current effective size for each model is shown below the mode. Custom edits one shared profile-wide value such as **256k**; 1k means 1,000 tokens. Models use that value up to their own catalog maximum, so a smaller model cannot inherit another model's higher limit. Mode changes save automatically; custom size saves when you press **Save**. Larger contexts may use more input tokens and do not unlock server access.
 
 Existing per-model overrides are kept in native config for compatibility, but the UI no longer edits them separately. The shared value applies to future requests; prepared calls retain their prior capacity. Restart DSH after updating, then test Custom `k` value and persistence after a second restart. The context tool also reads/writes one `tokensK` value. Automated tests use mocked config and provider streams.
 

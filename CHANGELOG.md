@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.13.1
+
+- Show the current effective context size for each catalog model in Standard, Extended and Custom modes, without adding per-model editors. Keep one shared Custom K value and display each model's individually capped effective size.
+- Verify model names/capacities from the preference response and add localized read-only capacity rows.
+
 ## 0.13.0
 
 - Restyle Codex response detail, context length and speed controls with a shared theme-matched dropdown and keyboard-accessible option menu.

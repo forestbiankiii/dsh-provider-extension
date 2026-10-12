@@ -11,6 +11,7 @@ describe('published artifact contract', () => {
     expect(client).toContain('codexContextSize')
     expect(client).toContain('contextLengthK')
     expect(client).toContain('settingMenu')
+    expect(client).toContain('codexContextCapacities')
     expect(client).not.toContain('Draft Model')
   })
   it('ships the confirmed Standard/Fast preference and its deferred shared-operation tool', () => {

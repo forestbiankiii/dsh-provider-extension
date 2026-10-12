@@ -1,9 +1,15 @@
 import type { CodexVerbosityProps } from './CodexVerbositySettings.tsx';
 import type { ContextMode } from '../codex/context-length.ts';
+export interface ContextCapacity {
+    key: string;
+    label: string;
+    effective: number;
+}
 export interface ContextView {
     contextMode: ContextMode;
     contextLengthK: number;
     contextMaximumK: number;
+    contextModels: ContextCapacity[];
     writable: boolean;
 }
 export interface ContextPatch {

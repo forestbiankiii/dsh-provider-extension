@@ -4,19 +4,27 @@ import type { CodexVerbosityProps } from './CodexVerbositySettings.tsx'
 import type { ContextMode } from '../codex/context-length.ts'
 import { SettingsDropdown } from './SettingsDropdown.tsx'
 import css from './ProviderSettings.module.css'
-export interface ContextView { contextMode: ContextMode; contextLengthK: number; contextMaximumK: number; writable: boolean }
+export interface ContextCapacity { key: string; label: string; effective: number }
+export interface ContextView { contextMode: ContextMode; contextLengthK: number; contextMaximumK: number; contextModels: ContextCapacity[]; writable: boolean }
 export interface ContextPatch { contextMode?: ContextMode; contextLengthK?: number }
 const modes = ['standard', 'extended', 'custom'] as const
 const modeLabels = ['codexContextStandard', 'codexContextExtended', 'codexContextCustom'] as const
 const validK = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 128 && (value as number) <= 16000
+const formatK = (tokens: number) => `${Number((tokens / 1000).toFixed(1)).toLocaleString()}k`
 export async function requestCodexContext(rpc: CodexVerbosityProps['rpc'], patch?: ContextPatch, signal?: AbortSignal): Promise<ContextView> {
   if (patch?.contextMode !== undefined && !modes.includes(patch.contextMode) || patch?.contextLengthK !== undefined && !validK(patch.contextLengthK)) throw Error('Invalid Codex context settings')
   const response = await rpc.call('/api', patch ? 'codex-subscription/preferences/update' : 'codex-subscription/preferences/status', patch ?? {}, signal)
   if (!response.ok) throw Error(response.error.message)
   const raw = response.value as Partial<ContextView> & { contextWritable?: boolean } | null
-  if (!raw || !modes.includes(raw.contextMode as ContextMode) || typeof raw.contextWritable !== 'boolean' || !validK(raw.contextLengthK) || !validK(raw.contextMaximumK) || raw.contextLengthK > raw.contextMaximumK) throw Error('Invalid Codex context settings response')
+  if (!raw || !modes.includes(raw.contextMode as ContextMode) || typeof raw.contextWritable !== 'boolean' || !validK(raw.contextLengthK) || !validK(raw.contextMaximumK) || raw.contextLengthK > raw.contextMaximumK || !Array.isArray(raw.contextModels) || raw.contextModels.length > 64) throw Error('Invalid Codex context settings response')
+  const keys = new Set<string>()
+  const contextModels = raw.contextModels.map(model => {
+    if (!model || typeof model.key !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,95}$/.test(model.key) || ['constructor', 'prototype', '__proto__'].includes(model.key) || keys.has(model.key) || typeof model.label !== 'string' || model.label.length > 256 || !Number.isSafeInteger(model.effective) || model.effective <= 0 || model.effective > 16000000) throw Error('Invalid Codex context model response')
+    keys.add(model.key)
+    return { key: model.key, label: model.label, effective: model.effective }
+  })
   if (patch?.contextMode !== undefined && raw.contextMode !== patch.contextMode || patch?.contextLengthK !== undefined && raw.contextLengthK !== patch.contextLengthK) throw Error('DSH did not accept the Codex context length update')
-  return { contextMode: raw.contextMode as ContextMode, contextLengthK: raw.contextLengthK, contextMaximumK: raw.contextMaximumK, writable: raw.contextWritable }
+  return { contextMode: raw.contextMode as ContextMode, contextLengthK: raw.contextLengthK, contextMaximumK: raw.contextMaximumK, contextModels, writable: raw.contextWritable }
 }
 export function CodexContextSettings({ rpc, subscribe, t }: CodexVerbosityProps) {
   const inputId = useId()
@@ -58,6 +66,12 @@ export function CodexContextSettings({ rpc, subscribe, t }: CodexVerbosityProps)
         disabled={disabled} onChange={value => { if (value !== view?.contextMode) void save({ contextMode: value as ContextMode }) }} />
     </div>
     <p className={css.note}>{t('codexContextHint')}</p>
+    {view && <div className={css.contextCapacityList} aria-label={t('codexContextCapacities')}>
+      <div className={css.contextCapacityTitle}>{t('codexContextCapacities')}</div>
+      {view.contextModels.length === 0 ? <p className={css.note}>{t('codexContextNoModels')}</p> : view.contextModels.map(model => <div className={css.contextCapacityRow} key={model.key}>
+        <span>{model.label}</span><strong>{formatK(model.effective)}</strong>
+      </div>)}
+    </div>}
     {view?.contextMode === 'custom' && <p className={css.note}>{t('codexContextEffective', { size: view.contextLengthK })}</p>}
     {view?.contextMode === 'custom' && <>
       <div className={css.fieldLabel}><label htmlFor={inputId}>{t('codexContextSize')}</label>
