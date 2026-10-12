@@ -4,6 +4,7 @@ import { type ClaudeConfig } from './claude/index.ts';
 import Schema from '@deepseek-ai/schemastery';
 import { type OutputVerbosityConfig } from './codex/output-verbosity.ts';
 import { type ContextLengthConfig } from './codex/context-length.ts';
+import { type SpeedModeConfig } from './codex/speed-mode.ts';
 export declare const name = "provider-extension";
 export declare const Config: Schema<Schemastery.ObjectS<{
     codexOutputVerbosity: Schema<"default" | "low" | "medium" | "high", "default" | "low" | "medium" | "high">;
@@ -14,6 +15,7 @@ export declare const Config: Schema<Schemastery.ObjectS<{
         mode: Schema<"standard" | "extended" | "custom", "standard" | "extended" | "custom">;
         models: Schema<import("@deepseek-ai/cosmokit").Dict<number, string>, import("@deepseek-ai/cosmokit").Dict<number, string>>;
     }>>;
+    codexSpeedMode: Schema<"standard" | "fast", "standard" | "fast">;
     claudeExecutable: Schema<string, string>;
     claudeStreamIdleTimeoutMs: Schema<number, number>;
     claudeUnsupportedFields: Schema<"error" | "ignore", "error" | "ignore">;
@@ -26,6 +28,7 @@ export declare const Config: Schema<Schemastery.ObjectS<{
         mode: Schema<"standard" | "extended" | "custom", "standard" | "extended" | "custom">;
         models: Schema<import("@deepseek-ai/cosmokit").Dict<number, string>, import("@deepseek-ai/cosmokit").Dict<number, string>>;
     }>>;
+    codexSpeedMode: Schema<"standard" | "fast", "standard" | "fast">;
     claudeExecutable: Schema<string, string>;
     claudeStreamIdleTimeoutMs: Schema<number, number>;
     claudeUnsupportedFields: Schema<"error" | "ignore", "error" | "ignore">;
@@ -35,6 +38,7 @@ export declare const inject: string[];
 export declare function apply(ctx: Context, config?: ClaudeConfig & {
     codexOutputVerbosity?: OutputVerbosityConfig;
     codexContextLength?: ContextLengthConfig;
+    codexSpeedMode?: SpeedModeConfig;
 }): void;
 export * from './antigravity/index.ts';
 export { AntigravitySearchProvider, ANTIGRAVITY_SEARCH_PROVIDER_ID } from './antigravity/search.ts';

@@ -7,6 +7,14 @@ const patch = readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf
 const clientSource = readFileSync(new URL('../src/client/index.ts', import.meta.url), 'utf8')
 
 describe('published artifact contract', () => {
+  it('ships the confirmed Standard/Fast preference and its deferred shared-operation tool', () => {
+    const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
+    expect(host).toContain('codexSpeedMode')
+    expect(host).toContain('codex_speed_mode')
+    expect(client).toContain('codexSpeedStandard')
+    expect(client).toContain('codexSpeedFast')
+    expect(client).not.toContain('codexSpeedUltrafast')
+  })
   it('ships management tabs instead of the superseded two-column layout', () => {
     expect(client).toContain('管理账号')
     expect(client).toContain('管理设置')

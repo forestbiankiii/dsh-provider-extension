@@ -35,6 +35,12 @@ In **Providers → OpenAI Codex**, **Context length** offers Standard (model-cat
 
 Native config persistence applies to future requests; prepared calls retain their previous model-budget snapshot. Other settings and missing-model overrides are preserved. The deferred `codex_context_length` tool uses the same RPC operation and returns at most 64 model groups. Restart DSH after updating, check mode/custom-value retention after another restart, and return to Standard to restore the catalog defaults. Tests use mocked writes/streams, not user settings or billable model requests. A local runtime check can be repeated with `node scripts/verify-context-runtime.mjs <installed-DSH-app-directory>`; it never contacts the provider. Total live Agent prompt-token delta and visual acceptance are not measured by these no-network tests.
 
+## Codex speed mode
+
+In **OpenAI Codex → Manage settings**, select **Standard** or **Fast**. It saves the Codex-profile preference for subsequent requests. The existing catalog capability determines which models can actually receive the Fast priority tier; other models keep standard behavior, and an empty advertised support list is shown in the panel. Fast does not change reasoning effort, model, account or other providers and may consume subscription quota faster. It does not unlock access.
+
+The shared native config editor persists this preference. The deferred `codex_speed_mode` tool reads and sets the same operation. After updating the linked build, restart DSH and test a supported model in both modes, then restart again to verify persistence. Automated payload tests use mocked streams and make no billable calls. Ultrafast is not included.
+
 ## Claude subscription via the official CLI
 
 Install the unmodified official Claude Code CLI on PATH, restart DSH, then open **Provider Extension → Anthropic Claude**. The login button opens the official `claude auth login` in a visible Windows terminal; other platforms show the same command to run yourself. Finish login and refresh status. Choose Anthropic Claude and a Sonnet/Opus/Haiku alias in the composer. Authentication and account switching stay in the CLI: this extension never imports, stores, exports or rewrites its tokens. The current CLI authentication may instead use API-key/third-party billing; the settings view displays that distinction. Follow [Anthropic’s authentication and credential rules](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use).

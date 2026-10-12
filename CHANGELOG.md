@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.12.0
+
+- Add the explicitly approved Codex Standard/Fast setting beside response detail and context length in the Manage settings tab. Save an atomic volatile native `codexSpeedMode` field and expose the same operation via the deferred `codex_speed_mode` tool. Reuse the existing preference RPC, catalog support metadata and priority service-tier payload, leaving reasoning, model, account and other providers unchanged. Unsupported models retain standard behavior; Fast may consume subscription quota faster. Do not add Ultrafast.
+- Refactor the response-detail control onto the same acknowledged-save view component; retain its choices, RPC behavior, locale, error/read-only handling and test coverage. Add tests for persistence, failures, cancellation, tool parity, localization and both actual Codex stream routes.
+
 ## 0.11.2
 
 - Replace simultaneous Codex settings/account columns with top-level Manage accounts / Manage settings tabs in both views. Default to accounts, hide account actions on the settings tab, use the full content width, preserve mounted panel state and unsaved setting drafts, and support keyboard tab navigation. No preference or account operation changes.

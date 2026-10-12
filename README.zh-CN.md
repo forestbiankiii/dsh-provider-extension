@@ -35,6 +35,12 @@ Host 接入实现已包含在此 Bundle 中，上游来源和许可证记录在 
 
 设置通过原生配置持久化，只影响后续请求；已经准备好的请求保留原容量快照。其他偏好和暂时不在目录中的模型设置不会被清除。延迟加载的 `codex_context_length` 工具复用相同 RPC 操作，一次最多返回 64 个模型组。更新后重启 DSH，再测试模式和自定义值在再次重启后是否保留；选回「标准」恢复跟随目录默认容量。自动测试使用模拟写入和流，没有改动真实配置或发送付费模型请求。本地可用 `node scripts/verify-context-runtime.mjs <DSH安装app目录>` 重跑实际适配器检查，检查不连接提供商。完整 Agent 首轮提示 token 差值及页面效果仍需重启后的实机验收。
 
+## Codex 速度模式
+
+在「OpenAI Codex → 管理设置」中选择「标准」或「Fast」。它会保存为 Codex 配置偏好并作用于后续请求；是否实际使用 Fast 优先级通道，由现有模型目录的支持信息决定，不支持的模型仍按标准模式请求，支持列表为空时界面会提示。Fast 不改变推理等级、模型、账号或其他渠道，可能更快消耗订阅额度，也不能解锁权限。
+
+设置使用宿主配置编辑器持久化，延迟加载的 `codex_speed_mode` 工具读写同一偏好。更新后重启 DSH，测试支持 Fast 的模型在两种模式下的请求行为，并在再次重启后确认设置保留。自动测试使用模拟请求，不产生推理费用。此增量不包括 Ultrafast。
+
 ## Claude 订阅：通过官方 CLI 接入
 
 先安装未修改的官方 Claude Code CLI 并加入 PATH，重启 DSH，再打开「提供商拓展 → Anthropic Claude」。Windows 上的登录按钮会在可见终端启动官方 `claude auth login`，其他平台请自行执行该命令。完成登录后刷新状态，在输入区选择 Anthropic Claude 和 Sonnet／Opus／Haiku 模型别名。登录及账号切换仍由官方 CLI 管理，本插件不导入、保存、导出或改写其 Token。CLI 也可能使用 API Key／第三方计费，设置页会明确提示。请遵守 [Anthropic 的认证及凭据规则](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use)。

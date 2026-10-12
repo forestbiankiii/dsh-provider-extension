@@ -436,6 +436,28 @@ function createOutputVerbosityTool(handler) {
 	};
 }
 //#endregion
+//#region src/speed-mode-tool.js
+function createSpeedModeTool(handler) {
+	return {
+		name: "codex_speed_mode", deferLoading: true,
+		description: "Read or set Codex Standard/Fast mode for subsequent requests. Fast may consume subscription quota faster; reasoning effort, models, accounts and other providers are unchanged.",
+		parameters: { type: "object", properties: {
+			action: { type: "string", enum: ["get", "set"] },
+			speedMode: { type: "string", enum: ["standard", "fast"], description: "Required for set. Fast applies only to supported models; other models use standard." }
+		}, required: ["action"], additionalProperties: false },
+		isConcurrencySafe: args => args?.action === "get",
+		output: { schema: { type: "object" }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value) }] },
+		async execute(args, exec) {
+			if (!args || typeof args !== "object" || Array.isArray(args) || !["get", "set"].includes(args.action) || Object.keys(args).some(key => !["action", "speedMode"].includes(key))) throw new Error("Invalid Codex speed mode request");
+			if (args.action === "get" && Object.hasOwn(args, "speedMode") || args.action === "set" && !["standard", "fast"].includes(args.speedMode)) throw new Error("Invalid Codex speed mode preference");
+			const response = await handler(args.action === "get" ? "preferences/status" : "preferences/update", args.action === "get" ? {} : { speedMode: args.speedMode }, exec.signal);
+			if (!response.ok) throw new Error(response.error?.message ?? "Could not update Codex speed mode");
+			const models = response.value.fastModels ?? [];
+			return { speedMode: response.value.speedMode, writable: response.value.speedModeWritable, fastModels: models.slice(0, 64), truncated: models.length > 64 };
+		}
+	};
+}
+//#endregion
 //#region src/subscription-transport.js
 /** Exact routes stay inside DSH's authenticated /api bridge and body limit. */
 function registerSubscriptionTransport(connection, handler) {
@@ -3874,6 +3896,7 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 					patch[field] = payload[field];
 				}
 				if (Object.keys(patch).length === 0) return publicError("internal", "Invalid preference update");
+				if (Object.hasOwn(patch, SPEED_MODE_FIELD) && (preferences.status().speedModeWritable ?? preferences.status().writable) !== true) return publicError("read-only", "Codex speed mode settings are read-only");
 				if (Object.hasOwn(patch, OUTPUT_VERBOSITY_FIELD) && (preferences.status().outputVerbosityWritable ?? preferences.status().writable) !== true) return publicError("internal", "Codex response detail settings are read-only");
 				if ([CONTEXT_MODE_FIELD, CUSTOM_CONTEXT_OVERRIDES_FIELD, CUSTOM_CONTEXT_WINDOW_FIELD, ...Object.values(CUSTOM_CONTEXT_MODEL_FIELDS)].some(field => Object.hasOwn(patch, field)) && (preferences.status().contextWritable ?? preferences.status().writable) !== true) return publicError("read-only", "Codex context length settings are read-only");
 				await preferences.update(patch, signal);
@@ -4037,7 +4060,7 @@ function createSearchProviderSwitcher(loader) {
 		}
 	});
 }
-function apply(ctx, { outputVerbosityOwner, contextLengthOwner } = {}) {
+function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner } = {}) {
 	let settings;
 	const defaultSettings = {
 		imageModel: DEFAULT_IMAGE_MODEL,
@@ -4115,7 +4138,7 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner } = {}) {
 	});
 	const contextPreferences = createContextPreferences({ owner: contextLengthOwner, settings, writable: ctx.settings?.writable ?? false, models: () => modelCatalog.getModels(baseProvider.getModels()), onChange: () => notifyCatalogChanged() });
 	const provider = openaiCodexSubscriptionProvider({
-		resolveSpeedMode: () => settings.get()[SPEED_MODE_FIELD],
+		resolveSpeedMode: () => speedModeOwner?.current() ?? settings.get()[SPEED_MODE_FIELD],
 		resolveOutputVerbosity: () => outputVerbosityOwner?.current() ?? normalizeOutputVerbosity(settings.get()[OUTPUT_VERBOSITY_FIELD]),
 		resolveContextMode: () => contextPreferences.current().mode,
 		resolveCustomContextWindow: contextPreferences.resolveWindow,
@@ -4127,7 +4150,8 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner } = {}) {
 			...readCapabilitySettings(settings.get()),
 			[QUICK_QUOTA_MODE_FIELD]: normalizeQuickQuotaMode(settings.get()[QUICK_QUOTA_MODE_FIELD], settings.get()[LEGACY_QUICK_QUOTA_FIELD]),
 			[SEARCH_PROVIDER_FIELD]: settings.get()[SEARCH_PROVIDER_FIELD],
-			[SPEED_MODE_FIELD]: settings.get()[SPEED_MODE_FIELD],
+			[SPEED_MODE_FIELD]: speedModeOwner?.current() ?? settings.get()[SPEED_MODE_FIELD],
+			speedModeWritable: speedModeOwner?.writable ?? ctx.settings?.writable ?? false,
 			[OUTPUT_VERBOSITY_FIELD]: outputVerbosityOwner?.current() ?? normalizeOutputVerbosity(settings.get()[OUTPUT_VERBOSITY_FIELD]),
 			outputVerbosityWritable: outputVerbosityOwner?.writable ?? ctx.settings?.writable ?? false,
 			[CONTEXT_MODE_FIELD]: normalizeContextMode(settings.get()[CONTEXT_MODE_FIELD]),
@@ -4145,6 +4169,10 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner } = {}) {
 			if (Object.hasOwn(patch, CONTEXT_MODE_FIELD) || Object.hasOwn(patch, CUSTOM_CONTEXT_OVERRIDES_FIELD)) {
 				await contextPreferences.update({ ...Object.hasOwn(patch, CONTEXT_MODE_FIELD) ? { contextMode: patch.contextMode } : {}, ...Object.hasOwn(patch, CUSTOM_CONTEXT_OVERRIDES_FIELD) ? { customContextModels: patch.customContextModels } : {} }, signal);
 				delete remaining.contextMode; delete remaining.customContextModels;
+			}
+			if (speedModeOwner && Object.hasOwn(remaining, SPEED_MODE_FIELD)) {
+				await speedModeOwner.save(remaining[SPEED_MODE_FIELD], signal);
+				delete remaining[SPEED_MODE_FIELD];
 			}
 			if (outputVerbosityOwner && Object.hasOwn(remaining, OUTPUT_VERBOSITY_FIELD)) {
 				await outputVerbosityOwner.save(remaining[OUTPUT_VERBOSITY_FIELD], signal);
@@ -4338,6 +4366,7 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner } = {}) {
 	});
 	ctx.effect(() => ctx.tools.register(createOutputVerbosityTool(handler)), "codex-subscription: response detail tool");
 	ctx.effect(() => ctx.tools.register(createContextLengthTool(handler)), "codex-subscription: context length tool");
+	ctx.effect(() => ctx.tools.register(createSpeedModeTool(handler)), "codex-subscription: speed mode tool");
 	ctx.effect(() => {
 		modelCatalog.refresh().catch((error) => ctx.logger?.debug?.("could not refresh Codex model catalog: %s", error.message));
 	}, "codex-subscription: official model catalog");

@@ -1,3 +1,4 @@
+/** One Codex-wide preference, shared by quick and full Settings views. */
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client';
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots';
 import type { OutputVerbosity } from '../codex/output-verbosity.ts';
@@ -12,4 +13,4 @@ export interface CodexVerbosityView {
     writable: boolean;
 }
 export declare function requestCodexVerbosity(rpc: ClientConnectionRpc, value?: OutputVerbosity, signal?: AbortSignal): Promise<CodexVerbosityView>;
-export declare function CodexVerbositySettings({ rpc, subscribe, t }: CodexVerbosityProps): import("react").JSX.Element;
+export declare function CodexVerbositySettings(props: CodexVerbosityProps): import("react").JSX.Element;

@@ -67,6 +67,12 @@ export declare const en: {
     readonly codexVerbositySaved: "Response detail saved.";
     readonly codexVerbosityHint: "Applies to subsequent Codex requests in this DSH profile when the model supports it. Default follows the model; this is a preference, not a length limit.";
     readonly codexVerbosityReadOnly: "This setting is read-only in the current Host.";
+    readonly codexSpeed: "Speed mode";
+    readonly codexSpeedStandard: "Standard";
+    readonly codexSpeedFast: "Fast";
+    readonly codexSpeedSaved: "Speed mode saved.";
+    readonly codexSpeedHint: "Applies to subsequent Codex requests in this profile. Fast uses the existing priority tier only when supported; other models keep standard behavior. Fast may consume subscription quota faster and does not change reasoning effort, model or account.";
+    readonly codexSpeedUnsupported: "The current catalog declares no Fast-capable models. Requests will keep standard behavior; this preference does not unlock access.";
     readonly codexContext: "Context length";
     readonly codexContextStandard: "Standard";
     readonly codexContextExtended: "Extended";

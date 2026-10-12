@@ -19,7 +19,7 @@ const codexAccounts: CodexAccountsState = {
   usage: { work: { status: 'ready', value: { weeklyPercent: 76 } } },
 }
 
-function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emptyAccounts, catalogLoader?: (accountId: string) => Promise<readonly { id: string; name: string }[]>, codexReset?: ProviderSettingsProps['codexReset'], codexVerbosity?: ProviderSettingsProps['codexVerbosity'], codexContext?: ProviderSettingsProps['codexContext']) {
+function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emptyAccounts, catalogLoader?: (accountId: string) => Promise<readonly { id: string; name: string }[]>, codexReset?: ProviderSettingsProps['codexReset'], codexVerbosity?: ProviderSettingsProps['codexVerbosity'], codexContext?: ProviderSettingsProps['codexContext'], codexSpeed?: ProviderSettingsProps['codexSpeed']) {
   const loadAccounts = vi.fn(async () => {})
   const refreshAntigravityModels = vi.fn(async () => {})
   const loadCodexModels = catalogLoader ?? vi.fn(async () => [{ id: 'host-model', name: 'Host Model' }, { id: 'gpt-6-astra', name: 'GPT-6 Astra' }])
@@ -38,6 +38,7 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
     ...(codexReset ? { codexReset } : {}),
     ...(codexVerbosity ? { codexVerbosity } : {}),
     ...(codexContext ? { codexContext } : {}),
+    ...(codexSpeed ? { codexSpeed } : {}),
     readQuota: vi.fn(async () => {}),
     loginCodex,
     renameCodexAccount,
@@ -76,6 +77,17 @@ describe('provider settings surface', () => {
     expect(input.value).toBe('600000')
     expect(call).toHaveBeenCalledOnce()
     expect(call.mock.calls[0]![1]).toBe('codex-subscription/preferences/status')
+  })
+  it.each(['quick', 'detail'])('shows the speed control only under Codex manage settings in %s', async mode => {
+    const call = vi.fn(async (_ns: string, endpoint: string) => ({ ok: true, value: { speedMode: 'standard', speedModeWritable: true, fastModels: ['gpt-6.1-sol'] } }))
+    bench({ status: 'ready' }, codexAccounts, undefined, undefined, undefined, undefined, { rpc: { call } as never })
+    if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
+    else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
+    expect(screen.queryByRole('combobox', { name: en.codexSpeed })).toBeNull()
+    fireEvent.click(screen.getByRole('tab', { name: en.codexManageSettings }))
+    const select = await screen.findByRole('combobox', { name: en.codexSpeed })
+    await waitFor(() => expect((select as HTMLSelectElement).disabled).toBe(false))
+    expect(call).toHaveBeenCalledOnce()
   })
   it.each(['quick', 'detail'])('switches between account and settings management in %s without duplicate controls', async mode => {
     const call = vi.fn(async () => ({ ok: true, value: { outputVerbosity: 'medium', outputVerbosityWritable: true, contextMode: 'standard', customContextModels: {}, contextModels: [], contextWritable: true } }))

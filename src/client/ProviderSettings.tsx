@@ -25,6 +25,7 @@ import type { ClaudeClientState } from './providers/claude.ts'
 import { CodexResetCredits, type CodexResetCreditsProps } from './usage/CodexResetCredits.tsx'
 import { CodexVerbositySettings, type CodexVerbosityProps } from './CodexVerbositySettings.tsx'
 import { CodexContextSettings } from './CodexContextSettings.tsx'
+import { CodexSpeedSettings } from './CodexSpeedSettings.tsx'
 
 /** Per-surface actions and stores injected by the client plugin. */
 export interface ProviderSettingsInjected {
@@ -50,6 +51,7 @@ export interface ProviderSettingsInjected {
   onCodexReset?: (id: string) => Promise<void>
   codexVerbosity?: Omit<CodexVerbosityProps, 't'>
   codexContext?: Omit<CodexVerbosityProps, 't'>
+  codexSpeed?: Omit<CodexVerbosityProps, 't'>
   loadAntigravity: () => Promise<void>
   refreshAntigravityModels: () => Promise<void>
   loginAntigravity: () => Promise<void>
@@ -181,7 +183,7 @@ function formatResetSeconds(epochSeconds?: number): string {
 
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
 export function ProviderSettings({
-  useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, codexReset, onCodexReset, codexVerbosity, codexContext,
+  useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, codexReset, onCodexReset, codexVerbosity, codexContext, codexSpeed,
   loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota,
   useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, useClaude, loadClaude, loginClaude, loadClaudeModels, t,
 }: ProviderSettingsProps): ReactNode {
@@ -482,6 +484,7 @@ export function ProviderSettings({
                   id={`${codexTabsId}-detail-panel-settings`} aria-labelledby={`${codexTabsId}-detail-tab-settings`} hidden={codexPane !== 'settings'}>
                   {codexVerbosity && <CodexVerbositySettings {...codexVerbosity} t={t} />}
                   {codexContext && <CodexContextSettings {...codexContext} t={t} />}
+                  {codexSpeed && <CodexSpeedSettings {...codexSpeed} t={t} />}
                 </div>
                 <div className={`${css.codexAccounts} ${css.codexPane}`} role="tabpanel" tabIndex={0}
                   id={`${codexTabsId}-detail-panel-accounts`} aria-labelledby={`${codexTabsId}-detail-tab-accounts`} hidden={codexPane !== 'accounts'}>
@@ -1387,6 +1390,7 @@ export function ProviderSettings({
                     id={`${codexTabsId}-quick-panel-settings`} aria-labelledby={`${codexTabsId}-quick-tab-settings`} hidden={codexPane !== 'settings'}>
                     {codexVerbosity && <CodexVerbositySettings {...codexVerbosity} t={t} />}
                     {codexContext && <CodexContextSettings {...codexContext} t={t} />}
+                    {codexSpeed && <CodexSpeedSettings {...codexSpeed} t={t} />}
                   </div>
                   <div className={`${css.codexAccounts} ${css.codexPane}`} role="tabpanel" tabIndex={0}
                     id={`${codexTabsId}-quick-panel-accounts`} aria-labelledby={`${codexTabsId}-quick-tab-accounts`} hidden={codexPane !== 'accounts'}>
