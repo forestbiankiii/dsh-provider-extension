@@ -1180,6 +1180,11 @@
 .contextCapacityRow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; font-size: 12px; line-height: 18px; }
 .contextCapacityRow span { min-width: 0; overflow-wrap: anywhere; color: var(--dsw-alias-label-secondary); }
 .contextCapacityRow strong { flex: none; color: var(--dsw-alias-label-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+.imageFeatureSetting h3 { margin: 0; color: var(--dsw-alias-label-primary); font-size: 12px; font-weight: 600; }
+.imageFeatureRow { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.imageFeatureRow > div { display: flex; flex-direction: column; gap: 2px; }
+.imageFeatureLabel { color: var(--dsw-alias-label-secondary); font-size: 12px; font-weight: 500; }
+.imageFeatureRow .switch { flex: none; }
 
 .fieldGroup {
   display: flex;

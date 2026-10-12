@@ -101,6 +101,13 @@ export declare const en: {
     readonly codexContextSave: "Save";
     readonly codexContextSaved: "Context length saved.";
     readonly codexContextInvalid: "Enter a whole number from 128 to {maximum}k.";
+    readonly codexImageFeatures: "Codex image tools";
+    readonly codexImageFeaturesHint: "Availability only. No image is generated automatically; use may consume subscription quota.";
+    readonly codexImageGeneration: "Image generation";
+    readonly codexImageGenerationHint: "Allow image generation when explicitly requested.";
+    readonly codexImageEditing: "Image editing";
+    readonly codexImageEditingHint: "Allow edits to images explicitly selected by the user.";
+    readonly codexImageFeaturesSaved: "Image settings saved.";
     readonly codexModels: "Models in this account’s catalog";
     readonly codexModelsScope: "These switches only control this account’s picker. They do not grant model access.";
     readonly codexModelsMissing: "Saved selections not in the current catalog (preferences retained): {models}";

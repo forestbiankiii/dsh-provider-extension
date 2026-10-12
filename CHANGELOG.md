@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.15.0
+
+- Add separate user-only Codex subscription image-generation and image-editing switches under Manage settings. Persist through native config, reflect read-only Hosts, and register the image tool only while at least one operation is enabled. Changing either switch does not invoke image generation or editing.
+- Keep output model/quality, image viewer, annotations and input image handling unchanged; do not expose a separate Agent setting tool that can enable subscription image access.
+
 ## 0.14.0
 
 - Extend the existing Codex usage readout in the Composer tooltip and account details with provider-reported additional rate-limit groups, Credits balance (explicitly non-currency), individual spend limit and state. Keep existing 5h/week windows and reset-credit actions; show nothing for missing fields instead of inventing percentages or values. Reuse the existing account usage read path and make no model-inference requests.

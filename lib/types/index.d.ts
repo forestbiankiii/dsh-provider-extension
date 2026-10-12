@@ -5,6 +5,7 @@ import Schema from '@deepseek-ai/schemastery';
 import { type OutputVerbosityConfig } from './codex/output-verbosity.ts';
 import { type ContextLengthConfig } from './codex/context-length.ts';
 import { type SpeedModeConfig } from './codex/speed-mode.ts';
+import { type CodexImageFeaturesConfig } from './codex/image-features.ts';
 export declare const name = "provider-extension";
 export declare const Config: Schema<Schemastery.ObjectS<{
     codexOutputVerbosity: Schema<"default" | "low" | "medium" | "high", "default" | "low" | "medium" | "high">;
@@ -18,6 +19,13 @@ export declare const Config: Schema<Schemastery.ObjectS<{
         models: Schema<import("@deepseek-ai/cosmokit").Dict<number, string>, import("@deepseek-ai/cosmokit").Dict<number, string>>;
     }>>;
     codexSpeedMode: Schema<"standard" | "fast", "standard" | "fast">;
+    codexImageFeatures: Schema<Schemastery.ObjectS<{
+        imageGeneration: Schema<boolean, boolean>;
+        imageEditing: Schema<boolean, boolean>;
+    }>, Schemastery.ObjectT<{
+        imageGeneration: Schema<boolean, boolean>;
+        imageEditing: Schema<boolean, boolean>;
+    }>>;
     claudeExecutable: Schema<string, string>;
     claudeStreamIdleTimeoutMs: Schema<number, number>;
     claudeUnsupportedFields: Schema<"error" | "ignore", "error" | "ignore">;
@@ -33,6 +41,13 @@ export declare const Config: Schema<Schemastery.ObjectS<{
         models: Schema<import("@deepseek-ai/cosmokit").Dict<number, string>, import("@deepseek-ai/cosmokit").Dict<number, string>>;
     }>>;
     codexSpeedMode: Schema<"standard" | "fast", "standard" | "fast">;
+    codexImageFeatures: Schema<Schemastery.ObjectS<{
+        imageGeneration: Schema<boolean, boolean>;
+        imageEditing: Schema<boolean, boolean>;
+    }>, Schemastery.ObjectT<{
+        imageGeneration: Schema<boolean, boolean>;
+        imageEditing: Schema<boolean, boolean>;
+    }>>;
     claudeExecutable: Schema<string, string>;
     claudeStreamIdleTimeoutMs: Schema<number, number>;
     claudeUnsupportedFields: Schema<"error" | "ignore", "error" | "ignore">;
@@ -43,6 +58,7 @@ export declare function apply(ctx: Context, config?: ClaudeConfig & {
     codexOutputVerbosity?: OutputVerbosityConfig;
     codexContextLength?: ContextLengthConfig;
     codexSpeedMode?: SpeedModeConfig;
+    codexImageFeatures?: CodexImageFeaturesConfig;
 }): void;
 export * from './antigravity/index.ts';
 export { AntigravitySearchProvider, ANTIGRAVITY_SEARCH_PROVIDER_ID } from './antigravity/search.ts';

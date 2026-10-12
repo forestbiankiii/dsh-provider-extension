@@ -19,6 +19,14 @@ describe('published artifact contract', () => {
     expect(client).toContain('codexCreditsNotMoney')
     expect(client).toContain('codexIndividualLimit')
   })
+  it('ships user-only Codex image feature switches without a settings Agent tool', () => {
+    const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
+    expect(host).toContain('codexImageFeatures')
+    expect(host).toContain('imageFeaturesWritable')
+    expect(host).not.toContain('codex_image_features')
+    expect(client).toContain('codexImageGeneration')
+    expect(client).toContain('codexImageEditing')
+  })
   it('ships the confirmed Standard/Fast preference and its deferred shared-operation tool', () => {
     const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
     expect(host).toContain('codexSpeedMode')

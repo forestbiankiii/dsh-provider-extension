@@ -39,6 +39,10 @@ Existing per-model overrides are kept in native config for compatibility, but th
 
 The Composer quota tooltip and each Codex account's expanded details show 5h/week windows only when the provider reports them, plus any additional rate-limit groups, Credits and an individual spending cap when present. **Credits are not currency**; credit balances and spend-cap values are shown as reported, with no inferred unit or currency conversion. The Usage page already has separate provider balance cards and reset-credit details. No additional inference calls are made for this display.
 
+## Codex image tools
+
+In **OpenAI Codex → Manage settings**, the separate **Image generation** and **Image editing** switches control tool availability. They save to native config and changing them does not start an image request; an explicit image request may use subscription quota. The switches are user-only and cannot be enabled through an Agent settings tool. These controls do not change input image handling, default output model/quality, image viewing, or annotations.
+
 ## Codex speed mode
 
 In **OpenAI Codex → Manage settings**, select **Standard** or **Fast**. It saves the Codex-profile preference for subsequent requests. The existing catalog capability determines which models can actually receive the Fast priority tier; other models keep standard behavior, and an empty advertised support list is shown in the panel. Fast does not change reasoning effort, model, account or other providers and may consume subscription quota faster. It does not unlock access.

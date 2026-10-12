@@ -1,5 +1,6 @@
 import { readCodexAccountUsage } from "./account-usage.ts";
 import { normalizeAbortDrops } from "./abort-normalize.ts";
+import { createCodexImageFeaturesOwner } from "./image-features.ts";
 import { clientRequestSchema } from "@deepseek-ai/dsh-client-connection";
 import * as dshCredentials from "@deepseek-ai/dsh-credentials";
 import { dshHomePath, resolveDshHome } from "@deepseek-ai/dsh-home-paths";
@@ -2648,20 +2649,21 @@ function createCodexImageTool(options) {
 //#endregion
 //#region src/image-tool-registration.js
 /** Removing the tool also removes its schema from subsequent model requests. */
-function watchImageTool(settings, register) {
+function watchImageTool(settings, register, getFeatures = () => settings.get(), subscribe = () => () => {}) {
 	let disposeTool;
-	const sync = (value) => {
-		const { imageGeneration, imageEditing } = readImageFeatures(value);
+	const sync = () => {
+		const { imageGeneration, imageEditing } = readImageFeatures(getFeatures());
 		if ((imageGeneration || imageEditing) && !disposeTool) disposeTool = register();
 		else if (!imageGeneration && !imageEditing && disposeTool) {
 			disposeTool();
 			disposeTool = void 0;
 		}
 	};
-	sync(settings.get());
+	sync();
 	const unwatch = settings.watch(sync);
+	const unsubscribe = subscribe(sync);
 	return () => {
-		unwatch();
+		unwatch(); unsubscribe();
 		disposeTool?.();
 		disposeTool = void 0;
 	};
@@ -3888,6 +3890,7 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 					patch.contextLengthK = payload.contextLengthK;
 				}
 				if (Object.keys(patch).length === 0) return publicError("internal", "Invalid preference update");
+				if (["imageGeneration", "imageEditing"].some(field => Object.hasOwn(patch, field)) && (preferences.status().imageFeaturesWritable ?? preferences.status().writable) !== true) return publicError("read-only", "Codex image settings are read-only");
 				if (Object.hasOwn(patch, SPEED_MODE_FIELD) && (preferences.status().speedModeWritable ?? preferences.status().writable) !== true) return publicError("read-only", "Codex speed mode settings are read-only");
 				if (Object.hasOwn(patch, OUTPUT_VERBOSITY_FIELD) && (preferences.status().outputVerbosityWritable ?? preferences.status().writable) !== true) return publicError("internal", "Codex response detail settings are read-only");
 				if ([CONTEXT_MODE_FIELD, "contextLengthK", CUSTOM_CONTEXT_OVERRIDES_FIELD, CUSTOM_CONTEXT_WINDOW_FIELD, ...Object.values(CUSTOM_CONTEXT_MODEL_FIELDS)].some(field => Object.hasOwn(patch, field)) && (preferences.status().contextWritable ?? preferences.status().writable) !== true) return publicError("read-only", "Codex context length settings are read-only");
@@ -4052,7 +4055,7 @@ function createSearchProviderSwitcher(loader) {
 		}
 	});
 }
-function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner } = {}) {
+function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, imageFeaturesConfig } = {}) {
 	let settings;
 	const defaultSettings = {
 		imageModel: DEFAULT_IMAGE_MODEL,
@@ -4106,6 +4109,8 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner }
 			}
 		};
 	}
+	const imageFeaturesOwner = createCodexImageFeaturesOwner(ctx, imageFeaturesConfig, () => settings.get());
+	let syncImageTool = () => {};
 	const searchProvider = createSearchProviderSwitcher(ctx.loader);
 	const network = createCodexNetworkTransport();
 	const originalImages = new OriginalImageStore();
@@ -4140,6 +4145,8 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner }
 	const preferences = {
 		status: () => ({
 			...readCapabilitySettings(settings.get()),
+			...imageFeaturesOwner.current(),
+			imageFeaturesWritable: imageFeaturesOwner.writable,
 			[QUICK_QUOTA_MODE_FIELD]: normalizeQuickQuotaMode(settings.get()[QUICK_QUOTA_MODE_FIELD], settings.get()[LEGACY_QUICK_QUOTA_FIELD]),
 			[SEARCH_PROVIDER_FIELD]: settings.get()[SEARCH_PROVIDER_FIELD],
 			[SPEED_MODE_FIELD]: speedModeOwner?.current() ?? settings.get()[SPEED_MODE_FIELD],
@@ -4161,6 +4168,15 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner }
 			if (Object.hasOwn(patch, CONTEXT_MODE_FIELD) || Object.hasOwn(patch, "contextLengthK")) {
 				await contextPreferences.update({ ...Object.hasOwn(patch, CONTEXT_MODE_FIELD) ? { contextMode: patch.contextMode } : {}, ...Object.hasOwn(patch, "contextLengthK") ? { contextLengthK: patch.contextLengthK } : {} }, signal);
 				delete remaining.contextMode; delete remaining.contextLengthK;
+			}
+			if (Object.hasOwn(remaining, "imageGeneration") || Object.hasOwn(remaining, "imageEditing")) {
+				const current = imageFeaturesOwner.current();
+				await imageFeaturesOwner.save({
+					imageGeneration: Object.hasOwn(remaining, "imageGeneration") ? remaining.imageGeneration : current.imageGeneration,
+					imageEditing: Object.hasOwn(remaining, "imageEditing") ? remaining.imageEditing : current.imageEditing
+				}, signal);
+				delete remaining.imageGeneration; delete remaining.imageEditing;
+				syncImageTool();
 			}
 			if (speedModeOwner && Object.hasOwn(remaining, SPEED_MODE_FIELD)) {
 				await speedModeOwner.save(remaining[SPEED_MODE_FIELD], signal);
@@ -4212,14 +4228,21 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner }
 		})
 	});
 	ctx.effect(() => watchImageTool(settings, () => ctx.tools.register(createCodexImageTool({
-		getFeatures: () => settings.get(),
+		getFeatures: () => ({ ...settings.get(), ...imageFeaturesOwner.current() }),
 		getAuth: resolveAuth,
 		readCredential: (options) => store.read(PROVIDER, options),
 		attachments: ctx.attachments,
 		getSessionMessages: (sessionId) => ctx.get?.("sessions")?.get?.(sessionId)?.deriveMessages?.() ?? [],
 		originalImages,
 		fetch: (input, init) => network.fetch("image", input, init)
-	}))), "codex-subscription: image tool availability");
+	})), () => ({ ...settings.get(), ...imageFeaturesOwner.current() }), listener => {
+		syncImageTool = listener;
+		const dispose = ctx.on("settings/document-updated", listener);
+		return () => {
+			if (syncImageTool === listener) syncImageTool = () => {};
+			if (typeof dispose === "function") dispose();
+		};
+	}), "codex-subscription: image tool availability");
 	const adapter = new PiAiAdapter({
 		profiles,
 		resolveApiKey: async () => {

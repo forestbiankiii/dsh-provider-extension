@@ -26,6 +26,7 @@ import { CodexResetCredits, type CodexResetCreditsProps } from './usage/CodexRes
 import { CodexVerbositySettings, type CodexVerbosityProps } from './CodexVerbositySettings.tsx'
 import { CodexContextSettings } from './CodexContextSettings.tsx'
 import { CodexSpeedSettings } from './CodexSpeedSettings.tsx'
+import { CodexImageFeaturesSettings, type CodexImageFeaturesProps } from './CodexImageFeaturesSettings.tsx'
 
 /** Per-surface actions and stores injected by the client plugin. */
 export interface ProviderSettingsInjected {
@@ -52,6 +53,7 @@ export interface ProviderSettingsInjected {
   codexVerbosity?: Omit<CodexVerbosityProps, 't'>
   codexContext?: Omit<CodexVerbosityProps, 't'>
   codexSpeed?: Omit<CodexVerbosityProps, 't'>
+  codexImageFeatures?: Omit<CodexImageFeaturesProps, 't'>
   loadAntigravity: () => Promise<void>
   refreshAntigravityModels: () => Promise<void>
   loginAntigravity: () => Promise<void>
@@ -183,7 +185,7 @@ function formatResetSeconds(epochSeconds?: number): string {
 
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
 export function ProviderSettings({
-  useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, codexReset, onCodexReset, codexVerbosity, codexContext, codexSpeed,
+  useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, codexReset, onCodexReset, codexVerbosity, codexContext, codexSpeed, codexImageFeatures,
   loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota,
   useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, useClaude, loadClaude, loginClaude, loadClaudeModels, t,
 }: ProviderSettingsProps): ReactNode {
@@ -508,6 +510,7 @@ export function ProviderSettings({
                   {codexVerbosity && <CodexVerbositySettings {...codexVerbosity} t={t} />}
                   {codexContext && <CodexContextSettings {...codexContext} t={t} />}
                   {codexSpeed && <CodexSpeedSettings {...codexSpeed} t={t} />}
+                  {codexImageFeatures && <CodexImageFeaturesSettings {...codexImageFeatures} t={t} />}
                 </div>
                 <div className={`${css.codexAccounts} ${css.codexPane}`} role="tabpanel" tabIndex={0}
                   id={`${codexTabsId}-detail-panel-accounts`} aria-labelledby={`${codexTabsId}-detail-tab-accounts`} hidden={codexPane !== 'accounts'}>
@@ -1415,6 +1418,7 @@ export function ProviderSettings({
                     {codexVerbosity && <CodexVerbositySettings {...codexVerbosity} t={t} />}
                     {codexContext && <CodexContextSettings {...codexContext} t={t} />}
                     {codexSpeed && <CodexSpeedSettings {...codexSpeed} t={t} />}
+                  {codexImageFeatures && <CodexImageFeaturesSettings {...codexImageFeatures} t={t} />}
                   </div>
                   <div className={`${css.codexAccounts} ${css.codexPane}`} role="tabpanel" tabIndex={0}
                     id={`${codexTabsId}-quick-panel-accounts`} aria-labelledby={`${codexTabsId}-quick-tab-accounts`} hidden={codexPane !== 'accounts'}>

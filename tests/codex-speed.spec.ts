@@ -7,6 +7,7 @@ const start = source.indexOf('\tconst preferences = {', source.indexOf('function
 const preferencesSource = source.slice(start, source.indexOf('\n\tconst authModels =', start))
 const createBackend = new Function('ctx', 'settings', 'speedModeOwner', 'createOpenAICodexProvider', 'normalizeAbortDrops', 'modelCatalog', `${['image-models', 'image-features', 'capability-settings', 'settings-contract', 'preference-fields', 'subscription-rpc', 'speed-mode-tool', 'pi-ai-runtime'].map(region).join('\n')}
 const contextLengthOwner = undefined, outputVerbosityOwner = undefined;
+const imageFeaturesOwner = { current: () => ({ imageGeneration: true, imageEditing: true }), writable: false, save: () => { throw Error('Unexpected image settings update') } };
 const contextPreferences = { status: () => ({contextMode:'standard',customContextModels:{},contextModels:[]}), update: () => { throw Error('Unexpected context update') } };
 const provider = openaiCodexSubscriptionProvider({ resolveSpeedMode: () => speedModeOwner.current(), catalog: modelCatalog });
 ${preferencesSource}
