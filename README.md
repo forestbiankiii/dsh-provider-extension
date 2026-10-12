@@ -45,7 +45,7 @@ In **OpenAI Codex → Manage settings**, the separate **Image generation** and *
 
 ## Codex original image
 
-For a completed `codex_image_generate` call, the chat tool card keeps the generated preview and offers **View original** and **Download PNG**. The original is read from the DSH Host's private store, scoped to the current Session and validated in bounded chunks. This makes no image-provider request and uses no additional subscription quota. When an original is unavailable, the card reports it instead of reading an arbitrary host path.
+For a completed `codex_image_generate` call, the generated image is also rendered below the assistant answer, even when tool-call details are collapsed. Its image card keeps the preview and offers **View original** and **Download PNG**. The original is read from the DSH Host's private store, scoped to the current Session and validated in bounded chunks. This makes no image-provider request and uses no additional subscription quota. When an original is unavailable, the card reports it instead of reading an arbitrary host path.
 
 ## Codex annotated edits
 

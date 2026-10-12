@@ -4,6 +4,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types';
 import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client';
 import type { SlotCore, SlotMap } from '@deepseek-ai/dsh-client-ui-slots';
 import { type CodexOriginalImageToolViewProps, type CodexToolCallViewOwnerProps } from './CodexOriginalImageToolView.tsx';
+import { type CodexImageOutputNodeOwnerProps } from './codex-image-output-node.tsx';
 import { type ProviderPanelKey } from './locales.ts';
 export { ProviderPanel } from './ProviderPanel.tsx';
 export type { ProviderPanelInjected, ProviderPanelProps } from './ProviderPanel.tsx';
@@ -36,6 +37,17 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
             kind: 'keyed';
             scope: 'session';
             owner: CodexToolCallViewOwnerProps;
+            inject: {
+                rpc: ClientConnectionRpc;
+                sessionId: SessionId;
+                conversation: CodexOriginalImageToolViewProps['conversation'];
+                isCodexRoute: () => boolean;
+            };
+        };
+        'conversation.chat.node': {
+            kind: 'keyed';
+            scope: 'session';
+            owner: CodexImageOutputNodeOwnerProps;
             inject: {
                 rpc: ClientConnectionRpc;
                 sessionId: SessionId;

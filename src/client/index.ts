@@ -13,6 +13,7 @@ import type { ProviderPanelInjected } from './ProviderPanel.tsx'
 import { ProviderSettings } from './ProviderSettings.tsx'
 import type { ProviderSettingsInjected } from './ProviderSettings.tsx'
 import { CodexOriginalImageToolView, type CodexOriginalImageToolViewProps, type CodexToolCallViewOwnerProps } from './CodexOriginalImageToolView.tsx'
+import { CodexImageOutputChatNode, codexImageConversationNode, type CodexImageOutputNodeOwnerProps } from './codex-image-output-node.tsx'
 import { cssText } from './ProviderPanel.module.css'
 import { cssText as settingsCssText } from './ProviderSettings.module.css'
 import { CodexAccountsController, isCodexProvider } from './providers/codex.ts'
@@ -57,11 +58,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
   interface SlotMap {
     'tool.call.toolview': { kind: 'keyed'; scope: 'session'; owner: CodexToolCallViewOwnerProps; inject: { rpc: ClientConnectionRpc; sessionId: SessionId; conversation: CodexOriginalImageToolViewProps['conversation']; isCodexRoute: () => boolean } }
+    'conversation.chat.node': { kind: 'keyed'; scope: 'session'; owner: CodexImageOutputNodeOwnerProps; inject: { rpc: ClientConnectionRpc; sessionId: SessionId; conversation: CodexOriginalImageToolViewProps['conversation']; isCodexRoute: () => boolean } }
   }
 }
 
 export const NS = 'providerExtension'
-export const inject = ['slots', 'locale', 'modelDirectories', 'sessions', 'remote', 'remote.session', 'conversation']
+export const inject = ['slots', 'locale', 'modelDirectories', 'sessions', 'remote', 'remote.session', 'conversation', 'uiConversation']
 
 /** Upper bound on one authoritative catalog round-trip before the panel reports a failure. */
 const DIRECTORY_LOAD_TIMEOUT_MS = 20_000
@@ -248,16 +250,20 @@ export function apply(ctx: ClientContext): void {
     },
   }, ProviderPanel))
 
+  const imageViewInject = (sessionId: string) => {
+    const id = sessionId as SessionId
+    const directory = ctx.modelDirectories.directoryFor(id)
+    return {
+      rpc, sessionId: id,
+      conversation: ctx.get('conversation') as CodexOriginalImageToolViewProps['conversation'],
+      isCodexRoute: () => isCodexProvider(directory.store.getSnapshot().current?.provider),
+    }
+  }
+  ctx.effect(() => ctx.uiConversation.events.register(codexImageConversationNode), 'provider extension: Codex image chat results')
+  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
+    name: 'conversation.chat.node', key: 'codex-image-output', locale: NS, inject: imageViewInject,
+  }, CodexImageOutputChatNode))
   ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
-    name: 'tool.call.toolview', key: 'codex_image_generate', locale: NS,
-    inject: (sessionId) => {
-      const id = sessionId as SessionId
-      const directory = ctx.modelDirectories.directoryFor(id)
-      return {
-        rpc, sessionId: id,
-        conversation: ctx.get('conversation') as CodexOriginalImageToolViewProps['conversation'],
-        isCodexRoute: () => isCodexProvider(directory.store.getSnapshot().current?.provider),
-      }
-    },
+    name: 'tool.call.toolview', key: 'codex_image_generate', locale: NS, inject: imageViewInject,
   }, CodexOriginalImageToolView))
 }

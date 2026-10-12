@@ -36,6 +36,7 @@ describe('published artifact contract', () => {
     expect(client).toContain('codexOriginalDownload')
     expect(client).toContain('codex-subscription/image/original/chunk')
     expect(client).toContain('codex_image_generate')
+    expect(client).toContain('codex-image-output')
   })
   it('ships numbered Codex edit references and validates composer image limits', () => {
     const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')

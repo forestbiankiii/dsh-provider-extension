@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.18.1
+
+- Render Codex image results as Chat rows below the assistant answer, independently of collapsed tool-call details. Reuse the existing session image attachment and original-image card; do not issue another image request.
+
 ## 0.18.0
 
 - Add numbered Codex image annotations with per-region notes. Prepare a clean source plus a PNG location reference and coordinate prompt in the current composer; do not modify the saved original or auto-send. Respect Codex route, image-edit/annotation switches, and DSH attachment limits.
