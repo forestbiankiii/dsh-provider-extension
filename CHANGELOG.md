@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.17.0
+
+- Add Codex-route-only image instructions so explicit image requests use `codex_image_generate` while image discussion does not trigger it. Respect each image switch and block fallback to the other provider's image-generation tool in Codex-routed sessions.
+- Non-Codex routes and text-only Codex sessions remain unchanged; no automatic image calls or new quota requests are added.
+
 ## 0.16.0
 
 - Add a session-scoped Codex image tool view with on-demand original PNG preview and download. Read only the existing private Host image store through the validated `image/original/chunk` route; no generation request, remote image fetch, or additional quota use.

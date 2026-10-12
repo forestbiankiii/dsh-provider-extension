@@ -2669,6 +2669,32 @@ function watchImageTool(settings, register, getFeatures = () => settings.get(), 
 	};
 }
 //#endregion
+//#region src/image-tool-prompt.js
+function codexImageRoute(provider) {
+	return provider === PROVIDER || typeof provider === "string" && provider.startsWith(`${PROVIDER}-`);
+}
+function installCodexImagePolicy(ctx, imageFeaturesOwner) {
+	const systemPrompt = ctx.get?.("systemPrompt");
+	const removePromptListener = systemPrompt === void 0 ? () => {} : ctx.on("system-prompt/assemble", async (_assembly, _context, next) => {
+		const assembled = await next();
+		if (!codexImageRoute(assembled.variables?.provider)) return assembled;
+		const features = imageFeaturesOwner.current();
+		const routing = [
+			"For explicit image-generation or image-edit requests in this Codex session, use the Codex image tool rather than only describing the result.",
+			features.imageGeneration ? "Call `codex_image_generate` for image creation." : "Image generation is disabled. Explain that and do not bypass the switch.",
+			features.imageEditing ? "Call `codex_image_generate` for edits, using only images the user selected." : "Image editing is disabled. Explain that and do not bypass the switch.",
+			"Do not call the image tool for image discussion or prompt-writing alone; do not switch to another image provider. These operations use subscription quota."
+		].join("\n");
+		return { ...assembled, sections: [...assembled.sections.filter(section => section.name !== "codex-subscription-image-routing"), { name: "codex-subscription-image-routing", text: routing }] };
+	});
+	const removeImageFallbackGuard = ctx.tools.guard(execution => {
+		if (execution.name !== "generate_image") return;
+		const provider = execution.agent?.session?.requestHeader?.()?.config?.provider ?? execution.agent?.options?.provider;
+		if (codexImageRoute(provider)) return "Codex sessions must use the Codex image tool; respect its image feature switches and do not fall back to another provider.";
+	});
+	return () => { removePromptListener(); removeImageFallbackGuard(); };
+}
+//#endregion
 //#region src/image-original-store.js
 const ORIGINAL_IMAGE_DIRECTORY = "dsh-codex-subscription/images/v1";
 const METADATA_VERSION = 1;
@@ -4110,6 +4136,7 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 		};
 	}
 	const imageFeaturesOwner = createCodexImageFeaturesOwner(ctx, imageFeaturesConfig, () => settings.get());
+	ctx.effect(() => installCodexImagePolicy(ctx, imageFeaturesOwner), "codex-subscription: image request routing");
 	let syncImageTool = () => {};
 	const searchProvider = createSearchProviderSwitcher(ctx.loader);
 	const network = createCodexNetworkTransport();

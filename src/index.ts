@@ -33,6 +33,7 @@ export const inject = [
   'attachments',
   'credentials',
   'settings',
+  'systemPrompt',
   'web',
   'loader',
   'tools',

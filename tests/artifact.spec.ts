@@ -27,6 +27,11 @@ describe('published artifact contract', () => {
     expect(client).toContain('codexImageGeneration')
     expect(client).toContain('codexImageEditing')
   })
+  it('ships Codex-route image routing guidance and the fallback guard', () => {
+    const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
+    expect(host).toContain('codex-subscription-image-routing')
+    expect(host).toContain('Codex sessions must use the Codex image tool')
+  })
   it('ships the Codex original image preview/download tool view and existing local chunk route', () => {
     expect(client).toContain('codexOriginalDownload')
     expect(client).toContain('codex-subscription/image/original/chunk')

@@ -41,11 +41,7 @@ The Composer quota tooltip and each Codex account's expanded details show 5h/wee
 
 ## Codex image tools
 
-In **OpenAI Codex → Manage settings**, the separate **Image generation** and **Image editing** switches control tool availability. They save to native config and changing them does not start an image request; an explicit image request may use subscription quota. The switches are user-only and cannot be enabled through an Agent settings tool. These controls do not change input image handling, default output model/quality, image viewing, or annotations.
-
-## Codex original image
-
-For a completed `codex_image_generate` call, the chat tool card keeps the generated preview and offers **View original** and **Download PNG**. The view reads the saved original from the DSH Host, scoped to the current Session and validated in bounded chunks. It makes no image-provider request and uses no additional subscription quota. If the original is unavailable, the card reports that instead of reading an arbitrary host path.
+In **OpenAI Codex → Manage settings**, the separate **Image generation** and **Image editing** switches control tool availability. They save to native config and changing them does not start an image request; an explicit image request may use subscription quota. The switches are user-only and cannot be enabled through an Agent settings tool. In Codex-routed sessions, explicit image-output requests are directed to `codex_image_generate`; image discussion alone does not call it, disabled switches are not bypassed, and other provider routes are unchanged. These controls do not change input image handling, default output model/quality, or annotations.
 
 ## Codex original image
 
