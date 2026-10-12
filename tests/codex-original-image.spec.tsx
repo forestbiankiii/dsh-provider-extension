@@ -50,6 +50,19 @@ describe('Codex original-image preview/download', () => {
     expect(call).toHaveBeenCalledOnce()
     expect(call.mock.calls[0]).toEqual(['/api', 'codex-subscription/image/original/chunk', { sessionId: 'session-1', assetId: ref.assetId, offset: 0 }, expect.any(AbortSignal)])
   })
+  it('restores the image card after remount with current DSH attachmentIds state', async () => {
+    const call = vi.fn()
+    const currentProps = props(call)
+    currentProps.useInput = ((selector: (state: unknown) => unknown) => selector({ draft: '', attachmentIds: [], draftRev: 0, phase: 'plain', occurrences: [] })) as never
+    currentProps.inputActions = { setDraft: vi.fn(), addAttachments: vi.fn(() => true), removeAttachment: vi.fn(), submit: vi.fn() } as never
+    const first = render(<CodexOriginalImageToolView {...currentProps} />)
+    expect(await screen.findByRole('img', { name: en.codexImageOutputAlt })).toBeTruthy()
+    first.unmount()
+    render(<CodexOriginalImageToolView {...currentProps} />)
+    expect(await screen.findByRole('img', { name: en.codexImageOutputAlt })).toBeTruthy()
+    expect(screen.getByRole('button', { name: en.codexOriginalView })).toBeTruthy()
+    expect(call).not.toHaveBeenCalled()
+  })
   it('shows unavailable or failed results without issuing a chunk request', async () => {
     const call = vi.fn()
     const noMetadata = props(call); noMetadata.block = { ...noMetadata.block, meta: undefined }

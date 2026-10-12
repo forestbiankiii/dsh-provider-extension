@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.18.2
+
+- Fix Codex image cards crashing and being retired by the slot renderer on DSH 0.2: normalize `attachmentIds` and use the current attachment draft/actions API while retaining legacy support. Test image-card remount from existing durable results without generating new images.
+
 ## 0.18.1
 
 - Render Codex image results as Chat rows below the assistant answer, independently of collapsed tool-call details. Reuse the existing session image attachment and original-image card; do not issue another image request.

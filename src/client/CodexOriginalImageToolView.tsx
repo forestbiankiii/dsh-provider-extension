@@ -5,6 +5,7 @@ import type { ImageAttachmentLimits, ImageAttachmentRef } from '@deepseek-ai/dsh
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-store'
 import type { ConversationController, InputActions, InputState, MessageImageLoader } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { createCodexLocationReference, normalizeCodexImageAnnotations, type CodexImageAnnotation } from './codex-image-annotations.ts'
+import { imageInputActions, imageInputState } from './codex-image-composer.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ProviderPanelKey } from './locales.ts'
@@ -130,7 +131,8 @@ export function CodexOriginalImageToolView(props: CodexOriginalImageToolViewProp
   const [annotationPending, setAnnotationPending] = useState(false)
   const [annotationPrepared, setAnnotationPrepared] = useState(false)
   const [annotationError, setAnnotationError] = useState<string>()
-  const inputSnapshot = props.useInput(state => state)
+  const inputSnapshot = imageInputState(props.useInput(state => state))
+  const inputActions = imageInputActions(props.inputActions)
   const inputSnapshotRef = useRef(inputSnapshot)
   inputSnapshotRef.current = inputSnapshot
   const abort = useRef<AbortController>()
@@ -240,12 +242,12 @@ export function CodexOriginalImageToolView(props: CodexOriginalImageToolViewProp
       const prompt = editPrompt(props.t, marks, outputRef.width, outputRef.height)
       draftImages = props.conversation.createDraftImages([cleanSource, locationReference])
       imageIds = draftImages.map(image => image.id)
-      if (!props.inputActions.addImages(imageIds)) throw new Error(props.t('codexAnnotationComposerBusy'))
+      if (!inputActions.addImages(imageIds)) throw new Error(props.t('codexAnnotationComposerBusy'))
       attached = true
-      props.inputActions.setDraft([latest.draft, prompt].filter(Boolean).join('\n\n'))
+      inputActions.setDraft([latest.draft, prompt].filter(Boolean).join('\n\n'))
       setAnnotationPrepared(true); setAnnotationMode(false)
     } catch (cause) {
-      if (attached) for (const id of imageIds) props.inputActions.removeImage(id)
+      if (attached) for (const id of imageIds) inputActions.removeImage(id)
       if (draftImages && props.conversation) props.conversation.releaseDraftImages(draftImages)
       if (!controller.signal.aborted) setAnnotationError(cause instanceof Error ? cause.message : String(cause))
     } finally {

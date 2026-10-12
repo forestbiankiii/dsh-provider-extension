@@ -14,6 +14,7 @@ import { ProviderSettings } from './ProviderSettings.tsx'
 import type { ProviderSettingsInjected } from './ProviderSettings.tsx'
 import { CodexOriginalImageToolView, type CodexOriginalImageToolViewProps, type CodexToolCallViewOwnerProps } from './CodexOriginalImageToolView.tsx'
 import { CodexImageOutputChatNode, codexImageConversationNode, type CodexImageOutputNodeOwnerProps } from './codex-image-output-node.tsx'
+import { imageConversation } from './codex-image-composer.ts'
 import { cssText } from './ProviderPanel.module.css'
 import { cssText as settingsCssText } from './ProviderSettings.module.css'
 import { CodexAccountsController, isCodexProvider } from './providers/codex.ts'
@@ -255,7 +256,7 @@ export function apply(ctx: ClientContext): void {
     const directory = ctx.modelDirectories.directoryFor(id)
     return {
       rpc, sessionId: id,
-      conversation: ctx.get('conversation') as CodexOriginalImageToolViewProps['conversation'],
+      conversation: imageConversation(ctx.get('conversation'), id),
       isCodexRoute: () => isCodexProvider(directory.store.getSnapshot().current?.provider),
     }
   }
