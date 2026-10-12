@@ -11,17 +11,35 @@ export interface CodexAccountView {
     readonly userId?: string;
     readonly subscriptionUntil?: string;
 }
-/** Quota windows the subscription plugin reported for one account. */
+/** Provider-reported windows, Credits and spending cap for one account. */
+export interface CodexQuotaWindow {
+    readonly windowSeconds: number;
+    readonly usedPercent?: number;
+    readonly remainingPercent: number;
+    readonly resetsAt?: number;
+}
+export interface CodexRateLimit {
+    readonly id: string;
+    readonly name?: string;
+    readonly windows: readonly CodexQuotaWindow[];
+}
 export interface CodexQuotaView {
-    /** Remaining percent of the weekly (604800s) window, when reported. */
     readonly weeklyPercent?: number;
-    /** Unix seconds when that weekly window resets, when reported. */
     readonly weeklyResetsAt?: number;
-    /** Remaining percent of the 5-hour (18000s) window, when reported. */
     readonly shortPercent?: number;
-    /** Unix seconds when that 5-hour window resets, when reported. */
     readonly shortResetsAt?: number;
-    /** Number of quota reset credits available. */
+    readonly additionalRateLimits?: readonly CodexRateLimit[];
+    readonly credits?: {
+        readonly balance?: string;
+        readonly unlimited: boolean;
+    };
+    readonly individualLimit?: {
+        readonly limit: string;
+        readonly used: string;
+        readonly remainingPercent: number;
+        readonly resetsAt?: number;
+    };
+    readonly spendControlReached?: boolean;
     readonly resetCredits?: number;
 }
 export type CodexUsageState = {
@@ -50,7 +68,7 @@ export interface CodexAccountsState {
  * Read the reported quota windows out of one `usage` response.
  * Only provider-reported values are returned; nothing is inferred.
  * @param value - the `codex-subscription/usage` payload.
- * @returns the weekly and 5-hour windows when the account reported them.
+ * @returns only the quota, Credits and spending-limit fields the provider reported.
  */
 export declare function decodeQuota(value: unknown): CodexQuotaView;
 /** Whether a model-directory route belongs to the Codex subscription provider. */

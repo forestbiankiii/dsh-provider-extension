@@ -1168,6 +1168,13 @@
 .contextInput { display: inline-flex; align-items: center; gap: 2px; height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); }
 .contextInput:focus-within { outline: 2px solid var(--dsw-alias-border-l3); outline-offset: 1px; }
 .contextInput input { width: 68px; min-width: 0; border: none; outline: none; background: transparent; color: inherit; font: inherit; text-align: right; }
+.codexQuotaExtras { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--dsw-alias-border-l1); }
+.codexQuotaExtraTitle { color: var(--dsw-alias-label-primary); font-size: 12px; font-weight: 600; }
+.codexQuotaExtraGroup { display: flex; flex-direction: column; gap: 4px; }
+.codexQuotaExtraGroup > strong { color: var(--dsw-alias-label-primary); font-size: 12px; }
+.codexQuotaExtraRow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.codexQuotaExtraRow > strong { color: var(--dsw-alias-label-primary); font-variant-numeric: tabular-nums; }
+.codexQuotaExtraRow small { font-size: 10px; }
 .contextCapacityList { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
 .contextCapacityTitle { color: var(--dsw-alias-label-secondary); font-size: 12px; font-weight: 500; }
 .contextCapacityRow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; font-size: 12px; line-height: 18px; }

@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.14.0
+
+- Extend the existing Codex usage readout in the Composer tooltip and account details with provider-reported additional rate-limit groups, Credits balance (explicitly non-currency), individual spend limit and state. Keep existing 5h/week windows and reset-credit actions; show nothing for missing fields instead of inventing percentages or values. Reuse the existing account usage read path and make no model-inference requests.
+- Extend the secret-free quota decoder and add tests for partial provider responses, distinct quota groups, Credits/limit labels and both UI surfaces.
+
 ## 0.13.1
 
 - Show the current effective context size for each catalog model in Standard, Extended and Custom modes, without adding per-model editors. Keep one shared Custom K value and display each model's individually capped effective size.

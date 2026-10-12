@@ -104,6 +104,10 @@
   font-size: 10px;
 }
 
+.quotaTooltipExtraGroup { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto); gap: 8px; font-size: 11px; line-height: 16px; white-space: normal; }
+.quotaTooltipExtraGroup > div { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+.quotaTooltipExtraValue { color: var(--dsw-alias-label-primary); font-weight: 500; }
+
 /* ---------------------------------------------------------------- triggers */
 
 .trigger {

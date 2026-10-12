@@ -3,7 +3,7 @@
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { maskedEmail, type CodexAccountsState, type CodexAccountView } from './providers/codex.ts'
+import { maskedEmail, type CodexAccountsState, type CodexAccountView, type CodexQuotaView } from './providers/codex.ts'
 import type { ModelCatalogModel } from '@deepseek-ai/dsh-api-session-controller/types'
 import { codexEnabledModels, saveCodexEnabledModels } from './codex-visibility.ts'
 import { type AntigravityState } from './providers/antigravity.ts'
@@ -190,6 +190,29 @@ export function ProviderSettings({
   const claude = useClaude ? useClaude(snapshot => snapshot) : undefined
   const accounts = useAccounts(snapshot => snapshot)
   const antigravity = useAntigravity(snapshot => snapshot)
+  const renderCodexQuotaExtras = (value?: CodexQuotaView) => {
+    const groups = value?.additionalRateLimits ?? []
+    const credits = value?.credits
+    const hasCredits = credits !== undefined && (credits.unlimited || credits.balance !== undefined)
+    const limit = value?.individualLimit
+    if (!groups.length && !hasCredits && !limit && value?.spendControlReached !== true) return null
+    const windowLabel = (seconds: number) => seconds === 18000 ? t('codexQuotaWindow5h')
+      : seconds === 604800 ? t('codexQuotaWindowWeek')
+        : seconds >= 3600 && seconds % 3600 === 0 ? t('codexQuotaWindowHours', { hours: seconds / 3600 }) : t('codexQuotaWindowSeconds', { seconds })
+    return <div className={css.codexQuotaExtras}>
+      {groups.length > 0 && <strong className={css.codexQuotaExtraTitle}>{t('codexAdditionalLimits')}</strong>}
+      {groups.map(group => <section key={group.id} className={css.codexQuotaExtraGroup}>
+        <strong>{group.name ?? group.id}</strong>
+        {group.windows.map((win, index) => <div key={`${win.windowSeconds}/${index}`} className={css.codexQuotaExtraRow}>
+          <span>{windowLabel(win.windowSeconds)}</span>
+          <span>{Math.round(win.remainingPercent)}%{win.resetsAt ? ` · ${formatResetSeconds(win.resetsAt)}` : ''}</span>
+        </div>)}
+      </section>)}
+      {hasCredits && <div className={css.codexQuotaExtraRow}><span>{t('codexCreditsLabel')} <small>{t('codexCreditsNotMoney')}</small></span><strong>{credits.unlimited ? t('codexCreditsUnlimited') : credits.balance}</strong></div>}
+      {limit && <div className={css.codexQuotaExtraRow}><span>{t('codexIndividualLimit')}</span><strong>{t('codexIndividualLimitValue', { used: limit.used, limit: limit.limit, remaining: Math.round(limit.remainingPercent) })}</strong></div>}
+      {value?.spendControlReached === true && <p className={css.quotaErrorRow}>{t('codexSpendLimitReached')}</p>}
+    </div>
+  }
   const opencodeState = useOpencode ? useOpencode(s => s) : {
     apiKey: '',
     baseURL: DEFAULT_OPENCODE_BASE_URL,
@@ -619,16 +642,16 @@ export function ProviderSettings({
                                 </div>
 
                                 {/* 5h 额度条 (PRO 账号无 5h 限额，不展示) */}
-                                {(!account.planType || account.planType.toUpperCase() !== 'PRO') && (
+                                {(!account.planType || account.planType.toUpperCase() !== 'PRO') && usageVal?.shortPercent !== undefined && (
                                   <div className={css.cockpitQuotaSection}>
                                     <div className={css.cockpitQuotaHeader}>
                                       <span className={css.cockpitQuotaTitle}>5h</span>
-                                      <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent ?? 100}%</span>
+                                      <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent}%</span>
                                     </div>
                                     <div className={css.cockpitTrack}>
                                       <div
                                         className={css.cockpitFill5h}
-                                        style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 100))}%` }}
+                                        style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 0))}%` }}
                                       />
                                     </div>
                                     <div className={css.cockpitTimeSub}>
@@ -637,22 +660,23 @@ export function ProviderSettings({
                                   </div>
                                 )}
 
-                                {/* Weekly 额度条 */}
-                                <div className={css.cockpitQuotaSection}>
+                                {/* Weekly quota, only when reported. */}
+                                {usageVal?.weeklyPercent !== undefined && <div className={css.cockpitQuotaSection}>
                                   <div className={css.cockpitQuotaHeader}>
                                     <span className={css.cockpitQuotaTitle}>Weekly</span>
-                                    <span className={css.cockpitQuotaValWeekly}>{usageVal?.weeklyPercent ?? 100}%</span>
+                                    <span className={css.cockpitQuotaValWeekly}>{usageVal?.weeklyPercent}%</span>
                                   </div>
                                   <div className={css.cockpitTrack}>
                                     <div
                                       className={css.cockpitFillWeekly}
-                                      style={{ width: `${Math.min(100, Math.max(0, usageVal?.weeklyPercent ?? 100))}%` }}
+                                      style={{ width: `${Math.min(100, Math.max(0, usageVal?.weeklyPercent ?? 0))}%` }}
                                     />
                                   </div>
                                   <div className={css.cockpitTimeSub}>
                                     {formatCockpitTime(usageVal?.weeklyResetsAt)}
                                   </div>
-                                </div>
+                                </div>}
+                                {renderCodexQuotaExtras(usageVal)}
 
                                 {/* 订阅有效期 Banner */}
                                 {account.subscriptionUntil ? (
@@ -1525,16 +1549,16 @@ export function ProviderSettings({
                                   </div>
 
                                   {/* 5h 额度条 (PRO 账号无 5h 限额，不展示) */}
-                                  {(!account.planType || account.planType.toUpperCase() !== 'PRO') && (
+                                  {(!account.planType || account.planType.toUpperCase() !== 'PRO') && usageVal?.shortPercent !== undefined && (
                                     <div className={css.cockpitQuotaSection}>
                                       <div className={css.cockpitQuotaHeader}>
                                         <span className={css.cockpitQuotaTitle}>5h</span>
-                                        <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent ?? 100}%</span>
+                                        <span className={css.cockpitQuotaVal5h}>{usageVal?.shortPercent}%</span>
                                       </div>
                                       <div className={css.cockpitTrack}>
                                         <div
                                           className={css.cockpitFill5h}
-                                          style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 100))}%` }}
+                                          style={{ width: `${Math.min(100, Math.max(0, usageVal?.shortPercent ?? 0))}%` }}
                                         />
                                       </div>
                                       <div className={css.cockpitTimeSub}>
@@ -1543,24 +1567,25 @@ export function ProviderSettings({
                                     </div>
                                   )}
 
-                                  {/* Weekly 额度条 */}
-                                  <div className={css.cockpitQuotaSection}>
+                                  {/* Weekly quota, only when reported. */}
+                                  {usageVal?.weeklyPercent !== undefined && <div className={css.cockpitQuotaSection}>
                                     <div className={css.cockpitQuotaHeader}>
                                       <span className={css.cockpitQuotaTitle}>Weekly</span>
-                                      <span className={css.cockpitQuotaValWeekly}>{usageVal?.weeklyPercent ?? 100}%</span>
+                                      <span className={css.cockpitQuotaValWeekly}>{usageVal?.weeklyPercent}%</span>
                                     </div>
                                     <div className={css.cockpitTrack}>
                                       <div
                                         className={css.cockpitFillWeekly}
-                                        style={{ width: `${Math.min(100, Math.max(0, usageVal?.weeklyPercent ?? 100))}%` }}
+                                        style={{ width: `${Math.min(100, Math.max(0, usageVal?.weeklyPercent ?? 0))}%` }}
                                       />
                                     </div>
                                     <div className={css.cockpitTimeSub}>
                                       {formatCockpitTime(usageVal?.weeklyResetsAt)}
                                     </div>
-                                  </div>
+                                  </div>}
+                                  {renderCodexQuotaExtras(usageVal)}
 
-                                  {/* 订阅有效期 Banner */}
+                                {/* 订阅有效期 Banner */}
                                   {account.subscriptionUntil ? (
                                     <div className={css.cockpitSubBanner}>
                                       <div className={css.cockpitSubLeft}>

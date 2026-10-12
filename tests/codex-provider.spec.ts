@@ -27,10 +27,29 @@ describe('Codex subscription account integration', () => {
   })
 
   it('reads the weekly window from the codex limit only', () => {
-    expect(decodeQuota(usage)).toEqual({ weeklyPercent: 76, weeklyResetsAt: 1_700_500_000, shortPercent: 43, shortResetsAt: 1_700_000_000 })
+    expect(decodeQuota(usage)).toEqual({ weeklyPercent: 76, weeklyResetsAt: 1_700_500_000, shortPercent: 43, shortResetsAt: 1_700_000_000, additionalRateLimits: [{ id: 'codex-spark', name: 'Spark', windows: [{ windowSeconds: 604_800, remainingPercent: 5 }] }] })
     expect(decodeQuota({ rateLimits: [] })).toEqual({})
     expect(decodeQuota({ rateLimits: [{ id: 'codex', windows: [{ windowSeconds: 604_800, remainingPercent: 150 }] }] })).toEqual({})
     expect(decodeQuota(null)).toEqual({})
+  })
+
+  it('preserves only provider-reported independent groups, Credits and individual limit', () => {
+    const rich = decodeQuota({
+      ...usage,
+      credits: { unlimited: false, balance: '5.50' },
+      individualLimit: { limit: '20', used: '3.25', remainingPercent: 83.75, resetsAt: 1_800_000_000 },
+      spendControlReached: false,
+      resetCredits: { availableCount: 2 },
+    })
+    expect(rich).toMatchObject({
+      additionalRateLimits: [{ id: 'codex-spark', name: 'Spark', windows: [{ remainingPercent: 5 }] }],
+      credits: { unlimited: false, balance: '5.50' },
+      individualLimit: { limit: '20', used: '3.25', remainingPercent: 83.75 },
+      spendControlReached: false,
+      resetCredits: 2,
+    })
+    expect(decodeQuota({ rateLimits: [{ id: 'codex', windows: [] }] })).toEqual({})
+    expect(decodeQuota({ credits: { unlimited: false }, spendControlReached: 'unknown' })).toEqual({ credits: { unlimited: false } })
   })
 
   it('loads the secret-free roster and performs the real account/select RPC', async () => {
@@ -44,7 +63,7 @@ describe('Codex subscription account integration', () => {
     await controller.load()
     expect(controller.store.getSnapshot().accounts.map(account => account.label)).toEqual(['Work', 'Personal'])
     await waitForUsage(controller)
-    expect(controller.store.getSnapshot().usage.work).toEqual({ status: 'ready', value: { weeklyPercent: 76, weeklyResetsAt: 1_700_500_000, shortPercent: 43, shortResetsAt: 1_700_000_000 } })
+    expect(controller.store.getSnapshot().usage.work).toEqual({ status: 'ready', value: { weeklyPercent: 76, weeklyResetsAt: 1_700_500_000, shortPercent: 43, shortResetsAt: 1_700_000_000, additionalRateLimits: [{ id: 'codex-spark', name: 'Spark', windows: [{ windowSeconds: 604_800, remainingPercent: 5 }] }] } })
     await controller.select('personal')
     expect(call).toHaveBeenCalledWith('/api', 'codex-subscription/account/select', { id: 'personal' })
     expect(controller.store.getSnapshot().accounts.find(account => account.active)?.id).toBe('personal')

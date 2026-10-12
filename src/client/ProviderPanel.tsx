@@ -8,7 +8,7 @@ import type { ModelSelection } from '@deepseek-ai/dsh-api-session-controller/typ
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { ModelDirectoryState } from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { isCodexProvider, maskedEmail, type CodexAccountsState } from './providers/codex.ts'
+import { isCodexProvider, maskedEmail, type CodexAccountsState, type CodexQuotaView } from './providers/codex.ts'
 import { isAntigravityProvider, type AntigravityState } from './providers/antigravity.ts'
 import { isOpencodeProvider, type OpencodeState } from './providers/opencode.ts'
 import {
@@ -651,12 +651,23 @@ export function ProviderPanel({
   const codexWeeklyReset = codexUsageVal?.weeklyResetsAt
     ? formatRemaining(new Date(codexUsageVal.weeklyResetsAt * 1000).toISOString(), codexWeekly)
     : undefined
-
+  const codexExtras = codexUsageVal?.additionalRateLimits ?? []
+  const codexCredits = codexUsageVal?.credits
+  const codexHasCredits = codexCredits !== undefined && (codexCredits.unlimited || codexCredits.balance !== undefined)
+  const codexHasQuotaDisplay = codex5h !== undefined || codexWeekly !== undefined || codexExtras.length > 0 || codexHasCredits
+    || codexUsageVal?.individualLimit !== undefined || codexUsageVal?.spendControlReached === true || codexUsageVal?.resetCredits !== undefined
+  const codexWindowName = (seconds: number) => seconds === 18000 ? t('codexQuotaWindow5h')
+    : seconds === 604800 ? t('codexQuotaWindowWeek')
+      : seconds >= 3600 && seconds % 3600 === 0 ? t('codexQuotaWindowHours', { hours: seconds / 3600 }) : t('codexQuotaWindowSeconds', { seconds })
   const codexPlanType = (activeAccount?.planType ?? '').toUpperCase()
   const isCodexPro = codexPlanType === 'PRO' || codexPlanType.includes('PRO')
-  const codexPillText = isCodexPro
-    ? (codexWeekly !== undefined ? t('weeklyQuota', { value: codexWeekly }) : (codex5h !== undefined ? t('fiveHourQuota', { value: codex5h }) : '周 100%'))
-    : (codex5h !== undefined ? t('fiveHourQuota', { value: codex5h }) : (codexWeekly !== undefined ? t('weeklyQuota', { value: codexWeekly }) : '5h 100%'))
+  const codexPillText = isCodexPro && codexWeekly !== undefined ? t('weeklyQuota', { value: codexWeekly })
+    : !isCodexPro && codex5h !== undefined ? t('fiveHourQuota', { value: codex5h })
+      : codexWeekly !== undefined ? t('weeklyQuota', { value: codexWeekly })
+        : codex5h !== undefined ? t('fiveHourQuota', { value: codex5h })
+          : codexHasCredits ? codexCredits?.unlimited ? t('codexCreditsUnlimited') : t('codexCreditsBadge', { balance: codexCredits?.balance })
+            : codexUsageVal?.individualLimit ? t('codexLimitBadge', { remaining: Math.round(codexUsageVal.individualLimit.remainingPercent) })
+              : codexExtras[0]?.name ?? t('codexQuotaBadge')
 
   const isOpencode = isOpencodeProvider(group?.id)
 
@@ -686,32 +697,36 @@ export function ProviderPanel({
         </div>
       </div>
     </div>
-  ) : isCodex && (codexWeekly !== undefined || codex5h !== undefined) ? (
+  ) : isCodex && codexHasQuotaDisplay ? (
     <div className={css.quotaWrapper}>
-      <button
-        type="button"
-        className={css.quotaTrigger}
-        onClick={() => { if (activeAccount) void readQuota?.(activeAccount.id).catch(() => {}) }}
-      >
+      <button type="button" className={css.quotaTrigger} onClick={() => { if (activeAccount) void readQuota?.(activeAccount.id).catch(() => {}) }}>
         {codexPillText}
       </button>
       <div className={css.quotaTooltip} role="tooltip">
-        {!isCodexPro ? (
-          <div className={css.quotaTooltipRow}>
-            <span className={css.quotaTooltipName}>5小时额度:</span>
-            <div>
-              <span className={css.quotaTooltipValue}>{codex5h !== undefined ? `${codex5h}%` : '100%'}</span>
-              {codex5hReset ? <span className={css.quotaTooltipReset}>({codex5hReset})</span> : null}
-            </div>
-          </div>
-        ) : null}
-        <div className={css.quotaTooltipRow}>
-          <span className={css.quotaTooltipName}>周额度:</span>
-          <div>
-            <span className={css.quotaTooltipValue}>{codexWeekly !== undefined ? `${codexWeekly}%` : '100%'}</span>
-            {codexWeeklyReset ? <span className={css.quotaTooltipReset}>({codexWeeklyReset})</span> : null}
-          </div>
-        </div>
+        {!isCodexPro && codex5h !== undefined && <div className={css.quotaTooltipRow}>
+          <span className={css.quotaTooltipName}>{t('codexQuotaWindow5h')}</span>
+          <div><span className={css.quotaTooltipValue}>{codex5h}%</span>{codex5hReset && <span className={css.quotaTooltipReset}>({codex5hReset})</span>}</div>
+        </div>}
+        {codexWeekly !== undefined && <div className={css.quotaTooltipRow}>
+          <span className={css.quotaTooltipName}>{t('codexQuotaWindowWeek')}</span>
+          <div><span className={css.quotaTooltipValue}>{codexWeekly}%</span>{codexWeeklyReset && <span className={css.quotaTooltipReset}>({codexWeeklyReset})</span>}</div>
+        </div>}
+        {codexExtras.map(limit => <div key={limit.id} className={css.quotaTooltipExtraGroup}>
+          <span className={css.quotaTooltipName}>{limit.name ?? limit.id}</span>
+          <div>{limit.windows.map((window, index) => <span key={`${window.windowSeconds}/${index}`} className={css.quotaTooltipExtraValue}>
+            {codexWindowName(window.windowSeconds)} {Math.round(window.remainingPercent)}%{window.resetsAt ? ` · ${formatRemaining(new Date(window.resetsAt * 1000).toISOString(), window.remainingPercent)}` : ''}
+          </span>)}</div>
+        </div>)}
+        {codexHasCredits && <div className={css.quotaTooltipRow}>
+          <span className={css.quotaTooltipName}>{t('codexCreditsLabel')} · {t('codexCreditsNotMoney')}</span>
+          <strong className={css.quotaTooltipValue}>{codexCredits?.unlimited ? t('codexCreditsUnlimited') : codexCredits?.balance}</strong>
+        </div>}
+        {codexUsageVal?.individualLimit && <div className={css.quotaTooltipRow}>
+          <span className={css.quotaTooltipName}>{t('codexIndividualLimit')}</span>
+          <strong className={css.quotaTooltipValue}>{t('codexIndividualLimitValue', { used: codexUsageVal.individualLimit.used, limit: codexUsageVal.individualLimit.limit, remaining: Math.round(codexUsageVal.individualLimit.remainingPercent) })}</strong>
+        </div>}
+        {codexUsageVal?.spendControlReached === true && <div className={css.quotaTooltipRow}><strong>{t('codexSpendLimitReached')}</strong></div>}
+        {codexUsageVal?.resetCredits !== undefined && <div className={css.quotaTooltipRow}><span className={css.quotaTooltipName}>{t('codexResetCreditsCount')}</span><strong className={css.quotaTooltipValue}>{codexUsageVal.resetCredits}</strong></div>}
       </div>
     </div>
   ) : isOpencode && (opencode?.usage?.weekly || opencode?.usage?.rolling) ? (

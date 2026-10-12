@@ -35,6 +35,10 @@ In **OpenAI Codex → Manage settings**, **Context length** offers Standard (mod
 
 Existing per-model overrides are kept in native config for compatibility, but the UI no longer edits them separately. The shared value applies to future requests; prepared calls retain their prior capacity. Restart DSH after updating, then test Custom `k` value and persistence after a second restart. The context tool also reads/writes one `tokensK` value. Automated tests use mocked config and provider streams.
 
+## Codex quota details
+
+The Composer quota tooltip and each Codex account's expanded details show 5h/week windows only when the provider reports them, plus any additional rate-limit groups, Credits and an individual spending cap when present. **Credits are not currency**; credit balances and spend-cap values are shown as reported, with no inferred unit or currency conversion. The Usage page already has separate provider balance cards and reset-credit details. No additional inference calls are made for this display.
+
 ## Codex speed mode
 
 In **OpenAI Codex → Manage settings**, select **Standard** or **Fast**. It saves the Codex-profile preference for subsequent requests. The existing catalog capability determines which models can actually receive the Fast priority tier; other models keep standard behavior, and an empty advertised support list is shown in the panel. Fast does not change reasoning effort, model, account or other providers and may consume subscription quota faster. It does not unlock access.

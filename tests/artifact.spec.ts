@@ -14,6 +14,11 @@ describe('published artifact contract', () => {
     expect(client).toContain('codexContextCapacities')
     expect(client).not.toContain('Draft Model')
   })
+  it('ships Codex extra-limit and Credits display while marking Credits non-currency', () => {
+    expect(client).toContain('codexAdditionalLimits')
+    expect(client).toContain('codexCreditsNotMoney')
+    expect(client).toContain('codexIndividualLimit')
+  })
   it('ships the confirmed Standard/Fast preference and its deferred shared-operation tool', () => {
     const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
     expect(host).toContain('codexSpeedMode')

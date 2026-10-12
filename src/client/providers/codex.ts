@@ -16,17 +16,27 @@ export interface CodexAccountView {
   readonly subscriptionUntil?: string
 }
 
-/** Quota windows the subscription plugin reported for one account. */
+/** Provider-reported windows, Credits and spending cap for one account. */
+export interface CodexQuotaWindow {
+  readonly windowSeconds: number
+  readonly usedPercent?: number
+  readonly remainingPercent: number
+  readonly resetsAt?: number
+}
+export interface CodexRateLimit {
+  readonly id: string
+  readonly name?: string
+  readonly windows: readonly CodexQuotaWindow[]
+}
 export interface CodexQuotaView {
-  /** Remaining percent of the weekly (604800s) window, when reported. */
   readonly weeklyPercent?: number
-  /** Unix seconds when that weekly window resets, when reported. */
   readonly weeklyResetsAt?: number
-  /** Remaining percent of the 5-hour (18000s) window, when reported. */
   readonly shortPercent?: number
-  /** Unix seconds when that 5-hour window resets, when reported. */
   readonly shortResetsAt?: number
-  /** Number of quota reset credits available. */
+  readonly additionalRateLimits?: readonly CodexRateLimit[]
+  readonly credits?: { readonly balance?: string; readonly unlimited: boolean }
+  readonly individualLimit?: { readonly limit: string; readonly used: string; readonly remainingPercent: number; readonly resetsAt?: number }
+  readonly spendControlReached?: boolean
   readonly resetCredits?: number
 }
 
@@ -138,43 +148,43 @@ function decodeStatus(value: unknown): readonly CodexAccountView[] {
  * Read the reported quota windows out of one `usage` response.
  * Only provider-reported values are returned; nothing is inferred.
  * @param value - the `codex-subscription/usage` payload.
- * @returns the weekly and 5-hour windows when the account reported them.
+ * @returns only the quota, Credits and spending-limit fields the provider reported.
  */
 export function decodeQuota(value: unknown): CodexQuotaView {
   const root = record(value)
-  const limits = Array.isArray(root?.rateLimits) ? root.rateLimits : []
-  const described = limits.map(record).filter((limit): limit is Record<string, unknown> => limit !== undefined)
-  const withWindows = described.filter(limit => Array.isArray(limit.windows))
-  const codex = withWindows.find(limit => limit.id === 'codex') ?? withWindows[0]
-  const windows = Array.isArray(codex?.windows) ? codex.windows : []
-  let weeklyPercent: number | undefined
-  let weeklyResetsAt: number | undefined
-  let shortPercent: number | undefined
-  let shortResetsAt: number | undefined
-  for (const raw of windows) {
-    const window = record(raw)
-    if (window === undefined) continue
-    const seconds = Number(window.windowSeconds)
-    const percent = Number(window.remainingPercent)
-    if (!Number.isFinite(seconds) || seconds <= 0) continue
-    if (!Number.isFinite(percent) || percent < 0 || percent > 100) continue
-    if (Math.abs(seconds - WEEK_SECONDS) < 60 && weeklyPercent === undefined) {
-      weeklyPercent = Math.round(percent)
-      if (Number.isSafeInteger(window.resetsAt)) weeklyResetsAt = window.resetsAt as number
-      continue
-    }
-    if (Math.abs(seconds - SHORT_WINDOW_SECONDS) < 60 && shortPercent === undefined) {
-      shortPercent = Math.round(percent)
-      if (Number.isSafeInteger(window.resetsAt)) shortResetsAt = window.resetsAt as number
-    }
+  const limits = (Array.isArray(root?.rateLimits) ? root.rateLimits : []).map(record).filter((limit): limit is Record<string, unknown> => limit !== undefined)
+  const rateLimits: CodexRateLimit[] = []
+  for (const limit of limits) {
+    if (typeof limit.id !== 'string' || limit.id.length === 0 || limit.id.length > 128 || !Array.isArray(limit.windows)) continue
+    const windows = limit.windows.map(record).filter((window): window is Record<string, unknown> => window !== undefined).flatMap(window => {
+      const seconds = window.windowSeconds, used = window.usedPercent, remaining = window.remainingPercent
+      if (!Number.isSafeInteger(seconds) || (seconds as number) <= 0 || !Number.isFinite(remaining) || (remaining as number) < 0 || (remaining as number) > 100) return []
+      return [{ windowSeconds: seconds as number, ...(Number.isFinite(used) && (used as number) >= 0 && (used as number) <= 100 ? { usedPercent: used as number } : {}), remainingPercent: remaining as number, ...(Number.isSafeInteger(window.resetsAt) ? { resetsAt: window.resetsAt as number } : {}) }]
+    })
+    if (windows.length) rateLimits.push({ id: limit.id, ...(typeof limit.name === 'string' && limit.name.length <= 160 ? { name: limit.name } : {}), windows })
   }
+  const primary = rateLimits.find(limit => limit.id === 'codex') ?? rateLimits[0]
+  const additionalRateLimits = rateLimits.filter(limit => limit !== primary)
+  const first = (seconds: number) => primary?.windows.find(window => Math.abs(window.windowSeconds - seconds) < 60)
+  const week = first(WEEK_SECONDS), short = first(SHORT_WINDOW_SECONDS)
+  const rawCredits = record(root?.credits)
+  const balance = rawCredits && typeof rawCredits.balance === 'string' && /^-?\d+(?:\.\d+)?$/.test(rawCredits.balance) ? rawCredits.balance : undefined
+  const credits = rawCredits && typeof rawCredits.unlimited === 'boolean' ? { unlimited: rawCredits.unlimited, ...(balance === undefined ? {} : { balance }) } : undefined
+  const rawLimit = record(root?.individualLimit)
+  const decimal = (item: unknown) => typeof item === 'string' && /^-?\d+(?:\.\d+)?$/.test(item)
+  const individualLimit = rawLimit && decimal(rawLimit.limit) && decimal(rawLimit.used) && Number.isFinite(rawLimit.remainingPercent) && (rawLimit.remainingPercent as number) >= 0 && (rawLimit.remainingPercent as number) <= 100
+    ? { limit: rawLimit.limit as string, used: rawLimit.used as string, remainingPercent: rawLimit.remainingPercent as number, ...(Number.isSafeInteger(rawLimit.resetsAt) ? { resetsAt: rawLimit.resetsAt as number } : {}) }
+    : undefined
+  const reached = typeof root?.spendControlReached === 'boolean' ? root.spendControlReached : undefined
   const resetCreditsCount = Number(record(root?.resetCredits)?.availableCount)
-  const resetCredits = Number.isSafeInteger(resetCreditsCount) ? resetCreditsCount : undefined
+  const resetCredits = Number.isSafeInteger(resetCreditsCount) && resetCreditsCount >= 0 ? resetCreditsCount : undefined
   return Object.freeze({
-    ...weeklyPercent === undefined ? {} : { weeklyPercent },
-    ...weeklyResetsAt === undefined ? {} : { weeklyResetsAt },
-    ...shortPercent === undefined ? {} : { shortPercent },
-    ...shortResetsAt === undefined ? {} : { shortResetsAt },
+    ...week === undefined ? {} : { weeklyPercent: Math.round(week.remainingPercent), ...(week.resetsAt === undefined ? {} : { weeklyResetsAt: week.resetsAt }) },
+    ...short === undefined ? {} : { shortPercent: Math.round(short.remainingPercent), ...(short.resetsAt === undefined ? {} : { shortResetsAt: short.resetsAt }) },
+    ...additionalRateLimits.length ? { additionalRateLimits } : {},
+    ...credits === undefined ? {} : { credits },
+    ...individualLimit === undefined ? {} : { individualLimit },
+    ...reached === undefined ? {} : { spendControlReached: reached },
     ...resetCredits === undefined ? {} : { resetCredits },
   })
 }

@@ -6,10 +6,10 @@ import { ProviderPanel, sliderIndexFromPoint, type ProviderPanelProps } from '..
 import { en } from '../src/client/locales.ts'
 import css from '../src/client/ProviderPanel.module.css'
 import { saveCodexEnabledModels, CODEX_ENABLED_MODELS_KEY } from '../src/client/codex-visibility.ts'
-import type { CodexAccountsState } from '../src/client/providers/codex.ts'
+import type { CodexAccountsState, CodexQuotaView } from '../src/client/providers/codex.ts'
 import type { ClaudeClientState } from '../src/client/providers/claude.ts'
 afterEach(cleanup)
-function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean; claude?: ClaudeClientState['status']; provider?: string } = {}) {
+function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean; claude?: ClaudeClientState['status']; provider?: string; quota?: CodexQuotaView } = {}) {
   const currentProvider = options.provider ?? 'a'
   const state: ModelDirectoryState = { current: { provider: currentProvider, model: 'sol', reasoningEffort: 'high' }, routable: true,
     groups: options.empty ? [] : [
@@ -24,7 +24,7 @@ function bench(options: { fail?: boolean; empty?: boolean; codex?: boolean; clau
   const accountState: CodexAccountsState = { status: 'ready', error: null, accounts: options.codex ? [
     { id: 'work', label: 'Work', email: 'work@example.com', active: true },
     { id: 'personal', label: 'Personal', email: 'personal@example.com', active: false },
-  ] : [], usage: options.codex ? { work: { status: 'ready', value: { weeklyPercent: 76 } } } : {} }
+  ] : [], usage: options.codex ? { work: { status: 'ready', value: options.quota ?? { weeklyPercent: 76 } } } : {} }
   const claudeState: ClaudeClientState = { status: options.claude ?? 'idle', label: null, plan: null, authMethod: null, errorCode: null, loginStarted: false }
   const select = vi.fn(async () => { if (options.fail) throw new Error('rejected') })
   const selectAccount = vi.fn(async () => { if (options.fail) throw new Error('account rejected') })
@@ -459,13 +459,37 @@ describe('model panel component', () => {
       localStorage.removeItem('dsh-provider-extension:disabled-models')
     }
   })
-  it('renders quota pill in the composer bar with 5h remaining and weekly quota on hover', async () => {
+  it('shows only reported 5h/weekly quota groups in the composer', async () => {
     bench({ codex: true, provider: 'openai-codex' })
     const quotaBtn = screen.getByRole('button', { name: /wk 76%/ })
     expect(quotaBtn).toBeTruthy()
-    expect(screen.getByText('5小时额度:')).toBeTruthy()
-    expect(screen.getByText('周额度:')).toBeTruthy()
+    expect(screen.getByText(en.codexQuotaWindowWeek)).toBeTruthy()
+    expect(screen.queryByText(en.codexQuotaWindow5h)).toBeNull()
     expect(screen.getByText('76%')).toBeTruthy()
+  })
+  it('shows provider-reported extra groups, Credits and spending cap in the composer without treating them as money', () => {
+    bench({ codex: true, provider: 'openai-codex', quota: {
+      shortPercent: 40, weeklyPercent: 75,
+      additionalRateLimits: [{ id: 'code_review', name: 'Code review', windows: [{ windowSeconds: 3600, usedPercent: 20, remainingPercent: 80 }] }],
+      credits: { balance: '5.50', unlimited: false },
+      individualLimit: { limit: '20', used: '4', remainingPercent: 80 },
+      resetCredits: 2,
+    } })
+    const tooltip = screen.getByRole('tooltip')
+    expect(tooltip.textContent).toContain('Code review')
+    expect(tooltip.textContent).toContain('80%')
+    expect(tooltip.textContent).toContain('5.50')
+    expect(tooltip.textContent).toContain(en.codexCreditsNotMoney)
+    expect(tooltip.textContent).toContain('20')
+    expect(tooltip.textContent).toContain(en.codexResetCreditsCount)
+  })
+  it('does not fabricate missing Codex quota, Credits or cap data in the composer tooltip', () => {
+    bench({ codex: true, provider: 'openai-codex', quota: { shortPercent: 42 } })
+    const tooltip = screen.getByRole('tooltip')
+    expect(tooltip.textContent).toContain('42%')
+    expect(tooltip.textContent).not.toContain(en.codexQuotaWindowWeek)
+    expect(tooltip.textContent).not.toContain(en.codexCreditsLabel)
+    expect(tooltip.textContent).not.toContain(en.codexIndividualLimit)
   })
   it('displays 5h quota by default on the pill and weekly for pro accounts', async () => {
     const props = {

@@ -304,8 +304,9 @@ describe('provider settings surface', () => {
     expect(b.renameCodexAccount).toHaveBeenCalledWith('work', 'Work Account Renamed')
   })
 
-  it('expands Codex account card on click to reveal detailed quota balance', () => {
-    bench({ status: 'ready' }, codexAccounts)
+  it('expands Codex account card on click to reveal only reported quota windows', () => {
+    const state: CodexAccountsState = { ...codexAccounts, usage: { work: { status: 'ready', value: { shortPercent: 44, weeklyPercent: 76 } } } }
+    bench({ status: 'ready' }, state)
     fireEvent.click(screen.getByText(en.providerCodex))
     expect(screen.queryByText('Weekly')).toBeNull()
     const card = screen.getByRole('button', { name: en.quotaView })
@@ -316,6 +317,21 @@ describe('provider settings surface', () => {
     expect(screen.queryByText('Weekly')).toBeNull()
   })
 
+  it('shows Codex extra reported groups, Credits and individual limit in account details', () => {
+    const state: CodexAccountsState = { ...codexAccounts, usage: { work: { status: 'ready', value: {
+      weeklyPercent: 76, credits: { balance: '5.50', unlimited: false },
+      additionalRateLimits: [{ id: 'code_review', name: 'Code review', windows: [{ windowSeconds: 3600, usedPercent: 10, remainingPercent: 90 }] }],
+      individualLimit: { limit: '20', used: '4', remainingPercent: 80 },
+    } } } }
+    bench({ status: 'ready' }, state)
+    fireEvent.click(screen.getByText(en.providerCodex)); fireEvent.click(screen.getByRole('button', { name: en.quotaView }))
+    expect(screen.getByText('Code review')).toBeTruthy()
+    expect(screen.getByText('5.50')).toBeTruthy()
+    expect(screen.getByText(en.codexCreditsNotMoney)).toBeTruthy()
+    expect(screen.getByText(en.codexIndividualLimit)).toBeTruthy()
+    expect(screen.getByText(en.codexIndividualLimitValue.replace('{used}', '4').replace('{limit}', '20').replace('{remaining}', '80'))).toBeTruthy()
+    expect(screen.getByText(en.codexQuotaWindowHours.replace('{hours}', '1'))).toBeTruthy()
+  })
   it('supports two-level navigation: level 1 provider overview and level 2 single-provider detail', () => {
     bench({ status: 'ready' }, codexAccounts)
     // Level 1: Displays multiple providers
