@@ -1,6 +1,6 @@
 /** Settings page: Level 1 hub with expandable quick views, and Level 2 provider-only detail view. */
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { maskedEmail, type CodexAccountsState, type CodexAccountView } from './providers/codex.ts'
@@ -236,6 +236,23 @@ export function ProviderSettings({
     setTimeout(() => setOpencodeSaveMsg(null), 3000)
   }
 
+  const [codexPane, setCodexPane] = useState<'accounts' | 'settings'>('accounts')
+  const codexTabsId = useId()
+  const renderCodexTabs = (surface: 'quick' | 'detail') => <div className={css.codexTabs} role="tablist" aria-label={t('providerCodex')}
+    onKeyDown={event => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+      event.preventDefault()
+      const next = event.key === 'Home' ? 'accounts' : event.key === 'End' ? 'settings' : codexPane === 'accounts' ? 'settings' : 'accounts'
+      setCodexPane(next)
+      event.currentTarget.querySelector<HTMLButtonElement>(`[data-pane="${next}"]`)?.focus()
+    }}>
+    {(['accounts', 'settings'] as const).map(pane => <button key={pane} type="button" role="tab" data-pane={pane}
+      id={`${codexTabsId}-${surface}-tab-${pane}`} aria-controls={`${codexTabsId}-${surface}-panel-${pane}`}
+      aria-selected={codexPane === pane} tabIndex={codexPane === pane ? 0 : -1}
+      className={`${css.action} ${codexPane === pane ? css.primary : ''}`} onClick={() => setCodexPane(pane)}>
+      {t(pane === 'accounts' ? 'codexManageAccounts' : 'codexManageSettings')}
+    </button>)}
+  </div>
   const [selectedProvider, setSelectedProvider] = useState<ProviderId | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [disabledModels, setDisabledModels] = useState<Set<string>>(() => loadDisabledModels())
@@ -433,13 +450,16 @@ export function ProviderSettings({
         {selectedProvider === 'codex' && (
           <article className={css.card}>
             <div className={css.cardHead}>
-              <span className={css.cardTitle}>{t('providerCodex')}</span>
+              <div className={css.codexHeadMain}>
+                <span className={css.cardTitle}>{t('providerCodex')}</span>
+                {renderCodexTabs('detail')}
+              </div>
               <span className={css.badge} data-state={codexConnected ? 'ready' : 'idle'}>
                 {accounts.status === 'error' ? t('providerError') : t('accountCount', { count: accounts.accounts.length })}
               </span>
             </div>
 
-            <div className={css.actions}>
+            <div className={`${css.actions} ${css.codexAccountActions}`} hidden={codexPane !== 'accounts'}>
               <button
                 type="button"
                 className={`${css.action} ${css.primary}`}
@@ -457,13 +477,14 @@ export function ProviderSettings({
                 onClick={refreshCodexModels}
               >{t('codexFetchModels')}</button>
             </div>
-            <div className={css.codexLayout}>
-              <div className={css.codexColumns} data-has-settings={Boolean(codexVerbosity || codexContext)}>
-                <div className={css.codexSettings}>
+            <div className={css.codexPanels}>
+                <div className={`${css.codexSettings} ${css.codexPane}`} role="tabpanel" tabIndex={0}
+                  id={`${codexTabsId}-detail-panel-settings`} aria-labelledby={`${codexTabsId}-detail-tab-settings`} hidden={codexPane !== 'settings'}>
                   {codexVerbosity && <CodexVerbositySettings {...codexVerbosity} t={t} />}
                   {codexContext && <CodexContextSettings {...codexContext} t={t} />}
                 </div>
-                <div className={css.codexAccounts}>
+                <div className={`${css.codexAccounts} ${css.codexPane}`} role="tabpanel" tabIndex={0}
+                  id={`${codexTabsId}-detail-panel-accounts`} aria-labelledby={`${codexTabsId}-detail-tab-accounts`} hidden={codexPane !== 'accounts'}>
                   {accounts.accounts.length === 0 ? (
                     <p className={css.note}>{t('codexNoAccounts')}</p>
                   ) : (
@@ -671,7 +692,6 @@ export function ProviderSettings({
                     </div>
                   )}
                 </div>
-              </div>
             </div>
           </article>
         )}
@@ -1343,7 +1363,8 @@ export function ProviderSettings({
 
           {expanded.codex && (
             <div className={css.quickView}>
-              <div className={css.actions}>
+              {renderCodexTabs('quick')}
+              <div className={`${css.actions} ${css.codexAccountActions}`} hidden={codexPane !== 'accounts'}>
                 <button
                   type="button"
                   className={`${css.action} ${css.primary}`}
@@ -1361,13 +1382,14 @@ export function ProviderSettings({
                   onClick={refreshCodexModels}
                 >{t('codexFetchModels')}</button>
               </div>
-              <div className={css.codexLayout}>
-                <div className={css.codexColumns} data-has-settings={Boolean(codexVerbosity || codexContext)}>
-                  <div className={css.codexSettings}>
+              <div className={css.codexPanels}>
+                  <div className={`${css.codexSettings} ${css.codexPane}`} role="tabpanel" tabIndex={0}
+                    id={`${codexTabsId}-quick-panel-settings`} aria-labelledby={`${codexTabsId}-quick-tab-settings`} hidden={codexPane !== 'settings'}>
                     {codexVerbosity && <CodexVerbositySettings {...codexVerbosity} t={t} />}
                     {codexContext && <CodexContextSettings {...codexContext} t={t} />}
                   </div>
-                  <div className={css.codexAccounts}>
+                  <div className={`${css.codexAccounts} ${css.codexPane}`} role="tabpanel" tabIndex={0}
+                    id={`${codexTabsId}-quick-panel-accounts`} aria-labelledby={`${codexTabsId}-quick-tab-accounts`} hidden={codexPane !== 'accounts'}>
                     {accounts.accounts.length === 0 ? (
                       <p className={css.note}>{t('codexNoAccounts')}</p>
                     ) : (
@@ -1575,7 +1597,6 @@ export function ProviderSettings({
                       </div>
                     )}
                   </div>
-                </div>
               </div>
             </div>
           )}

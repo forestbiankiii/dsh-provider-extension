@@ -56,30 +56,61 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
 }
 
 describe('provider settings surface', () => {
-  it.each(['quick', 'detail'])('places shared Codex controls and account cards in separate %s columns', async mode => {
+  it.each(['quick', 'detail'])('preserves unsaved context input and supports keyboard tab navigation in %s', async mode => {
+    const call = vi.fn(async () => ({ ok: true, value: { contextMode: 'custom', customContextModels: {}, contextWritable: true, contextModels: [{ key: 'draft', label: 'Draft Model', minimum: 128000, maximum: 1000000, default: 272000, effective: 272000, fixed: false }] } }))
+    bench({ status: 'ready' }, codexAccounts, undefined, undefined, undefined, { rpc: { call } as never })
+    if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
+    else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
+    const accounts = screen.getByRole('tab', { name: en.codexManageAccounts })
+    const settings = screen.getByRole('tab', { name: en.codexManageSettings })
+    accounts.focus(); fireEvent.keyDown(accounts, { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(settings)
+    const input = await screen.findByRole('spinbutton', { name: 'Draft Model' }) as HTMLInputElement
+    await waitFor(() => expect(input.disabled).toBe(false))
+    fireEvent.change(input, { target: { value: '600000' } })
+    fireEvent.keyDown(settings, { key: 'Home' })
+    expect(document.activeElement).toBe(accounts)
+    expect(screen.queryByRole('spinbutton', { name: 'Draft Model' })).toBeNull()
+    fireEvent.keyDown(accounts, { key: 'End' })
+    expect(screen.getByRole('spinbutton', { name: 'Draft Model' })).toBe(input)
+    expect(input.value).toBe('600000')
+    expect(call).toHaveBeenCalledOnce()
+    expect(call.mock.calls[0]![1]).toBe('codex-subscription/preferences/status')
+  })
+  it.each(['quick', 'detail'])('switches between account and settings management in %s without duplicate controls', async mode => {
     const call = vi.fn(async () => ({ ok: true, value: { outputVerbosity: 'medium', outputVerbosityWritable: true, contextMode: 'standard', customContextModels: {}, contextModels: [], contextWritable: true } }))
     bench({ status: 'ready' }, codexAccounts, undefined, undefined, { rpc: { call } as never }, { rpc: { call } as never })
     if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
     else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
+    const accountTab = screen.getByRole('tab', { name: en.codexManageAccounts })
+    const settingsTab = screen.getByRole('tab', { name: en.codexManageSettings })
+    expect(accountTab.getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tabpanel').id).toBe(accountTab.getAttribute('aria-controls'))
+    expect(screen.queryByRole('combobox', { name: en.codexVerbosity })).toBeNull()
+    fireEvent.click(settingsTab)
     const verbosity = await screen.findByRole('combobox', { name: en.codexVerbosity })
-    const context = screen.getByRole('combobox', { name: en.codexContext })
-    const settings = verbosity.closest(`.${settingsCss.codexSettings}`)!
-    expect(settings).toBeTruthy()
-    expect(settings.contains(context)).toBe(true)
-    const accounts = screen.getByText('Work').closest(`.${settingsCss.codexAccounts}`)!
-    expect(accounts).toBeTruthy()
-    expect(accounts.parentElement).toBe(settings.parentElement)
-    expect(settings.nextElementSibling).toBe(accounts)
-    expect(accounts.querySelector('select')).toBeNull()
-    expect(settings.querySelector(`.${settingsCss.accountCardButton}`)).toBeNull()
+    await waitFor(() => expect((verbosity as HTMLSelectElement).value).toBe('medium'))
+    expect(screen.getByRole('combobox', { name: en.codexContext })).toBeTruthy()
+    expect(screen.getByRole('tabpanel').id).toBe(settingsTab.getAttribute('aria-controls'))
+    expect(screen.queryByText('Work')).toBeTruthy() // kept mounted, but in the hidden account panel
+    expect(screen.queryByRole('button', { name: en.quotaView })).toBeNull()
+    expect(screen.queryByRole('button', { name: en.addAccount })).toBeNull()
+    expect(settingsTab.getAttribute('aria-selected')).toBe('true')
+    const reads = call.mock.calls.length
+    fireEvent.click(accountTab)
+    expect(screen.queryByRole('combobox', { name: en.codexContext })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: en.quotaView }))
     expect(await screen.findByRole('checkbox', { name: 'Host Model' })).toBeTruthy()
+    fireEvent.click(settingsTab)
+    expect(screen.getByRole('combobox', { name: en.codexVerbosity })).toBe(verbosity)
+    expect(call.mock.calls.length).toBe(reads)
   })
   it.each(['quick', 'detail'])('exposes context length once in the %s provider settings', async mode => {
     const call = vi.fn(async () => ({ ok: true, value: { contextMode: 'standard', customContextModels: {}, contextModels: [], contextWritable: true } }))
     bench({ status: 'ready' }, codexAccounts, undefined, undefined, undefined, { rpc: { call } as never })
     if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
     else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
+    fireEvent.click(screen.getByRole('tab', { name: en.codexManageSettings }))
     const select = await screen.findByRole('combobox', { name: en.codexContext }) as HTMLSelectElement
     await waitFor(() => expect(select.disabled).toBe(false))
     expect(screen.getAllByRole('combobox', { name: en.codexContext })).toHaveLength(1)
@@ -90,6 +121,7 @@ describe('provider settings surface', () => {
     bench({ status: 'ready' }, codexAccounts, undefined, undefined, { rpc: { call } as never })
     if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
     else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
+    fireEvent.click(screen.getByRole('tab', { name: en.codexManageSettings }))
     const select = await screen.findByRole('combobox', { name: en.codexVerbosity }) as HTMLSelectElement
     await waitFor(() => expect(select.value).toBe('medium'))
     expect(screen.getAllByRole('combobox', { name: en.codexVerbosity })).toHaveLength(1)

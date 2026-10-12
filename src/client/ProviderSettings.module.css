@@ -1141,18 +1141,16 @@
   border-bottom: 1px solid var(--dsw-alias-border-l1);
 }
 
-.codexLayout { container-type: inline-size; }
-.codexColumns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 16px; }
+.codexHeadMain { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; min-width: 0; }
+.codexTabs { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.codexPanels { min-width: 0; }
+.codexPane[hidden], .codexAccountActions[hidden] { display: none; }
 .codexSettings { display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow-wrap: anywhere; }
 .codexSettings > .verbositySetting { margin: 0; }
 .codexAccounts { min-width: 0; overflow-wrap: anywhere; }
 .codexAccounts .accountCardTop { flex-wrap: wrap; }
 .codexAccounts .accountIdentityCol { flex-basis: 140px; }
-.codexColumns[data-has-settings="false"] { grid-template-columns: minmax(0, 1fr); }
-.codexColumns[data-has-settings="false"] .codexSettings { display: none; }
-@container (max-width: 520px) {
-  .codexColumns { grid-template-columns: minmax(0, 1fr); }
-}
+.codexTabs .action:focus-visible { outline: 2px solid var(--dsw-alias-border-l3); outline-offset: 2px; }
 
 .verbositySetting { margin: 14px 0; padding: 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-2); }
 .verbositySetting .fieldLabel { display: flex; align-items: center; justify-content: space-between; gap: 16px; }

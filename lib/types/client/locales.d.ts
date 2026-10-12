@@ -57,6 +57,8 @@ export declare const en: {
     readonly antigravityFetchModels: "Reload model list";
     readonly antigravityModelsRefreshing: "Fetching models…";
     readonly codexFetchModels: "Reload model list";
+    readonly codexManageAccounts: "Manage accounts";
+    readonly codexManageSettings: "Manage settings";
     readonly codexVerbosity: "Response detail";
     readonly codexVerbosityDefault: "Default";
     readonly codexVerbosityLow: "Concise";

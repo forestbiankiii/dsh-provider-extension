@@ -7,6 +7,12 @@ const patch = readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf
 const clientSource = readFileSync(new URL('../src/client/index.ts', import.meta.url), 'utf8')
 
 describe('published artifact contract', () => {
+  it('ships management tabs instead of the superseded two-column layout', () => {
+    expect(client).toContain('管理账号')
+    expect(client).toContain('管理设置')
+    expect(client).toContain('tabpanel')
+    expect(client).not.toContain('codexColumns')
+  })
   it('ships context capacity with the approved settings and deferred tool, without image-precision controls', () => {
     const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
     expect(host).toContain('codexContextLength')

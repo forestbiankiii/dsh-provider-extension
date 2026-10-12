@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.11.2
+
+- Replace simultaneous Codex settings/account columns with top-level Manage accounts / Manage settings tabs in both views. Default to accounts, hide account actions on the settings tab, use the full content width, preserve mounted panel state and unsaved setting drafts, and support keyboard tab navigation. No preference or account operation changes.
+
 ## 0.11.1
 
 - Split Codex response/context settings and account cards into left/right columns in both quick and full Settings views. Use container-width responsiveness to stack them on narrow panels, allow account headers to wrap, and remove redundant setting-card margins. Keep all preference/account behavior and the shared toolbar unchanged; do not affect other providers.
