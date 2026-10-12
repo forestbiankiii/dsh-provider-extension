@@ -43,6 +43,14 @@ The Composer quota tooltip and each Codex account's expanded details show 5h/wee
 
 In **OpenAI Codex → Manage settings**, the separate **Image generation** and **Image editing** switches control tool availability. They save to native config and changing them does not start an image request; an explicit image request may use subscription quota. The switches are user-only and cannot be enabled through an Agent settings tool. These controls do not change input image handling, default output model/quality, image viewing, or annotations.
 
+## Codex original image
+
+For a completed `codex_image_generate` call, the chat tool card keeps the generated preview and offers **View original** and **Download PNG**. The view reads the saved original from the DSH Host, scoped to the current Session and validated in bounded chunks. It makes no image-provider request and uses no additional subscription quota. If the original is unavailable, the card reports that instead of reading an arbitrary host path.
+
+## Codex original image
+
+For a completed `codex_image_generate` call, the chat tool card keeps the generated preview and offers **View original** and **Download PNG**. The original is read from the DSH Host's private store, scoped to the current Session and validated in bounded chunks. This makes no image-provider request and uses no additional subscription quota. When an original is unavailable, the card reports it instead of reading an arbitrary host path.
+
 ## Codex speed mode
 
 In **OpenAI Codex → Manage settings**, select **Standard** or **Fast**. It saves the Codex-profile preference for subsequent requests. The existing catalog capability determines which models can actually receive the Fast priority tier; other models keep standard behavior, and an empty advertised support list is shown in the panel. Fast does not change reasoning effort, model, account or other providers and may consume subscription quota faster. It does not unlock access.

@@ -108,6 +108,16 @@ export declare const en: {
     readonly codexImageEditing: "Image editing";
     readonly codexImageEditingHint: "Allow edits to images explicitly selected by the user.";
     readonly codexImageFeaturesSaved: "Image settings saved.";
+    readonly codexOriginalTitle: "Codex original image";
+    readonly codexOriginalDimensions: "{width} × {height}px";
+    readonly codexOriginalView: "View original";
+    readonly codexOriginalShown: "Original shown";
+    readonly codexOriginalDownload: "Download PNG";
+    readonly codexOriginalLoading: "Loading original…";
+    readonly codexOriginalPending: "Preparing image…";
+    readonly codexOriginalUnavailable: "Original image unavailable";
+    readonly codexOriginalAlt: "Original Codex image";
+    readonly codexImageOutputAlt: "Generated image preview";
     readonly codexModels: "Models in this account’s catalog";
     readonly codexModelsScope: "These switches only control this account’s picker. They do not grant model access.";
     readonly codexModelsMissing: "Saved selections not in the current catalog (preferences retained): {models}";

@@ -1,6 +1,9 @@
 /** Provider Extension client plugin: owns the composer provider seat and hosts one module per provider. */
 import type { Context as ClientContext } from '@deepseek-ai/cordis';
+import type { SessionId } from '@deepseek-ai/dsh-session/types';
+import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client';
 import type { SlotCore, SlotMap } from '@deepseek-ai/dsh-client-ui-slots';
+import { type CodexToolCallViewOwnerProps } from './CodexOriginalImageToolView.tsx';
 import { type ProviderPanelKey } from './locales.ts';
 export { ProviderPanel } from './ProviderPanel.tsx';
 export type { ProviderPanelInjected, ProviderPanelProps } from './ProviderPanel.tsx';
@@ -27,6 +30,17 @@ declare module '@deepseek-ai/cordis' {
 declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface LocaleNamespaceMap {
         providerExtension: ProviderPanelKey;
+    }
+    interface SlotMap {
+        'tool.call.toolview': {
+            kind: 'keyed';
+            scope: 'session';
+            owner: CodexToolCallViewOwnerProps;
+            inject: {
+                rpc: ClientConnectionRpc;
+                sessionId: SessionId;
+            };
+        };
     }
 }
 export declare const NS = "providerExtension";

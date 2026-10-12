@@ -824,6 +824,17 @@
 
 /* ------------------------------------------------------------------ motion */
 
+.codexOriginalImageCard { display: flex; flex-direction: column; gap: 10px; max-width: 560px; margin-top: 8px; padding: 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); }
+.codexOriginalImageHeader { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 12px; }
+.codexOriginalImageHeader > span { color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
+.codexOriginalImageActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.codexOriginalImageButton { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; padding: 5px 10px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font: inherit; font-size: 12px; text-decoration: none; cursor: pointer; }
+.codexOriginalImageButton:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
+.codexOriginalImageButton:focus-visible { outline: 2px solid var(--dsw-alias-border-l3); outline-offset: 2px; }
+.codexOriginalImageButton:disabled { opacity: .6; cursor: default; }
+.codexOriginalImagePreview { display: block; max-width: 100%; max-height: min(70vh, 720px); object-fit: contain; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; }
+.codexOriginalOutputPreview { display: block; max-width: min(100%, 420px); max-height: min(42vh, 360px); object-fit: contain; border-radius: 8px; }
+
 @media (prefers-reduced-motion: reduce) {
   .menu,
   .quotaTooltip,

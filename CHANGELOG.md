@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.16.0
+
+- Add a session-scoped Codex image tool view with on-demand original PNG preview and download. Read only the existing private Host image store through the validated `image/original/chunk` route; no generation request, remote image fetch, or additional quota use.
+- Preserve the generated result preview and report unavailable originals. Test metadata validation, session-bound chunk reads, malformed chunks, and preview/download behavior.
+
 ## 0.15.0
 
 - Add separate user-only Codex subscription image-generation and image-editing switches under Manage settings. Persist through native config, reflect read-only Hosts, and register the image tool only while at least one operation is enabled. Changing either switch does not invoke image generation or editing.

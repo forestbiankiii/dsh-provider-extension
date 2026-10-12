@@ -12,6 +12,7 @@ import { ProviderPanel } from './ProviderPanel.tsx'
 import type { ProviderPanelInjected } from './ProviderPanel.tsx'
 import { ProviderSettings } from './ProviderSettings.tsx'
 import type { ProviderSettingsInjected } from './ProviderSettings.tsx'
+import { CodexOriginalImageToolView, type CodexToolCallViewOwnerProps } from './CodexOriginalImageToolView.tsx'
 import { cssText } from './ProviderPanel.module.css'
 import { cssText as settingsCssText } from './ProviderSettings.module.css'
 import { CodexAccountsController, isCodexProvider } from './providers/codex.ts'
@@ -53,6 +54,9 @@ declare module '@deepseek-ai/cordis' {
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     providerExtension: ProviderPanelKey
+  }
+  interface SlotMap {
+    'tool.call.toolview': { kind: 'keyed'; scope: 'session'; owner: CodexToolCallViewOwnerProps; inject: { rpc: ClientConnectionRpc; sessionId: SessionId } }
   }
 }
 
@@ -243,4 +247,9 @@ export function apply(ctx: ClientContext): void {
       }
     },
   }, ProviderPanel))
+
+  ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
+    name: 'tool.call.toolview', key: 'codex_image_generate', locale: NS,
+    inject: (sessionId) => ({ rpc, sessionId: sessionId as SessionId }),
+  }, CodexOriginalImageToolView))
 }
