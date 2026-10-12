@@ -57,8 +57,8 @@ function bench(antigravity: AntigravityState, accounts: CodexAccountsState = emp
 }
 
 describe('provider settings surface', () => {
-  it.each(['quick', 'detail'])('preserves unsaved context input and supports keyboard tab navigation in %s', async mode => {
-    const call = vi.fn(async () => ({ ok: true, value: { contextMode: 'custom', customContextModels: {}, contextWritable: true, contextModels: [{ key: 'draft', label: 'Draft Model', minimum: 128000, maximum: 1000000, default: 272000, effective: 272000, fixed: false }] } }))
+  it.each(['quick', 'detail'])('preserves unsaved unified K value and supports keyboard tab navigation in %s', async mode => {
+    const call = vi.fn(async () => ({ ok: true, value: { contextMode: 'custom', contextLengthK: 256, contextMaximumK: 1000, contextWritable: true } }))
     bench({ status: 'ready' }, codexAccounts, undefined, undefined, undefined, { rpc: { call } as never })
     if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
     else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
@@ -66,15 +66,15 @@ describe('provider settings surface', () => {
     const settings = screen.getByRole('tab', { name: en.codexManageSettings })
     accounts.focus(); fireEvent.keyDown(accounts, { key: 'ArrowRight' })
     expect(document.activeElement).toBe(settings)
-    const input = await screen.findByRole('spinbutton', { name: 'Draft Model' }) as HTMLInputElement
+    const input = await screen.findByRole('spinbutton', { name: en.codexContextSize }) as HTMLInputElement
     await waitFor(() => expect(input.disabled).toBe(false))
-    fireEvent.change(input, { target: { value: '600000' } })
+    fireEvent.change(input, { target: { value: '600' } })
     fireEvent.keyDown(settings, { key: 'Home' })
     expect(document.activeElement).toBe(accounts)
-    expect(screen.queryByRole('spinbutton', { name: 'Draft Model' })).toBeNull()
+    expect(screen.queryByRole('spinbutton', { name: en.codexContextSize })).toBeNull()
     fireEvent.keyDown(accounts, { key: 'End' })
-    expect(screen.getByRole('spinbutton', { name: 'Draft Model' })).toBe(input)
-    expect(input.value).toBe('600000')
+    expect(screen.getByRole('spinbutton', { name: en.codexContextSize })).toBe(input)
+    expect(input.value).toBe('600')
     expect(call).toHaveBeenCalledOnce()
     expect(call.mock.calls[0]![1]).toBe('codex-subscription/preferences/status')
   })
@@ -86,12 +86,12 @@ describe('provider settings surface', () => {
     expect(screen.queryByRole('combobox', { name: en.codexSpeed })).toBeNull()
     fireEvent.click(screen.getByRole('tab', { name: en.codexManageSettings }))
     const select = await screen.findByRole('combobox', { name: en.codexSpeed })
-    await waitFor(() => expect((select as HTMLSelectElement).disabled).toBe(false))
+    await waitFor(() => expect((select as HTMLButtonElement).disabled).toBe(false))
     expect(call).toHaveBeenCalledOnce()
   })
   it.each(['quick', 'detail'])('switches between account and settings management in %s without duplicate controls', async mode => {
-    const call = vi.fn(async () => ({ ok: true, value: { outputVerbosity: 'medium', outputVerbosityWritable: true, contextMode: 'standard', customContextModels: {}, contextModels: [], contextWritable: true } }))
-    bench({ status: 'ready' }, codexAccounts, undefined, undefined, { rpc: { call } as never }, { rpc: { call } as never })
+    const call = vi.fn(async () => ({ ok: true, value: { outputVerbosity: 'medium', outputVerbosityWritable: true, speedMode: 'standard', speedModeWritable: true, fastModels: [], contextMode: 'standard', contextLengthK: 256, contextMaximumK: 1000, contextWritable: true } }))
+    bench({ status: 'ready' }, codexAccounts, undefined, undefined, { rpc: { call } as never }, { rpc: { call } as never }, { rpc: { call } as never })
     if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
     else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
     const accountTab = screen.getByRole('tab', { name: en.codexManageAccounts })
@@ -101,13 +101,15 @@ describe('provider settings surface', () => {
     expect(screen.queryByRole('combobox', { name: en.codexVerbosity })).toBeNull()
     fireEvent.click(settingsTab)
     const verbosity = await screen.findByRole('combobox', { name: en.codexVerbosity })
-    await waitFor(() => expect((verbosity as HTMLSelectElement).value).toBe('medium'))
+    await waitFor(() => expect((verbosity as HTMLButtonElement).value).toBe('medium'))
     expect(screen.getByRole('combobox', { name: en.codexContext })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: en.codexSpeed })).toBeTruthy()
     expect(screen.getByRole('tabpanel').id).toBe(settingsTab.getAttribute('aria-controls'))
     expect(screen.queryByText('Work')).toBeTruthy() // kept mounted, but in the hidden account panel
     expect(screen.queryByRole('button', { name: en.quotaView })).toBeNull()
     expect(screen.queryByRole('button', { name: en.addAccount })).toBeNull()
     expect(settingsTab.getAttribute('aria-selected')).toBe('true')
+    expect(call).toHaveBeenCalledTimes(3)
     const reads = call.mock.calls.length
     fireEvent.click(accountTab)
     expect(screen.queryByRole('combobox', { name: en.codexContext })).toBeNull()
@@ -118,12 +120,12 @@ describe('provider settings surface', () => {
     expect(call.mock.calls.length).toBe(reads)
   })
   it.each(['quick', 'detail'])('exposes context length once in the %s provider settings', async mode => {
-    const call = vi.fn(async () => ({ ok: true, value: { contextMode: 'standard', customContextModels: {}, contextModels: [], contextWritable: true } }))
+    const call = vi.fn(async () => ({ ok: true, value: { contextMode: 'standard', contextLengthK: 256, contextMaximumK: 1000, contextWritable: true } }))
     bench({ status: 'ready' }, codexAccounts, undefined, undefined, undefined, { rpc: { call } as never })
     if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
     else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
     fireEvent.click(screen.getByRole('tab', { name: en.codexManageSettings }))
-    const select = await screen.findByRole('combobox', { name: en.codexContext }) as HTMLSelectElement
+    const select = await screen.findByRole('combobox', { name: en.codexContext }) as HTMLButtonElement
     await waitFor(() => expect(select.disabled).toBe(false))
     expect(screen.getAllByRole('combobox', { name: en.codexContext })).toHaveLength(1)
     expect(call).toHaveBeenCalledOnce()
@@ -134,7 +136,7 @@ describe('provider settings surface', () => {
     if (mode === 'quick') fireEvent.click(screen.getByText(en.providerCodex))
     else fireEvent.click(screen.getAllByRole('button', { name: new RegExp(en.providerManage) })[1]!)
     fireEvent.click(screen.getByRole('tab', { name: en.codexManageSettings }))
-    const select = await screen.findByRole('combobox', { name: en.codexVerbosity }) as HTMLSelectElement
+    const select = await screen.findByRole('combobox', { name: en.codexVerbosity }) as HTMLButtonElement
     await waitFor(() => expect(select.value).toBe('medium'))
     expect(screen.getAllByRole('combobox', { name: en.codexVerbosity })).toHaveLength(1)
     expect(call).toHaveBeenCalledOnce()

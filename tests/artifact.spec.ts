@@ -7,6 +7,12 @@ const patch = readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf
 const clientSource = readFileSync(new URL('../src/client/index.ts', import.meta.url), 'utf8')
 
 describe('published artifact contract', () => {
+  it('ships themed shared dropdowns and a single global K context input', () => {
+    expect(client).toContain('codexContextSize')
+    expect(client).toContain('contextLengthK')
+    expect(client).toContain('settingMenu')
+    expect(client).not.toContain('Draft Model')
+  })
   it('ships the confirmed Standard/Fast preference and its deferred shared-operation tool', () => {
     const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
     expect(host).toContain('codexSpeedMode')
@@ -27,6 +33,9 @@ describe('published artifact contract', () => {
     expect(host).toContain('codex_context_length')
     expect(client).toContain('codexContextExtended')
     expect(client).toContain('codexContextSave')
+    expect(client).toContain('settingMenu')
+    expect(client).not.toContain('Draft Model')
+    expect(client).not.toContain('codexContextRange')
     expect(client).not.toContain('codexImageFidelity')
   })
   it('ships the approved response detail field, deferred tool and four-choice control', () => {

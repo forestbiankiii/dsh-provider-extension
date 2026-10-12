@@ -297,6 +297,7 @@ describe('usage page', () => {
     })
     const { view } = setup()
     await screen.findByRole('heading', { name: en.activity })
+    await waitFor(() => expect(resized).toBeTypeOf('function'))
     const resize = (width: number) => act(() => resized([{ contentRect: { width } } as ResizeObserverEntry], {} as ResizeObserver))
     resize(380)
     let cells = [...view.container.querySelectorAll('[data-level][aria-label]')]

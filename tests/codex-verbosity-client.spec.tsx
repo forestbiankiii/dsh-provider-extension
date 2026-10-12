@@ -19,13 +19,14 @@ function fixture(copy = en, writable = true) {
 describe('Codex response detail control', () => {
   it.each([en, zh])('shows exactly four localized choices and sends only the confirmed preference', async copy => {
     const f = fixture(copy)
-    const select = screen.getByRole('combobox', { name: copy.codexVerbosity }) as HTMLSelectElement
+    const select = screen.getByRole('combobox', { name: copy.codexVerbosity }) as HTMLButtonElement
     await waitFor(() => expect(select.disabled).toBe(false))
-    expect([...select.options].map(option => option.textContent)).toEqual([copy.codexVerbosityDefault, copy.codexVerbosityLow, copy.codexVerbosityMedium, copy.codexVerbosityHigh])
+    const choices = [['default', copy.codexVerbosityDefault], ['low', copy.codexVerbosityLow], ['medium', copy.codexVerbosityMedium], ['high', copy.codexVerbosityHigh]] as const
     expect(f.call).toHaveBeenCalledOnce()
     expect(screen.queryByRole('button', { name: copy.providerRefresh })).toBeNull()
-    for (const value of ['low', 'medium', 'high', 'default']) {
-      fireEvent.change(select, { target: { value } })
+    for (const [value, label] of choices.slice(1).concat([choices[0]!])) {
+      fireEvent.click(select)
+      fireEvent.click(screen.getByRole('option', { name: label }))
       await waitFor(() => expect(select.disabled).toBe(false))
       expect(select.value).toBe(value)
       expect(f.call).toHaveBeenLastCalledWith('/api', 'codex-subscription/preferences/update', { outputVerbosity: value }, undefined)
@@ -34,12 +35,12 @@ describe('Codex response detail control', () => {
   })
   it('retains the acknowledged value, blocks duplicate submissions, and does not claim success before the save returns', async () => {
     const f = fixture()
-    const select = screen.getByRole('combobox', { name: en.codexVerbosity }) as HTMLSelectElement
+    const select = screen.getByRole('combobox', { name: en.codexVerbosity }) as HTMLButtonElement
     await waitFor(() => expect(select.disabled).toBe(false))
     let finish!: (value: unknown) => void
     f.call.mockImplementationOnce(() => new Promise(resolve => { finish = resolve as never }))
-    fireEvent.change(select, { target: { value: 'high' } })
-    fireEvent.change(select, { target: { value: 'low' } })
+    fireEvent.click(select); fireEvent.click(screen.getByRole('option', { name: en.codexVerbosityHigh }))
+    expect(select.disabled).toBe(true)
     expect(f.call).toHaveBeenCalledTimes(2)
     expect(select.value).toBe('default')
     expect(screen.queryByText(en.codexVerbositySaved)).toBeNull()
@@ -51,12 +52,12 @@ describe('Codex response detail control', () => {
   it('shows read-only state without exposing a write', async () => {
     const f = fixture(en, false)
     await screen.findByText(en.codexVerbosityReadOnly)
-    expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(true)
+    expect((screen.getByRole('combobox') as HTMLButtonElement).disabled).toBe(true)
     expect(f.call).toHaveBeenCalledOnce()
   })
   it('re-reads external configuration changes and disposes its subscription on close', async () => {
     const f = fixture()
-    const select = screen.getByRole('combobox') as HTMLSelectElement
+    const select = screen.getByRole('combobox') as HTMLButtonElement
     await waitFor(() => expect(select.disabled).toBe(false))
     f.setRemote('low'); f.notify()
     await waitFor(() => expect(select.value).toBe('low'))
@@ -69,7 +70,7 @@ describe('Codex response detail control', () => {
     expect(screen.queryByRole('button', { name: en.providerRefresh })).toBeNull()
     view.unmount()
     render(<CodexVerbositySettings rpc={{ call } as never} t={key => en[key]} />)
-    await waitFor(() => expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('medium'))
+    await waitFor(() => expect((screen.getByRole('combobox') as HTMLButtonElement).value).toBe('medium'))
   })
   it('rejects malformed or non-acknowledged responses instead of using browser-only state', async () => {
     const call = vi.fn().mockResolvedValueOnce({ ok: true, value: { outputVerbosity: 'invalid', outputVerbosityWritable: true } }).mockResolvedValueOnce({ ok: true, value: { outputVerbosity: 'default', outputVerbosityWritable: true } })

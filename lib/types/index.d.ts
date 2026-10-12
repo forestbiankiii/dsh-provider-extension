@@ -10,9 +10,11 @@ export declare const Config: Schema<Schemastery.ObjectS<{
     codexOutputVerbosity: Schema<"default" | "low" | "medium" | "high", "default" | "low" | "medium" | "high">;
     codexContextLength: Schema<Schemastery.ObjectS<{
         mode: Schema<"standard" | "extended" | "custom", "standard" | "extended" | "custom">;
+        tokensK: Schema<number, number>;
         models: Schema<import("@deepseek-ai/cosmokit").Dict<number, string>, import("@deepseek-ai/cosmokit").Dict<number, string>>;
     }>, Schemastery.ObjectT<{
         mode: Schema<"standard" | "extended" | "custom", "standard" | "extended" | "custom">;
+        tokensK: Schema<number, number>;
         models: Schema<import("@deepseek-ai/cosmokit").Dict<number, string>, import("@deepseek-ai/cosmokit").Dict<number, string>>;
     }>>;
     codexSpeedMode: Schema<"standard" | "fast", "standard" | "fast">;
@@ -23,9 +25,11 @@ export declare const Config: Schema<Schemastery.ObjectS<{
     codexOutputVerbosity: Schema<"default" | "low" | "medium" | "high", "default" | "low" | "medium" | "high">;
     codexContextLength: Schema<Schemastery.ObjectS<{
         mode: Schema<"standard" | "extended" | "custom", "standard" | "extended" | "custom">;
+        tokensK: Schema<number, number>;
         models: Schema<import("@deepseek-ai/cosmokit").Dict<number, string>, import("@deepseek-ai/cosmokit").Dict<number, string>>;
     }>, Schemastery.ObjectT<{
         mode: Schema<"standard" | "extended" | "custom", "standard" | "extended" | "custom">;
+        tokensK: Schema<number, number>;
         models: Schema<import("@deepseek-ai/cosmokit").Dict<number, string>, import("@deepseek-ai/cosmokit").Dict<number, string>>;
     }>>;
     codexSpeedMode: Schema<"standard" | "fast", "standard" | "fast">;

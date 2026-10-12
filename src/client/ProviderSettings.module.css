@@ -1154,12 +1154,20 @@
 
 .verbositySetting { margin: 14px 0; padding: 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-2); }
 .verbositySetting .fieldLabel { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.verbositySetting select, .contextSetting input[type="number"] { padding: 5px 12px; min-height: 30px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; }
-.verbositySetting select:disabled { opacity: .6; }
+.settingDropdown { display: inline-flex; flex: 0 0 auto; }
+.settingTrigger { display: inline-flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 100px; height: 32px; padding: 0 12px; border: none; border-radius: 10px; outline: none; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; font-weight: 500; cursor: pointer; }
+.settingTrigger:hover:not(:disabled), .settingTrigger[aria-expanded="true"] { background: var(--dsw-alias-interactive-bg-hover); }
+.settingTrigger:disabled { opacity: .6; cursor: default; }
+.settingTrigger:focus-visible, .settingOption:focus-visible { outline: 2px solid var(--dsw-alias-border-l3); outline-offset: 2px; }
+.settingMenu { position: fixed; inset: auto; z-index: 1000; margin: 0; box-sizing: border-box; padding: 6px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; background: var(--dsw-alias-bg-overlay); color: var(--dsw-alias-label-primary); box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-bg-base) 35%, transparent); }
+.settingOption { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 36px; padding: 6px 10px; border: none; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.settingOption:hover, .settingOption:focus, .settingOption[aria-selected="true"] { background: var(--dsw-alias-interactive-bg-hover); outline: none; }
 .verbositySetting .note { margin: 0; }
 .contextSetting .fieldLabel { flex-wrap: wrap; }
-.contextSetting input[type="number"] { width: 130px; max-width: 100%; }
-.contextRows { display: flex; flex-direction: column; gap: 10px; }
+.contextInputGroup { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.contextInput { display: inline-flex; align-items: center; gap: 2px; height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); }
+.contextInput:focus-within { outline: 2px solid var(--dsw-alias-border-l3); outline-offset: 1px; }
+.contextInput input { width: 68px; min-width: 0; border: none; outline: none; background: transparent; color: inherit; font: inherit; text-align: right; }
 
 .fieldGroup {
   display: flex;

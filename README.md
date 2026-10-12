@@ -31,9 +31,9 @@ The control displays acknowledged saves and failures; Hosts without persistent c
 
 ## Codex context length
 
-In **Providers → OpenAI Codex**, **Context length** offers Standard (model-catalog default), Extended (its maximum), or Custom (per-model token counts). Mode changes save automatically; after editing numeric inputs, choose **Save custom lengths**. The displayed bounds come from the current Host catalog, preferring official metadata; server limits and account access still apply. Models with fixed capacity remain fixed, and grouped variants share the smaller limit. No model/account is selected or unlocked, and this is not a spending limit. Larger contexts can consume more input tokens.
+In **OpenAI Codex → Manage settings**, **Context length** offers Standard (model defaults), Extended (model maxima), or Custom. Custom edits one shared profile-wide value such as **256k**; 1k means 1,000 tokens. Models use that value up to their own catalog maximum, so a smaller model cannot inherit another model's higher limit. Mode changes save automatically; custom size saves when you press **Save**. Larger contexts may use more input tokens and do not unlock server access.
 
-Native config persistence applies to future requests; prepared calls retain their previous model-budget snapshot. Other settings and missing-model overrides are preserved. The deferred `codex_context_length` tool uses the same RPC operation and returns at most 64 model groups. Restart DSH after updating, check mode/custom-value retention after another restart, and return to Standard to restore the catalog defaults. Tests use mocked writes/streams, not user settings or billable model requests. A local runtime check can be repeated with `node scripts/verify-context-runtime.mjs <installed-DSH-app-directory>`; it never contacts the provider. Total live Agent prompt-token delta and visual acceptance are not measured by these no-network tests.
+Existing per-model overrides are kept in native config for compatibility, but the UI no longer edits them separately. The shared value applies to future requests; prepared calls retain their prior capacity. Restart DSH after updating, then test Custom `k` value and persistence after a second restart. The context tool also reads/writes one `tokensK` value. Automated tests use mocked config and provider streams.
 
 ## Codex speed mode
 

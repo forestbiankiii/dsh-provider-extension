@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CodexVerbosityProps } from './CodexVerbositySettings.tsx'
 import type { ProviderPanelKey } from './locales.ts'
 import css from './ProviderSettings.module.css'
+import { SettingsDropdown } from './SettingsDropdown.tsx'
 export interface CodexSelectView { value: string; writable: boolean; note?: ProviderPanelKey }
 interface Props extends CodexVerbosityProps {
   choices: readonly string[]
@@ -43,12 +44,10 @@ export function CodexSelectSetting({ rpc, subscribe, t, choices, labels, title, 
     } finally { saving.current = false; if (mounted.current) setPending(false) }
   }
   return <div className={`${css.fieldGroup} ${css.verbositySetting}`}>
-    <label className={css.fieldLabel}>{t(title)}
-      <select aria-label={t(title)} value={view?.value ?? choices[0]} disabled={reading || pending || !view?.writable}
-        onChange={event => { void save(event.target.value) }}>
-        {choices.map((value, index) => <option key={value} value={value}>{t(labels[index]!)}</option>)}
-      </select>
-    </label>
+    <div className={css.fieldLabel}><span>{t(title)}</span>
+      <SettingsDropdown label={t(title)} value={view?.value ?? choices[0]!} choices={choices} labels={labels.map(key => t(key))}
+        disabled={reading || pending || !view?.writable} onChange={value => { void save(value) }} />
+    </div>
     <p className={css.note}>{t(hint)}</p>
     {view?.note && <p className={css.note}>{t(view.note)}</p>}
     {view && !view.writable && <p className={css.note}>{t('codexVerbosityReadOnly')}</p>}

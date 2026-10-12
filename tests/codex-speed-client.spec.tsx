@@ -15,11 +15,10 @@ describe('Codex Standard/Fast control and RPC', () => {
       return response(current)
     })
     render(<CodexSpeedSettings rpc={{ call } as never} t={key => copy[key]} />)
-    const select = await screen.findByRole('combobox', { name: copy.codexSpeed }) as HTMLSelectElement
+    const select = await screen.findByRole('combobox', { name: copy.codexSpeed }) as HTMLButtonElement
     await waitFor(() => expect(select.disabled).toBe(false))
-    expect([...select.options].map(option => option.textContent)).toEqual([copy.codexSpeedStandard, copy.codexSpeedFast])
     expect(call).toHaveBeenCalledOnce()
-    fireEvent.change(select, { target: { value: 'fast' } })
+    fireEvent.click(select); fireEvent.click(screen.getByRole('option', { name: copy.codexSpeedFast }))
     await waitFor(() => expect(select.disabled).toBe(false))
     expect(select.value).toBe('fast')
     expect(call).toHaveBeenLastCalledWith('/api', 'codex-subscription/preferences/update', { speedMode: 'fast' }, undefined)
@@ -29,10 +28,10 @@ describe('Codex Standard/Fast control and RPC', () => {
     const call = vi.fn().mockResolvedValueOnce(response()).mockImplementationOnce(() => new Promise(resolve => { finish = resolve as never }))
     let finish!: (value: unknown) => void
     render(<CodexSpeedSettings rpc={{ call } as never} t={key => en[key]} />)
-    const select = await screen.findByRole('combobox') as HTMLSelectElement
+    const select = await screen.findByRole('combobox') as HTMLButtonElement
     await waitFor(() => expect(select.disabled).toBe(false))
-    fireEvent.change(select, { target: { value: 'fast' } })
-    fireEvent.change(select, { target: { value: 'standard' } })
+    fireEvent.click(select); fireEvent.click(screen.getByRole('option', { name: en.codexSpeedFast }))
+    expect(select.disabled).toBe(true)
     expect(call).toHaveBeenCalledTimes(2)
     expect(select.value).toBe('standard')
     finish({ ok: false, error: { message: 'Write failed' } })
@@ -44,14 +43,14 @@ describe('Codex Standard/Fast control and RPC', () => {
     const call = vi.fn(async () => response('standard', [], true))
     render(<CodexSpeedSettings rpc={{ call } as never} t={key => en[key]} />)
     await screen.findByText(en.codexSpeedUnsupported)
-    expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(false)
+    expect((screen.getByRole('combobox') as HTMLButtonElement).disabled).toBe(false)
     expect(call).toHaveBeenCalledOnce()
   })
   it('shows read-only state and validates malformed or unacknowledged responses', async () => {
     const call = vi.fn(async () => response('standard', ['gpt-6.1-sol'], false))
     render(<CodexSpeedSettings rpc={{ call } as never} t={key => en[key]} />)
     await screen.findByText(en.codexVerbosityReadOnly)
-    expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(true)
+    expect((screen.getByRole('combobox') as HTMLButtonElement).disabled).toBe(true)
     const bad = vi.fn().mockResolvedValueOnce(response('warp'))
     await expect(requestCodexSpeed({ call: bad } as never)).rejects.toThrow('Invalid Codex speed mode response')
     const noAck = vi.fn().mockResolvedValueOnce(response('standard'))

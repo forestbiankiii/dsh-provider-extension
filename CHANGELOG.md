@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.13.0
+
+- Restyle Codex response detail, context length and speed controls with a shared theme-matched dropdown and keyboard-accessible option menu.
+- Replace per-model context editing with one profile-wide K value (1k = 1,000 tokens). Keep Standard defaults and Extended maxima; Custom applies one shared size, capped at each model's advertised capacity. Preserve legacy per-model config during migration and clamp values to the live global range. Shorten the UI notes.
+- Add RPC, UI, model-cap, legacy migration, dropdown dismissal/focus and persistence regressions. No user settings or provider requests are used in tests; live visual acceptance remains pending restart.
+
 ## 0.12.0
 
 - Add the explicitly approved Codex Standard/Fast setting beside response detail and context length in the Manage settings tab. Save an atomic volatile native `codexSpeedMode` field and expose the same operation via the deferred `codex_speed_mode` tool. Reuse the existing preference RPC, catalog support metadata and priority service-tier payload, leaving reasoning, model, account and other providers unchanged. Unsupported models retain standard behavior; Fast may consume subscription quota faster. Do not add Ultrafast.
