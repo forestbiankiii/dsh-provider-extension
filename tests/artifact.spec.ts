@@ -56,6 +56,8 @@ describe('published artifact contract', () => {
     expect(client).toContain('dpe:sketch-drafts:v1')
     expect(client).toContain('studioExportDraft')
     expect(client).toContain('studioObjectEraser')
+    expect(client).toContain('--studio-range-fill')
+    expect(client).toContain('rangeValue')
     expect(client).not.toContain('sketch-agent/start')
   })
   it('ships the confirmed Standard/Fast preference and its deferred shared-operation tool', () => {

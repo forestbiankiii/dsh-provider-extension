@@ -5,6 +5,7 @@ import type { CodexImageAnnotation } from './codex-image-annotations.ts'
 import { clamp, imagePoint, insideImage, type Point } from './image-studio-model.ts'
 import { StudioDialog, StudioIcon } from './image-studio-modal.tsx'
 import css from './ImageStudio.module.css'
+import { StudioRange } from './StudioRange.tsx'
 
 export interface ImageEditRequest { annotations?: readonly CodexImageAnnotation[]; prompt?: string; source?: File; extra?: File[]; width?: number; height?: number }
 interface Stroke { size: number; points: Point[] }
@@ -77,7 +78,7 @@ export function CodexImageViewer({ src,width,height,name,t,onClose,onDownload,on
     <div className={css.viewerTitle}>{name} · {width} × {height}</div>
     <button type="button" className={css.close} aria-label={t('studioClose')} onClick={onClose} disabled={busy}><StudioIcon name="close"/></button>
     {mode==='erase'&&<div className={css.eraseBar} role="toolbar" aria-label={t('studioErase')}>
-      <label>{t('studioBrushSize')}<input type="range" min=".01" max=".15" step=".01" value={brush} onChange={e=>setBrush(Number(e.target.value))}/></label>
+      <label>{t('studioBrushSize')}<StudioRange label={t('studioBrushSize')} min={.01} max={.15} step={.01} value={brush} valueText={`${Math.round(brush*100)}%`} onChange={setBrush}/></label>
       <button type="button" className={css.tool} disabled={!strokes.length||busy} onClick={()=>setStrokes(s=>s.slice(0,-1))}>{t('studioUndo')}</button>
       <button type="button" className={css.tool} onClick={()=>{setMode('pan');setStrokes([])}} disabled={busy}>{t('codexAnnotationCancel')}</button>
       <button type="button" className={css.primary} disabled={!strokes.length||busy} onClick={()=>void invoke(stageErase,true)}>{t(busy?'studioPending':'studioContinue')}</button>

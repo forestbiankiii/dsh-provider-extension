@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.19.3
+
+- Use one native-range presentation for brush size, opacity, smoothing, object/curve properties and the erase brush: theme-aware 4px tracks, 14px handles, aligned compact readouts and matching color swatches instead of browser-default blue controls.
+- Preserve ranges and defaults. Match smoothing's step to its existing 35% default to avoid native thumb rounding to 40%. Verify Arrow/Home/End keys, disabled semantics and dark/light alignment in Chromium; retain controlled-value regression tests.
+
 ## 0.19.2
 
 - Align the sketch header into leading/settings/action groups with uniform 36px controls; keep Close in normal header flow rather than floating over uneven buttons. Adapt the groups to narrow widths without overlapping.
