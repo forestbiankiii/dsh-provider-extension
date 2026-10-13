@@ -1,6 +1,7 @@
 import { readCodexAccountUsage } from "./account-usage.ts";
 import { normalizeAbortDrops } from "./abort-normalize.ts";
 import { createCodexImageFeaturesOwner } from "./image-features.ts";
+import { mountCodexSubtasks } from "./subtasks.ts";
 import { clientRequestSchema } from "@deepseek-ai/dsh-client-connection";
 import * as dshCredentials from "@deepseek-ai/dsh-credentials";
 import { dshHomePath, resolveDshHome } from "@deepseek-ai/dsh-home-paths";
@@ -335,7 +336,9 @@ const RPC_ENDPOINTS = Object.freeze([
 	"reset-credit/inspect",
 	"reset-credit/prepare",
 	"reset-credit/consume",
-	"image/original/chunk"
+	"image/original/chunk",
+	"subtask/status",
+	"subtask/preference"
 ]);
 //#endregion
 //#region src/context-length.js
@@ -4110,7 +4113,7 @@ function createSearchProviderSwitcher(loader) {
 		}
 	});
 }
-function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, imageFeaturesConfig } = {}) {
+function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, imageFeaturesConfig, subtasksOwner } = {}) {
 	let settings;
 	const defaultSettings = {
 		imageModel: DEFAULT_IMAGE_MODEL,
@@ -4277,6 +4280,11 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 		return profileSnapshot;
 	};
 	resolveAuth = () => authModels.getAuth(PROVIDER);
+	let subtasks;
+	if (subtasksOwner) ctx.inject(["subagents"], scoped => {
+		subtasks = mountCodexSubtasks(scoped, subtasksOwner);
+		return () => { subtasks = undefined; };
+	});
 	const adapterAuth = Object.freeze({
 		credentials: store,
 		authContext: Object.freeze({
@@ -4406,7 +4414,7 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 		models.setProvider(provider);
 		return await network.run("quota", () => models.getAuth(PROVIDER, { signal }));
 	};
-	const handler = createSubscriptionRpcHandler({
+	const subscriptionHandler = createSubscriptionRpcHandler({
 		authHandler: createCodexRpcHandler(coordinator, { openExternal: openCodexAuthUrl }),
 		usageReader,
 		accountVault,
@@ -4436,6 +4444,23 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 		originalImages,
 		resolveInheritedOriginal: (sessionId, assetId) => inheritedOriginalImageRef(ctx.get?.("sessions")?.get?.(sessionId), assetId)
 	});
+	const handler = async (endpoint, payload, signal) => {
+		if (!endpoint.startsWith("subtask/")) return subscriptionHandler(endpoint, payload, signal);
+		try {
+			signal?.throwIfAborted();
+			if (!subtasks) {
+				if (endpoint !== "subtask/status") throw new Error("Native DSH subtask services are unavailable");
+				return { ok: true, value: { enabled: false, writable: false, available: false, active: 0, toolName: "codex_subtask" } };
+			}
+			let value;
+			if (endpoint === "subtask/status") value = await subtasks.status();
+			else if (endpoint === "subtask/preference") {
+				if (!payload || typeof payload.enabled !== "boolean" || Object.keys(payload).some(key => key !== "enabled")) throw new Error("Invalid independent subtask preference");
+				value = await subtasks.preference(payload.enabled, signal);
+			} else throw new Error("Unknown independent subtask operation");
+			return { ok: true, value };
+		} catch (error) { return { ok: false, error: { code: "codex-subtask-operation", message: error.message } }; }
+	};
 	ctx.effect(() => ctx.tools.register(createOutputVerbosityTool(handler)), "codex-subscription: response detail tool");
 	ctx.effect(() => ctx.tools.register(createContextLengthTool(handler)), "codex-subscription: context length tool");
 	ctx.effect(() => ctx.tools.register(createSpeedModeTool(handler)), "codex-subscription: speed mode tool");

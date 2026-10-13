@@ -100,6 +100,12 @@ export declare const en: {
     readonly codexContextSave: "Save";
     readonly codexContextSaved: "Context length saved.";
     readonly codexContextInvalid: "Enter a whole number from 128 to {maximum}k.";
+    readonly codexSubtasks: "Codex subtasks on DSH";
+    readonly codexSubtasksHint: "Fresh DSH child using Codex subscription models, the parent workspace and delegated DSH permissions. May edit allowed files and consume subscription usage. No CLI component is installed, existing subagents are unchanged, and enabling starts no task.";
+    readonly codexSubtasksEnabled: "Enable Codex delegation";
+    readonly codexSubtasksParameters: "Request codex_subtask with a self-contained prompt; model and reasoning_effort are optional. The child has no parent conversation. run_in_background returns a job id for job_output/job_kill; cancellation does not undo edits. DSH recursion limits apply.";
+    readonly codexSubtasksUnavailable: "The DSH fresh-child backend is unavailable in this profile.";
+    readonly codexSubtasksSaved: "Codex subtask preference saved.";
     readonly codexImageFeatures: "Codex image tools";
     readonly codexImageFeaturesHint: "Availability only. No image is generated automatically; use may consume subscription quota.";
     readonly codexImageGeneration: "Image generation";

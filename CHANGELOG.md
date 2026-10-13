@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.20.0
+
+- Add an opt-in Codex subscription child-task tool on DSH's existing fresh `spawn` backend. Each task has its own context and optional advertised model/reasoning selection; delegated workspace permissions and recursion limits stay owned by DSH. Existing subagent/fork tools and providers are not replaced.
+- Add a user-only toggle under Codex Manage settings, disabled by default. Foreground returns the final answer; background uses owned native Jobs for collection/cancellation. Disabling blocks new starts without rolling back already accepted work; plugin unload cancels and drains its own tasks.
+- Do not install or launch the official Codex CLI component. The user selected DSH-native execution after the pinned official runtime's inherited MCP configuration could not be reliably isolated through public APIs. Agent drawing remains rejected and disabled. Verification uses synthetic tasks, not paid provider requests.
+
 ## 0.19.3
 
 - Use one native-range presentation for brush size, opacity, smoothing, object/curve properties and the erase brush: theme-aware 4px tracks, 14px handles, aligned compact readouts and matching color swatches instead of browser-default blue controls.

@@ -61,6 +61,16 @@ Import PNG/JPEG/WebP as image layers, export PNG or this extension's editable JS
 
 **Attach to composer** only prepares the sketch and prompt; add the desired finished-image instructions and send explicitly. This increment does not enable Agent drawing or change input precision/output quality defaults.
 
+## Codex subscription tasks on DSH
+
+Enable **Provider Extension → OpenAI Codex → Manage settings → Enable Codex delegation** (off by default). This creates fresh DSH child sessions using this plugin's Codex subscription route, not the official Codex CLI. No component installation is needed and changing the preference makes no model request. Existing `subagent` and `subagent_fork` tools are unchanged.
+
+In a Codex session, explicitly ask the assistant to use `codex_subtask` with a complete, self-contained task. Optional `model` and `reasoning_effort` must be advertised/supported; omission uses the current model and compatible effort, while a different model with no effort uses that model's default. Explicit selection respects DSH subagent model restrictions. The parent model does not change.
+
+The child uses the parent's workspace, DSH delegated permissions and recursion limits, but not the parent conversation. Foreground waits for the final answer. `run_in_background: true` returns an owned job id for `job_output` or `job_kill`; cancellation does not roll back edits. Turning the toggle off stops new tasks only; unloading this plugin cancels and drains its tasks. Child model calls consume subscription usage; synthetic tests do not make paid requests.
+
+The official native CLI execution path is not shipped because its public APIs cannot reliably isolate system/project MCP configuration. There is no silent fallback to it.
+
 ## Codex speed mode
 
 In **OpenAI Codex → Manage settings**, select **Standard** or **Fast**. It saves the Codex-profile preference for subsequent requests. The existing catalog capability determines which models can actually receive the Fast priority tier; other models keep standard behavior, and an empty advertised support list is shown in the panel. Fast does not change reasoning effort, model, account or other providers and may consume subscription quota faster. It does not unlock access.

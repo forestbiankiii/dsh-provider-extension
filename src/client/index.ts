@@ -178,6 +178,7 @@ export function apply(ctx: ClientContext): void {
       codexReset: { rpc, t: ctx.locale.bind('providerUsage'), locale: ctx.locale.getSnapshot().active === 'zh' ? 'zh-CN' : 'en-US' },
       codexVerbosity: { rpc, subscribe: listener => ctx.remote.$on('settings/document-updated', () => listener()) },
       codexImageFeatures: { rpc, subscribe: listener => ctx.remote.$on('settings/document-updated', () => listener()) },
+      codexSubtasks: { rpc, subscribe: listener => ctx.remote.$on('settings/document-updated', () => listener()) },
       codexSpeed: { rpc, subscribe: listener => {
         const disposers = [ctx.remote.$on('settings/document-updated', () => listener()), ctx.remote.$on('llm/adapters-updated', () => listener())]
         return () => { disposers.forEach(dispose => dispose()) }

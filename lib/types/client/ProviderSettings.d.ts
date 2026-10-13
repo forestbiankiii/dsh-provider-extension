@@ -39,6 +39,7 @@ export interface ProviderSettingsInjected {
     codexContext?: Omit<CodexVerbosityProps, 't'>;
     codexSpeed?: Omit<CodexVerbosityProps, 't'>;
     codexImageFeatures?: Omit<CodexImageFeaturesProps, 't'>;
+    codexSubtasks?: Omit<CodexVerbosityProps, 't'>;
     loadAntigravity: () => Promise<void>;
     refreshAntigravityModels: () => Promise<void>;
     loginAntigravity: () => Promise<void>;
@@ -61,4 +62,4 @@ export type ProviderSettingsProps = PropsRuntime<'settings.section'> & PropsLoca
 export declare const GEMINI_TIERS: readonly ["Free", "Pro", "Ultra"];
 export type GeminiTier = typeof GEMINI_TIERS[number];
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
-export declare function ProviderSettings({ useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, codexReset, onCodexReset, codexVerbosity, codexContext, codexSpeed, codexImageFeatures, loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, useClaude, loadClaude, loginClaude, loadClaudeModels, t, }: ProviderSettingsProps): ReactNode;
+export declare function ProviderSettings({ useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, codexReset, onCodexReset, codexVerbosity, codexContext, codexSpeed, codexImageFeatures, codexSubtasks, loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota, useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, useClaude, loadClaude, loginClaude, loadClaudeModels, t, }: ProviderSettingsProps): ReactNode;

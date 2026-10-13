@@ -60,6 +60,12 @@ describe('published artifact contract', () => {
     expect(client).toContain('rangeValue')
     expect(client).not.toContain('sketch-agent/start')
   })
+  it('ships opt-in DSH Codex tasks without the abandoned native CLI component',()=>{
+    const host=readFileSync(new URL('../lib/index.js',import.meta.url),'utf8')
+    expect(host).toContain('codex_subtask');expect(host).toContain('subtask/preference');expect(host).toContain('codexSubtasks')
+    expect(host).not.toContain('chatgptAuthTokens');expect(host).not.toContain('dsh-subagent-codex');expect(host).not.toContain('subtask/component')
+    expect(client).toContain('codexSubtasksEnabled');expect(client).not.toContain('codexSubtasksPrepare')
+  })
   it('ships the confirmed Standard/Fast preference and its deferred shared-operation tool', () => {
     const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
     expect(host).toContain('codexSpeedMode')

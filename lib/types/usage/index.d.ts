@@ -10,8 +10,8 @@ export declare const usageQuerySchema: z.ZodObject<{
     timezone: z.ZodDefault<z.ZodString>;
     role: z.ZodDefault<z.ZodEnum<{
         all: "all";
-        main: "main";
         subagent: "subagent";
+        main: "main";
     }>>;
     workspace: z.ZodOptional<z.ZodString>;
     provider: z.ZodOptional<z.ZodString>;

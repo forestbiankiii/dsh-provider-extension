@@ -6,6 +6,7 @@ import { type OutputVerbosityConfig } from './codex/output-verbosity.ts';
 import { type ContextLengthConfig } from './codex/context-length.ts';
 import { type SpeedModeConfig } from './codex/speed-mode.ts';
 import { type CodexImageFeaturesConfig } from './codex/image-features.ts';
+import { type CodexSubtasksConfig } from './codex/subtasks.ts';
 export declare const name = "provider-extension";
 export declare const Config: Schema<Schemastery.ObjectS<{
     codexOutputVerbosity: Schema<"default" | "low" | "medium" | "high", "default" | "low" | "medium" | "high">;
@@ -26,6 +27,7 @@ export declare const Config: Schema<Schemastery.ObjectS<{
         imageGeneration: Schema<boolean, boolean>;
         imageEditing: Schema<boolean, boolean>;
     }>>;
+    codexSubtasks: Schema<"disabled" | "enabled", "disabled" | "enabled">;
     claudeExecutable: Schema<string, string>;
     claudeStreamIdleTimeoutMs: Schema<number, number>;
     claudeUnsupportedFields: Schema<"error" | "ignore", "error" | "ignore">;
@@ -48,6 +50,7 @@ export declare const Config: Schema<Schemastery.ObjectS<{
         imageGeneration: Schema<boolean, boolean>;
         imageEditing: Schema<boolean, boolean>;
     }>>;
+    codexSubtasks: Schema<"disabled" | "enabled", "disabled" | "enabled">;
     claudeExecutable: Schema<string, string>;
     claudeStreamIdleTimeoutMs: Schema<number, number>;
     claudeUnsupportedFields: Schema<"error" | "ignore", "error" | "ignore">;
@@ -59,6 +62,7 @@ export declare function apply(ctx: Context, config?: ClaudeConfig & {
     codexContextLength?: ContextLengthConfig;
     codexSpeedMode?: SpeedModeConfig;
     codexImageFeatures?: CodexImageFeaturesConfig;
+    codexSubtasks?: CodexSubtasksConfig;
 }): void;
 export * from './antigravity/index.ts';
 export { AntigravitySearchProvider, ANTIGRAVITY_SEARCH_PROVIDER_ID } from './antigravity/search.ts';
