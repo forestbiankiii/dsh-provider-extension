@@ -49,6 +49,9 @@ describe('published artifact contract', () => {
   it('ships the confirmed large image viewer and independent local sketch board',()=>{
     expect(client).toContain('showModal')
     expect(client).toContain('provider-extension-sketch')
+    expect(client).toContain('conversation.input.left')
+    expect(client).not.toContain('conversation.input.dock')
+    expect(client).toContain('codexSketchTrigger')
     expect(client).toContain('codex-erase-mask.png')
     expect(client).toContain('dpe:sketch-drafts:v1')
     expect(client).toContain('studioExportDraft')

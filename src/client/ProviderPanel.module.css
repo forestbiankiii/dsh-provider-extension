@@ -824,6 +824,12 @@
 
 /* ------------------------------------------------------------------ motion */
 
+.codexSketchEntry { position: relative; display: inline-flex; align-items: center; flex: 0 0 auto; }
+.codexSketchTrigger { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
+.codexSketchTrigger:hover:not(:disabled) { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }
+.codexSketchTrigger:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; }
+.codexSketchTrigger:disabled { opacity: .4; cursor: default; }
+.codexSketchEntryError { position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 20; width: max-content; max-width: min(280px, 80vw); padding: 8px 10px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; background: var(--dsw-alias-bg-overlay); color: var(--dsw-alias-state-error-primary); font-size: 12px; }
 .codexImageOutput { display: flex; flex-direction: column; gap: 8px; max-width: 584px; }
 .codexOriginalImageCard { display: flex; flex-direction: column; gap: 10px; max-width: 560px; margin-top: 8px; padding: 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); }
 .codexOriginalImageHeader { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 12px; }

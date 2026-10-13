@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.19.1
+
+- Move the sketch-board launcher out of the full-width pre-composer dock into the composer's left tool row. Use a compact pen icon with an accessible label and hover title, beside the existing input controls rather than at the page edge.
+- Add regression checks for the toolbar slot and icon entry; drawing and image-edit behavior are unchanged.
+
 ## 0.19.0
 
 - Replace inline marking with a native top-layer image viewer: click thumbnails for zoom/pan, draggable numbered notes, exact original download, erase-mask brush, background removal and aspect-ratio edit drafts. Disable browser image dragging and preserve the source raster.

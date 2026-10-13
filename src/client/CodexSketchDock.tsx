@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CodexOriginalImageToolViewProps } from './CodexOriginalImageToolView.tsx'
 import { CodexSketchBoard } from './CodexSketchBoard.tsx'
+import { StudioIcon } from './image-studio-modal.tsx'
 import { assertEmptyImageDraft, commitImageDraft, imageEditSettings, validateEditFiles } from './codex-image-edit.ts'
 import css from './ProviderPanel.module.css'
 export type CodexSketchDockProps = Pick<CodexOriginalImageToolViewProps,'rpc'|'sessionId'|'t'|'conversation'|'isCodexRoute'|'inputActions'|'useInput'>
@@ -19,5 +20,5 @@ export function CodexSketchDock(props:CodexSketchDockProps){
     commitImageDraft(props,current,[file],props.t('studioSketchPrompt'))
   }
   if(!props.isCodexRoute())return null
-  return <div><button type="button" className={css.codexOriginalImageButton} disabled={busy} onClick={()=>void start()}>{props.t('studioSketch')}</button>{error&&<span role="alert">{error}</span>}{open&&<CodexSketchBoard t={props.t} sessionKey={props.sessionId} onClose={()=>setOpen(false)} onAttach={attach}/>}</div>
+  return <div className={css.codexSketchEntry}><button type="button" className={css.codexSketchTrigger} title={error||props.t('studioSketch')} aria-label={props.t('studioSketch')} aria-haspopup="dialog" aria-expanded={open} disabled={busy} onClick={()=>void start()}><StudioIcon name="pen"/></button>{error&&<span className={css.codexSketchEntryError} role="alert">{error}</span>}{open&&<CodexSketchBoard t={props.t} sessionKey={props.sessionId} onClose={()=>setOpen(false)} onAttach={attach}/>}</div>
 }

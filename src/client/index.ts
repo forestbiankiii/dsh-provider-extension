@@ -262,8 +262,8 @@ export function apply(ctx: ClientContext): void {
       isCodexRoute: () => isCodexProvider(directory.store.getSnapshot().current?.provider),
     }
   }
-  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
-    name: 'conversation.input.dock', id: 'provider-extension-sketch', order: 30, locale: NS, inject: imageViewInject,
+  ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
+    name: 'conversation.input.left', id: 'provider-extension-sketch', order: 30, locale: NS, inject: imageViewInject,
   }, CodexSketchDock))
   ctx.effect(() => ctx.uiConversation.events.register(codexImageConversationNode), 'provider extension: Codex image chat results')
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
