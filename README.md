@@ -49,7 +49,17 @@ For a completed `codex_image_generate` call, the generated image is also rendere
 
 ## Codex annotated edits
 
-When **Image editing** and annotations are enabled, open a completed image result, choose **Mark areas**, click to place numbered pins, and add a note for each area. **Continue editing** adds the clean source image, a numbered PNG location reference, and the coordinate/note prompt to the current Codex composer. It does not alter the saved original or send the request; review the prepared draft and press Send. Sending may use subscription quota.
+Click a thumbnail to open a large modal viewer. The floating toolbar provides zoom/pan, fit/actual size, original download, numbered notes, erase-mask brush, background removal, aspect-ratio edits and the sketch board. Images cannot be browser-dragged: use Move to pan, Annotate to add numbered pins, and drag existing pins to reposition them. Enter closes a note; Shift+Enter adds a line.
+
+With **Image editing** and annotations enabled, **Continue editing** prepares the clean source, a numbered PNG location reference and coordinate/note prompt in the current Codex composer. Erase prepares a same-size black/white region mask instead. Nothing modifies the saved original or submits automatically. Existing images/reference chips are not overwritten, and a draft revision change during preparation cancels the handoff. Review the draft and press Send; editing may use subscription quota.
+
+## Codex sketch board
+
+Open **Sketch board** above the Codex composer or in the large-image toolbar. Draw with pen/pencil/highlighter, brush/object erasers, lines, arrows, rectangles, ellipses, editable curves and text. Select objects to move, scale and recolor them. Layers support add/duplicate/delete/reorder/show/hide/lock; brush erasure affects only its own layer. Ctrl/Cmd+Z undoes, Shift+Ctrl/Cmd+Z redoes, and Space+drag pans after the canvas has focus.
+
+Import PNG/JPEG/WebP as image layers, export PNG or this extension's editable JSON document, and save up to 20 local drafts in the current browser. Closing/reopening keeps an unsaved drawing within the page, but save/export before refresh or exit. The JSON format is not guaranteed compatible with upstream sketch documents.
+
+**Attach to composer** only prepares the sketch and prompt; add the desired finished-image instructions and send explicitly. This increment does not enable Agent drawing or change input precision/output quality defaults.
 
 ## Codex speed mode
 

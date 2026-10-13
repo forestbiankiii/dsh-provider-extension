@@ -1,0 +1,57 @@
+/* Geometry follows the upstream floating viewer / sketch studio; colors follow DSH. */
+.viewerDialog,.sketchDialog { box-sizing:border-box; color:var(--dsw-alias-label-primary); background:var(--dsw-alias-bg-base); font:13px/1.4 system-ui; }
+.viewerDialog { position:fixed; inset:0; width:100vw; height:100dvh; max-width:none; max-height:none; margin:0; padding:0; border:0; background:color-mix(in srgb,var(--dsw-alias-bg-base) 85%,transparent); }
+.viewerDialog::backdrop,.sketchDialog::backdrop { background:color-mix(in srgb,var(--dsw-alias-bg-base) 65%,transparent); backdrop-filter:blur(13px); }
+.viewerDialog button,.sketchDialog button,.viewerDialog a { display:inline-flex; align-items:center; justify-content:center; gap:6px; color:inherit; font:inherit; cursor:pointer; text-decoration:none; }
+.viewerDialog button:disabled,.sketchDialog button:disabled { opacity:.4; cursor:default; }
+.viewerDialog button:focus-visible,.sketchDialog button:focus-visible,.viewerDialog input:focus-visible,.sketchDialog input:focus-visible,.viewerDialog textarea:focus-visible { outline:2px solid var(--dsw-alias-brand-primary); outline-offset:3px; }
+.viewerTitle { position:absolute; top:22px; left:24px; z-index:2; color:var(--dsw-alias-label-secondary); }
+.close { position:absolute; top:18px; right:20px; z-index:8; width:42px; height:42px; border:1px solid var(--dsw-alias-border-l2); border-radius:50%; background:var(--dsw-alias-bg-overlay); }
+.stage { position:absolute; inset:68px 24px 100px; display:flex; align-items:center; justify-content:center; overflow:hidden; touch-action:none; user-select:none; cursor:grab; }
+.stage[data-mode=mark],.stage[data-mode=erase] { cursor:crosshair; }
+.surface { position:relative; flex:none; transform-origin:center; line-height:0; }
+.surface img { width:100%; height:100%; display:block; border-radius:12px; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+.surface canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.toolbar { position:absolute; bottom:22px; left:50%; transform:translateX(-50%); z-index:6; display:flex; align-items:center; gap:3px; max-width:calc(100vw - 32px); padding:5px; border:1px solid var(--dsw-alias-border-l2); border-radius:28px; background:var(--dsw-alias-bg-overlay); box-shadow:0 10px 34px color-mix(in srgb,var(--dsw-alias-label-primary) 15%,transparent); }
+.tool { min-width:36px; height:36px; padding:0 9px; border:0; border-radius:20px; background:transparent; white-space:nowrap; }
+.tool:hover,.tool[aria-pressed=true] { background:var(--dsw-alias-bg-layer-2); }
+.primary { border:0; background:var(--dsw-alias-brand-primary); color:var(--dsw-alias-bg-base)!important; border-radius:22px; padding:9px 16px; }
+.divider { width:1px; height:20px; background:var(--dsw-alias-border-l2); }
+.notePin { position:absolute; z-index:3; width:28px; height:28px; border:2px solid var(--dsw-alias-bg-base); border-radius:50%; background:var(--dsw-alias-label-primary); color:var(--dsw-alias-bg-base)!important; transform:translate(-50%,-50%); font-weight:700!important; touch-action:none; }
+.notePin[aria-pressed=true] { background:var(--dsw-alias-brand-primary); }
+.note { position:absolute; z-index:5; width:min(300px,calc(100vw - 36px)); display:flex; align-items:center; gap:6px; padding:8px; border:1px solid var(--dsw-alias-border-l2); border-radius:18px; background:var(--dsw-alias-bg-overlay); box-shadow:0 14px 38px color-mix(in srgb,var(--dsw-alias-label-primary) 15%,transparent); }
+.note textarea { flex:1; width:0; min-height:42px; max-height:160px; resize:vertical; padding:4px; border:0; background:transparent; color:inherit; font:inherit; }
+.eraseBar { position:absolute; top:18px; left:50%; transform:translateX(-50%); z-index:6; display:flex; align-items:center; gap:8px; padding:7px 12px; border:1px solid var(--dsw-alias-border-l2); border-radius:24px; background:var(--dsw-alias-bg-overlay); }
+.eraseBar label { display:flex; align-items:center; gap:5px; white-space:nowrap; }
+.notice { position:absolute; bottom:74px; left:50%; transform:translateX(-50%); max-width:calc(100vw - 40px); margin:0; padding:7px 12px; border-radius:12px; background:var(--dsw-alias-bg-overlay); color:var(--dsw-alias-label-secondary); text-align:center; z-index:6; }
+.notice[role=alert] { color:var(--dsw-alias-state-error-primary); }
+.menu { position:absolute; bottom:46px; left:0; display:flex; flex-direction:column; padding:5px; border:1px solid var(--dsw-alias-border-l2); border-radius:12px; background:var(--dsw-alias-bg-overlay); }
+.sketchDialog { width:min(1280px,calc(100vw - 24px)); height:94dvh; max-width:none; max-height:94dvh; margin:auto; padding:12px; border:1px solid var(--dsw-alias-border-l2); border-radius:18px; overflow:hidden; }
+.sketchDialog[open] { display:flex; flex-direction:column; gap:8px; }
+.sketchHeader { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-right:45px; }
+.sketchHeader strong { font-size:16px; margin-right:auto; }
+.sketchDialog .close { top:10px; right:10px; width:36px; height:36px; }
+.pill { display:flex; align-items:center; gap:4px; padding:3px; border:1px solid var(--dsw-alias-border-l1); border-radius:24px; background:var(--dsw-alias-bg-layer-1); }
+.board { position:relative; flex:1; min-height:0; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--dsw-alias-bg-layer-2); border-radius:12px; touch-action:none; }
+.boardSurface { position:relative; flex:none; transform-origin:center; box-shadow:0 2px 12px color-mix(in srgb,var(--dsw-alias-label-primary) 12%,transparent); }
+.boardSurface canvas { display:block; width:100%; height:100%; pointer-events:none; }
+.selection { position:absolute; border:1px dashed var(--dsw-alias-brand-primary); pointer-events:none; }
+.controls { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--dsw-alias-border-l2); border-radius:16px; background:var(--dsw-alias-bg-layer-1); }
+.controls label,.properties label { display:flex; align-items:center; gap:5px; }
+.controls input[type=range] { width:80px; }
+.controls button { padding:5px 8px; min-height:40px; border:0; border-radius:10px; background:transparent; flex-direction:column; gap:2px; font-size:11px; }
+.controls button[aria-pressed=true] { background:var(--dsw-alias-bg-layer-2); box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l2); }
+.sketchDialog select,.sketchDialog input:not([type=range]):not([type=color]):not([type=checkbox]) { padding:6px 8px; border:1px solid var(--dsw-alias-border-l2); border-radius:8px; background:var(--dsw-alias-bg-layer-1); color:inherit; font:inherit; }
+.layers { position:absolute; right:8px; top:8px; width:220px; max-height:calc(100% - 16px); overflow:auto; padding:12px; border:1px solid var(--dsw-alias-border-l2); border-radius:18px; background:var(--dsw-alias-bg-overlay); z-index:3; }
+.layers header { display:flex; align-items:center; justify-content:space-between; }
+.layerRow { display:flex; align-items:center; margin:4px 0; border-radius:10px; }
+.layerRow[data-active=true] { background:var(--dsw-alias-bg-layer-2); }
+.layerRow button:last-child { flex:1; justify-content:flex-start; overflow:hidden; text-overflow:ellipsis; }
+.layerActions { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+.properties { display:flex; flex-direction:column; gap:8px; border-top:1px solid var(--dsw-alias-border-l1); margin-top:10px; padding-top:10px; }
+.files { position:absolute; left:8px; top:8px; z-index:4; width:min(340px,calc(100% - 16px)); max-height:calc(100% - 16px); overflow:auto; display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--dsw-alias-border-l2); border-radius:16px; background:var(--dsw-alias-bg-overlay); }
+.draftRow { display:flex; gap:4px; border-bottom:1px solid var(--dsw-alias-border-l1); }
+.draftRow button:first-child { flex:1; justify-content:flex-start; }
+.status { margin:0; color:var(--dsw-alias-label-secondary); font-size:12px; text-align:center; }
+.status[role=alert] { color:var(--dsw-alias-state-error-primary); }
+@media(max-width:760px) { .toolbar { flex-wrap:wrap; justify-content:center; width:max-content; bottom:12px; } .stage { inset:62px 12px 136px; } .notice { bottom:100px; } .eraseBar { top:8px; left:10px; transform:none; max-width:calc(100% - 62px); flex-wrap:wrap; border-radius:12px; } .viewerTitle { top:16px;left:14px; } .sketchDialog { width:calc(100vw - 12px); height:97dvh; max-height:97dvh; padding:6px; } .sketchHeader strong { display:none; } .controls { gap:3px; padding:4px; } .controls button { min-height:34px; padding:3px 5px; } }

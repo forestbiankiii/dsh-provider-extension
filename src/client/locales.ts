@@ -1,5 +1,7 @@
 /** provider-extension copy; both locales describe the actual installed capability. */
+import { studioEn, studioZh } from './image-studio-locales.ts'
 export const en = {
+  ...studioEn,
   title: 'Model and reasoning effort', trigger: 'Select model', effort: 'Reasoning effort',
   providerTitle: 'Select provider', providerTrigger: 'Provider', providerEmpty: 'No provider is available.',
   accountsLoading: 'Loading subscription accounts…', accountUnavailable: 'Account switching is unavailable.',
@@ -150,6 +152,7 @@ export const en = {
 } as const
 export type ProviderPanelKey = keyof typeof en
 export const zh: { [Key in ProviderPanelKey]: string } = {
+  ...studioZh,
   title: '模型与推理等级', trigger: '选择模型', effort: '推理等级',
   providerTitle: '选择提供方', providerTrigger: '提供方', providerEmpty: '没有可用的提供方。',
   accountsLoading: '正在加载订阅账号…', accountUnavailable: '账号切换不可用。',

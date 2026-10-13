@@ -46,6 +46,15 @@ describe('published artifact contract', () => {
     expect(client).toContain('codexAnnotationPrompt')
     expect(client).toContain('Continue editing')
   })
+  it('ships the confirmed large image viewer and independent local sketch board',()=>{
+    expect(client).toContain('showModal')
+    expect(client).toContain('provider-extension-sketch')
+    expect(client).toContain('codex-erase-mask.png')
+    expect(client).toContain('dpe:sketch-drafts:v1')
+    expect(client).toContain('studioExportDraft')
+    expect(client).toContain('studioObjectEraser')
+    expect(client).not.toContain('sketch-agent/start')
+  })
   it('ships the confirmed Standard/Fast preference and its deferred shared-operation tool', () => {
     const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
     expect(host).toContain('codexSpeedMode')

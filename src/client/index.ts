@@ -15,6 +15,8 @@ import type { ProviderSettingsInjected } from './ProviderSettings.tsx'
 import { CodexOriginalImageToolView, type CodexOriginalImageToolViewProps, type CodexToolCallViewOwnerProps } from './CodexOriginalImageToolView.tsx'
 import { CodexImageOutputChatNode, codexImageConversationNode, type CodexImageOutputNodeOwnerProps } from './codex-image-output-node.tsx'
 import { imageConversation } from './codex-image-composer.ts'
+import { CodexSketchDock } from './CodexSketchDock.tsx'
+import { cssText as studioCssText } from './ImageStudio.module.css'
 import { cssText } from './ProviderPanel.module.css'
 import { cssText as settingsCssText } from './ProviderSettings.module.css'
 import { CodexAccountsController, isCodexProvider } from './providers/codex.ts'
@@ -146,7 +148,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = 'dsh-provider-extension'
-    tag.textContent = `${cssText}\n${settingsCssText}\n${usageCssText}`
+    tag.textContent = `${cssText}\n${settingsCssText}\n${usageCssText}\n${studioCssText}`
     document.head.appendChild(tag)
     return () => { tag.remove() }
   }, 'dsh-provider-extension: styles')
@@ -260,6 +262,9 @@ export function apply(ctx: ClientContext): void {
       isCodexRoute: () => isCodexProvider(directory.store.getSnapshot().current?.provider),
     }
   }
+  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+    name: 'conversation.input.dock', id: 'provider-extension-sketch', order: 30, locale: NS, inject: imageViewInject,
+  }, CodexSketchDock))
   ctx.effect(() => ctx.uiConversation.events.register(codexImageConversationNode), 'provider extension: Codex image chat results')
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
     name: 'conversation.chat.node', key: 'codex-image-output', locale: NS, inject: imageViewInject,

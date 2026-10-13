@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.19.0
+
+- Replace inline marking with a native top-layer image viewer: click thumbnails for zoom/pan, draggable numbered notes, exact original download, erase-mask brush, background removal and aspect-ratio edit drafts. Disable browser image dragging and preserve the source raster.
+- Add a standalone sketch board from the Codex composer and image viewer: pen/pencil/highlighter, brush/object erasers, shapes/curves/text, object movement/scale, editable visible/locked/reordered layers, undo/redo, image import, PNG and editable JSON export, and up to 20 local saved drafts.
+- Keep all image actions as explicit composer preparation, not automatic submission. Recheck route, switches, draft revision/reference chips and attachment limits; match mask/source dimensions and keep unsaved sketches when closing/reopening within the page. Local saved drafts use this extension's JSON format.
+
 ## 0.18.2
 
 - Fix Codex image cards crashing and being retired by the slot renderer on DSH 0.2: normalize `attachmentIds` and use the current attachment draft/actions API while retaining legacy support. Test image-card remount from existing durable results without generating new images.

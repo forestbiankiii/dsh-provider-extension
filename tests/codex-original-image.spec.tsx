@@ -1,6 +1,15 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+beforeEach(() => {
+  if (!HTMLDialogElement.prototype.showModal) HTMLDialogElement.prototype.showModal = function () {}
+  if (!HTMLDialogElement.prototype.close) HTMLDialogElement.prototype.close = function () {}
+  vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(function () { this.setAttribute('open', '') })
+  vi.spyOn(HTMLDialogElement.prototype, 'close').mockImplementation(function () { this.removeAttribute('open') })
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+  vi.stubGlobal('PointerEvent', MouseEvent)
+  HTMLElement.prototype.setPointerCapture = vi.fn()
+})
 import { CodexOriginalImageToolView, decodeCodexOriginalImageRef, readCodexOriginalImage, type CodexOriginalImageRef } from '../src/client/CodexOriginalImageToolView.tsx'
 import { en } from '../src/client/locales.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -43,12 +52,21 @@ describe('Codex original-image preview/download', () => {
     expect(screen.getByText(en.codexOriginalDimensions.replace('{width}', '2').replace('{height}', '2'))).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: en.codexOriginalDownload }))
     await waitFor(() => expect(download).toHaveBeenCalledOnce())
-    const fileLink = screen.getByRole('link', { name: en.codexOriginalDownload }) as HTMLAnchorElement
-    expect(fileLink.download).toBe(ref.name); expect(fileLink.href).toBe('blob:codex-original')
     fireEvent.click(screen.getByRole('button', { name: en.codexOriginalView }))
-    expect(await screen.findByRole('img', { name: en.codexOriginalAlt })).toBeTruthy()
-    expect(call).toHaveBeenCalledOnce()
+    expect(await screen.findByRole('dialog', { name: en.studioPreview })).toBeTruthy()
+    expect(await screen.findByRole('img', { name: ref.name })).toBeTruthy()
+    expect(call.mock.calls.map(args=>args[1])).toEqual(['codex-subscription/image/original/chunk','codex-subscription/preferences/status'])
     expect(call.mock.calls[0]).toEqual(['/api', 'codex-subscription/image/original/chunk', { sessionId: 'session-1', assetId: ref.assetId, offset: 0 }, expect.any(AbortSignal)])
+  })
+  it('opens the stored original even when the historical preview cannot be loaded',async()=>{
+    const call=vi.fn(async (..._args:unknown[])=>({ok:true,value:{ref,offset:0,encoded:'AQIDBA==',done:true}}))
+    vi.spyOn(URL,'createObjectURL').mockReturnValue('blob:stored-original')
+    const viewProps=props(call);viewProps.loadImage=vi.fn(async()=>{throw new Error('Preview unavailable')})
+    render(<CodexOriginalImageToolView {...viewProps}/>)
+    await screen.findByRole('alert')
+    fireEvent.click(screen.getByRole('button',{name:en.codexOriginalView}))
+    expect(await screen.findByRole('dialog',{name:en.studioPreview})).toBeTruthy()
+    expect(screen.getByRole('img',{name:ref.name}).getAttribute('src')).toBe('blob:stored-original')
   })
   it('restores the image card after remount with current DSH attachmentIds state', async () => {
     const call = vi.fn()
@@ -94,14 +112,16 @@ describe('Codex original-image preview/download', () => {
     const canvasContext = { clearRect: vi.fn(), drawImage: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), stroke: vi.fn(), fillText: vi.fn(), save: vi.fn(), restore: vi.fn() }
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(canvasContext as never)
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(callback => callback(new Blob([new Uint8Array(128)], { type: 'image/png' })))
-    vi.spyOn(HTMLButtonElement.prototype, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) } as DOMRect)
+    vi.spyOn(HTMLDivElement.prototype, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) } as DOMRect)
     render(<CodexOriginalImageToolView {...viewProps} />)
     await screen.findByRole('img', { name: en.codexImageOutputAlt })
     fireEvent.click(screen.getByRole('button', { name: en.codexAnnotationStart }))
-    const canvas = await screen.findByRole('button', { name: en.codexAnnotationCanvasAria })
-    fireEvent.click(canvas, { detail: 1, clientX: 30, clientY: 60 })
-    fireEvent.change(screen.getByRole('textbox', { name: /Area 1/u }), { target: { value: 'Repaint the sky' } })
-    fireEvent.click(screen.getByRole('button', { name: en.codexAnnotationUse }))
+    await screen.findByRole('dialog', { name: en.studioPreview })
+    const canvas = screen.getByLabelText(en.studioPreview, { selector: 'div[data-mode]' })
+    fireEvent.pointerDown(canvas, { button: 0, clientX: 30, clientY: 60 })
+    fireEvent.pointerUp(canvas, { button: 0, clientX: 30, clientY: 60 })
+    fireEvent.change(screen.getByRole('textbox', { name: en.studioEditNote.replace('{number}', '1') }), { target: { value: 'Repaint the sky' } })
+    fireEvent.click(screen.getByRole('button', { name: en.studioContinue }))
     expect(await screen.findByText(en.codexAnnotationPrepared)).toBeTruthy()
     expect(createDraftImages).toHaveBeenCalledOnce()
     expect(createdFiles[0]?.map(file => file.name)).toEqual(['codex-clean-source.png', 'codex-location-reference.png'])
@@ -109,7 +129,7 @@ describe('Codex original-image preview/download', () => {
     expect(setDraft.mock.calls[0]?.[0]).toContain('Keep my existing instruction')
     expect(setDraft.mock.calls[0]?.[0]).toContain('Area 1: x=30% (normalized 0.3000, pixel 38.1 of 128), y=60% (normalized 0.6000, pixel 76.2 of 128); Repaint the sky')
     expect(submit).not.toHaveBeenCalled()
-    expect(call).toHaveBeenCalledTimes(2)
+    expect(call.mock.calls.map(args=>args[1])).toEqual(Array(3).fill('codex-subscription/preferences/status'))
   })
   it('honors the edit switch and leaves existing composer images untouched', async () => {
     const limits = { maxImageBytes: 200_000, maxImagesPerMessage: 4, maxMessageImageBytes: 400_000, maxImagePixels: 1_000_000, maxImageDimension: 512, mediaTypes: ['image/png'] }
