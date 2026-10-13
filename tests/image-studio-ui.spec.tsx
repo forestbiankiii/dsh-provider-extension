@@ -60,6 +60,16 @@ describe('Large image studio interactions',()=>{
     expect(context.drawImage).toHaveBeenCalledWith(expect.anything(),0,0,512,512)
     expect(close).toHaveBeenCalledOnce()
   })
+  it('keeps all top controls and the close button in three aligned header groups',()=>{
+    render(<CodexSketchBoard t={t} onClose={vi.fn()} onAttach={vi.fn(async()=>{})}/>)
+    const close=screen.getByRole('button',{name:en.studioClose}),header=close.closest('header')
+    expect(header).toBeTruthy()
+    expect(header?.children).toHaveLength(3)
+    expect(close.parentElement?.className).toContain('headerActions')
+    expect(screen.getByRole('button',{name:en.studioAttach}).parentElement).toBe(close.parentElement)
+    expect(screen.getByRole('combobox',{name:en.studioRatio}).parentElement?.className).toContain('headerSettings')
+    expect(screen.getByRole('button',{name:en.studioDrafts}).parentElement?.className).toContain('headerLeading')
+  })
   it('keeps unsaved session drawings when the board is closed and reopened',()=>{
     const sessionKey=crypto.randomUUID(),attach=vi.fn(async()=>{})
     const first=render(<CodexSketchBoard t={t} sessionKey={sessionKey} onClose={vi.fn()} onAttach={attach}/>)

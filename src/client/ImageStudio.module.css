@@ -28,10 +28,27 @@
 .menu { position:absolute; bottom:46px; left:0; display:flex; flex-direction:column; padding:5px; border:1px solid var(--dsw-alias-border-l2); border-radius:12px; background:var(--dsw-alias-bg-overlay); }
 .sketchDialog { width:min(1280px,calc(100vw - 24px)); height:94dvh; max-width:none; max-height:94dvh; margin:auto; padding:12px; border:1px solid var(--dsw-alias-border-l2); border-radius:18px; overflow:hidden; }
 .sketchDialog[open] { display:flex; flex-direction:column; gap:8px; }
-.sketchHeader { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-right:45px; }
-.sketchHeader strong { font-size:16px; margin-right:auto; }
-.sketchDialog .close { top:10px; right:10px; width:36px; height:36px; }
-.pill { display:flex; align-items:center; gap:4px; padding:3px; border:1px solid var(--dsw-alias-border-l1); border-radius:24px; background:var(--dsw-alias-bg-layer-1); }
+.sketchDialog * { box-sizing:border-box; }
+.sketchHeader { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:12px; min-height:44px; flex:0 0 auto; padding:0 0 8px; border-bottom:1px solid var(--dsw-alias-border-l1); }
+.headerLeading,.headerSettings,.headerActions { display:flex; align-items:center; gap:8px; min-width:0; }
+.headerLeading { grid-column:1; grid-row:1; }
+.headerSettings { grid-column:2; grid-row:1; }
+.headerActions { grid-column:3; grid-row:1; justify-content:flex-end; }
+.sketchHeading { flex:0 1 auto; margin-right:4px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:14px; font-weight:600; }
+.sketchDialog .tool { height:36px; min-height:36px; padding:0 10px; border:1px solid transparent; border-radius:9px; background:transparent; line-height:1; white-space:nowrap; }
+.sketchDialog .tool svg { display:block; flex:none; }
+.sketchDialog .tool:hover:not(:disabled),.sketchDialog .tool[aria-pressed=true] { background:var(--dsw-alias-bg-layer-2); }
+.sketchHeader .tool[aria-pressed=true] { border-color:var(--dsw-alias-border-l1); }
+.sketchHeader .primary { height:36px; padding:0 14px; border-radius:10px; white-space:nowrap; line-height:1; font-weight:500; }
+.sketchDialog .headerRatio { height:36px; min-width:126px; max-width:164px; padding:0 10px; border-radius:9px; line-height:1; }
+.pill,.headerZoom { display:inline-flex; align-items:center; gap:2px; height:36px; padding:1px; border:1px solid var(--dsw-alias-border-l1); border-radius:10px; background:var(--dsw-alias-bg-layer-1); flex:none; }
+.pill .tool,.headerZoom .tool { width:32px; min-width:32px; height:32px; min-height:32px; padding:0; border:0; border-radius:7px; }
+.headerZoom .tool:nth-child(2) { width:52px; color:var(--dsw-alias-label-secondary); font-variant-numeric:tabular-nums; }
+.sketchDialog .headerClose { width:36px; height:36px; padding:0; border:1px solid var(--dsw-alias-border-l1); border-radius:10px; background:var(--dsw-alias-bg-layer-1); flex:none; }
+.sketchDialog .headerClose:hover { background:var(--dsw-alias-bg-layer-2); }
+@media(max-width:520px) { .headerSettings>.tool { padding:0 8px; } .sketchDialog .headerSettings .headerRatio { min-width:104px; padding:0 8px; font-size:12px; } .headerZoom .tool { width:28px; min-width:28px; } .headerZoom .tool:nth-child(2) { width:42px; } }
+@media(max-width:1100px) { .sketchHeading { display:none; } .sketchHeader { gap:8px; } }
+@media(max-width:760px) { .sketchHeader { grid-template-columns:minmax(0,1fr) auto; gap:6px 8px; } .headerActions { grid-column:2; grid-row:1; } .headerSettings { grid-column:1 / -1; grid-row:2; justify-content:center; } .headerLeading,.headerSettings,.headerActions { gap:4px; } .sketchHeader .primary { padding:0 10px; } .sketchDialog .headerRatio { min-width:114px; } }
 .board { position:relative; flex:1; min-height:0; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--dsw-alias-bg-layer-2); border-radius:12px; touch-action:none; }
 .boardSurface { position:relative; flex:none; transform-origin:center; box-shadow:0 2px 12px color-mix(in srgb,var(--dsw-alias-label-primary) 12%,transparent); }
 .boardSurface canvas { display:block; width:100%; height:100%; pointer-events:none; }
@@ -42,13 +59,27 @@
 .controls button { padding:5px 8px; min-height:40px; border:0; border-radius:10px; background:transparent; flex-direction:column; gap:2px; font-size:11px; }
 .controls button[aria-pressed=true] { background:var(--dsw-alias-bg-layer-2); box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l2); }
 .sketchDialog select,.sketchDialog input:not([type=range]):not([type=color]):not([type=checkbox]) { padding:6px 8px; border:1px solid var(--dsw-alias-border-l2); border-radius:8px; background:var(--dsw-alias-bg-layer-1); color:inherit; font:inherit; }
-.layers { position:absolute; right:8px; top:8px; width:220px; max-height:calc(100% - 16px); overflow:auto; padding:12px; border:1px solid var(--dsw-alias-border-l2); border-radius:18px; background:var(--dsw-alias-bg-overlay); z-index:3; }
-.layers header { display:flex; align-items:center; justify-content:space-between; }
-.layerRow { display:flex; align-items:center; margin:4px 0; border-radius:10px; }
-.layerRow[data-active=true] { background:var(--dsw-alias-bg-layer-2); }
-.layerRow button:last-child { flex:1; justify-content:flex-start; overflow:hidden; text-overflow:ellipsis; }
-.layerActions { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
-.properties { display:flex; flex-direction:column; gap:8px; border-top:1px solid var(--dsw-alias-border-l1); margin-top:10px; padding-top:10px; }
+.layers { position:absolute; right:12px; top:12px; width:232px; max-width:calc(100% - 24px); max-height:calc(100% - 24px); overflow:auto; padding:12px; border:1px solid var(--dsw-alias-border-l1); border-radius:12px; background:var(--dsw-alias-bg-layer-1); box-shadow:0 6px 20px color-mix(in srgb,var(--dsw-alias-label-primary) 10%,transparent); z-index:3; font-size:12px; }
+.layers header { display:flex; align-items:center; justify-content:space-between; height:28px; margin-bottom:8px; }
+.layers header strong,.properties strong { font-size:12px; font-weight:600; }
+.layers header .tool { width:28px; min-width:28px; height:28px; min-height:28px; padding:0; }
+.layerRow { display:flex; align-items:center; gap:6px; min-height:34px; margin:4px 0; padding:0 8px; border:1px solid transparent; border-radius:8px; }
+.layerRow[data-active=true] { background:var(--dsw-alias-bg-layer-2); border-color:var(--dsw-alias-border-l1); }
+.layerRow .tool { flex:1; justify-content:flex-start; height:32px; min-height:32px; padding:0 2px; overflow:hidden; text-overflow:ellipsis; }
+.panelField,.properties label { display:grid; grid-template-columns:70px minmax(0,1fr); align-items:center; gap:8px; margin-top:10px; color:var(--dsw-alias-label-secondary); }
+.panelField input { width:100%; min-width:0; }
+.panelCheck { display:flex; align-items:center; gap:8px; margin:10px 0; color:var(--dsw-alias-label-secondary); }
+.layers input[type=checkbox] { width:14px; height:14px; margin:0; accent-color:var(--dsw-alias-brand-primary); flex:none; }
+.layers input[type=range] { width:100%; min-width:0; margin:0; accent-color:var(--dsw-alias-brand-primary); }
+.layers input[type=color] { width:34px; height:28px; margin:0; padding:3px; border:1px solid var(--dsw-alias-border-l1); border-radius:6px; background:var(--dsw-alias-bg-layer-2); cursor:pointer; }
+.layers input[type=color]::-webkit-color-swatch-wrapper { padding:0; }
+.layers input[type=color]::-webkit-color-swatch { border:0; border-radius:3px; }
+.layerActions { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:8px; }
+.layers .layerActions .tool,.layers>.tool,.properties>.tool { height:30px; min-height:30px; border-color:var(--dsw-alias-border-l1); border-radius:7px; background:var(--dsw-alias-bg-layer-2); font-size:12px; }
+.layers>.tool,.properties>.tool { width:100%; margin-top:8px; }
+.properties { display:flex; flex-direction:column; gap:8px; border-top:1px solid var(--dsw-alias-border-l1); margin-top:12px; padding-top:12px; }
+.properties label { margin-top:0; }
+.properties>input { width:100%; min-width:0; }
 .files { position:absolute; left:8px; top:8px; z-index:4; width:min(340px,calc(100% - 16px)); max-height:calc(100% - 16px); overflow:auto; display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--dsw-alias-border-l2); border-radius:16px; background:var(--dsw-alias-bg-overlay); }
 .draftRow { display:flex; gap:4px; border-bottom:1px solid var(--dsw-alias-border-l1); }
 .draftRow button:first-child { flex:1; justify-content:flex-start; }

@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.19.2
+
+- Align the sketch header into leading/settings/action groups with uniform 36px controls; keep Close in normal header flow rather than floating over uneven buttons. Adapt the groups to narrow widths without overlapping.
+- Refine the layer panel's surface, compact rows, label/input columns and action sizing. Drawing, saved-draft format and composer submission behavior are unchanged.
+- Check the actual component header/CSS in Chromium at 1280, 900, 600, 420 and 360px widths; add a header-group regression test.
+
 ## 0.19.1
 
 - Move the sketch-board launcher out of the full-width pre-composer dock into the composer's left tool row. Use a compact pen icon with an accessible label and hover title, beside the existing input controls rather than at the page edge.
