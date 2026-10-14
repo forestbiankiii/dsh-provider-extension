@@ -27,6 +27,7 @@ import { CodexVerbositySettings, type CodexVerbosityProps } from './CodexVerbosi
 import { CodexContextSettings } from './CodexContextSettings.tsx'
 import { CodexSpeedSettings } from './CodexSpeedSettings.tsx'
 import { CodexSubtasksSettings } from './CodexSubtasksSettings.tsx'
+import { CodexCompactionSettings } from './CodexCompactionSettings.tsx'
 import { CodexImageFeaturesSettings, type CodexImageFeaturesProps } from './CodexImageFeaturesSettings.tsx'
 
 /** Per-surface actions and stores injected by the client plugin. */
@@ -56,6 +57,7 @@ export interface ProviderSettingsInjected {
   codexSpeed?: Omit<CodexVerbosityProps, 't'>
   codexImageFeatures?: Omit<CodexImageFeaturesProps, 't'>
   codexSubtasks?: Omit<CodexVerbosityProps, 't'>
+  codexCompaction?: Omit<CodexVerbosityProps, 't'>
   loadAntigravity: () => Promise<void>
   refreshAntigravityModels: () => Promise<void>
   loginAntigravity: () => Promise<void>
@@ -187,7 +189,7 @@ function formatResetSeconds(epochSeconds?: number): string {
 
 /** Render two-level provider hub: Level 1 overview with quick views, and Level 2 single-provider detail. */
 export function ProviderSettings({
-  useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, codexReset, onCodexReset, codexVerbosity, codexContext, codexSpeed, codexImageFeatures, codexSubtasks,
+  useAccounts, useAntigravity, loadAccounts, loadCodexModels, readQuota, loginCodex, selectCodexAccount, renameCodexAccount, removeCodexAccount, codexReset, onCodexReset, codexVerbosity, codexContext, codexSpeed, codexImageFeatures, codexSubtasks, codexCompaction,
   loadAntigravity, refreshAntigravityModels, loginAntigravity, logoutAntigravity, selectAntigravityAccount, updateAntigravityAccount, renameAntigravityAccount, removeAntigravityAccount, readAntigravityQuota,
   useOpencode, saveOpencodeConfig, readOpencodeUsage, refreshOpencodeModels, useClaude, loadClaude, loginClaude, loadClaudeModels, t,
 }: ProviderSettingsProps): ReactNode {
@@ -514,6 +516,7 @@ export function ProviderSettings({
                   {codexSpeed && <CodexSpeedSettings {...codexSpeed} t={t} />}
                   {codexImageFeatures && <CodexImageFeaturesSettings {...codexImageFeatures} t={t} />}
                   {codexSubtasks && <CodexSubtasksSettings {...codexSubtasks} t={t} />}
+                  {codexCompaction && <CodexCompactionSettings {...codexCompaction} t={t} />}
                 </div>
                 <div className={`${css.codexAccounts} ${css.codexPane}`} role="tabpanel" tabIndex={0}
                   id={`${codexTabsId}-detail-panel-accounts`} aria-labelledby={`${codexTabsId}-detail-tab-accounts`} hidden={codexPane !== 'accounts'}>
@@ -1423,6 +1426,7 @@ export function ProviderSettings({
                     {codexSpeed && <CodexSpeedSettings {...codexSpeed} t={t} />}
                   {codexImageFeatures && <CodexImageFeaturesSettings {...codexImageFeatures} t={t} />}
                   {codexSubtasks && <CodexSubtasksSettings {...codexSubtasks} t={t} />}
+                  {codexCompaction && <CodexCompactionSettings {...codexCompaction} t={t} />}
                   </div>
                   <div className={`${css.codexAccounts} ${css.codexPane}`} role="tabpanel" tabIndex={0}
                     id={`${codexTabsId}-quick-panel-accounts`} aria-labelledby={`${codexTabsId}-quick-tab-accounts`} hidden={codexPane !== 'accounts'}>

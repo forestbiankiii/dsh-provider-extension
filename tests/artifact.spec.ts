@@ -66,6 +66,12 @@ describe('published artifact contract', () => {
     expect(host).not.toContain('chatgptAuthTokens');expect(host).not.toContain('dsh-subagent-codex');expect(host).not.toContain('subtask/component')
     expect(client).toContain('codexSubtasksEnabled');expect(client).not.toContain('codexSubtasksPrepare')
   })
+  it('ships the opt-in inline cloud checkpoint preference without a standalone compact tool',()=>{
+    const host=readFileSync(new URL('../lib/index.js',import.meta.url),'utf8')
+    expect(host).toContain('dpeCodexCloudCompactionV1');expect(host).toContain('context_management');expect(host).toContain('codexCompactionMode')
+    expect(client).toContain('codexCompactionCloud');expect(client).toContain('codexCompactionDsh')
+    expect(host).not.toContain('codex_cloud_compact');expect(host).not.toContain('/responses/compact')
+  })
   it('ships the confirmed Standard/Fast preference and its deferred shared-operation tool', () => {
     const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
     expect(host).toContain('codexSpeedMode')

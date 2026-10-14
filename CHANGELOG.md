@@ -4,6 +4,13 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.21.0
+
+- Add an experimental, user-only Codex cloud compression preference, defaulting to the unchanged DSH mode. Opted ordinary Codex requests send inline `context_management`; no standalone compact call, background probe, WebSocket change or native review feature is added.
+- Save successful encrypted checkpoints in native durable replay metadata, bound to account/model/session, source provenance and request envelope. Keep complete DSH history through native conversion, then prune only a verified wire prefix while retaining pending tool results and native signatures.
+- Reconcile indexed/deduplicated SSE output with authoritative terminal arrays, handle multiline frames and byte limits, and avoid saving incomplete/aborted checkpoints. DSH manual and automatic safety compaction remain unchanged; invalidated caches regenerate from preserved history, while backend errors do not silently switch modes.
+- Check real installed DSH/Pi SDK prepared dispatch and text/tool-call continuation with synthetic HTTP only. Live ChatGPT subscription acceptance remains user verification; cloud compaction may consume usage and lose detail.
+
 ## 0.20.0
 
 - Add an opt-in Codex subscription child-task tool on DSH's existing fresh `spawn` backend. Each task has its own context and optional advertised model/reasoning selection; delegated workspace permissions and recursion limits stay owned by DSH. Existing subagent/fork tools and providers are not replaced.

@@ -2,6 +2,30 @@ import { readCodexAccountUsage } from "./account-usage.ts";
 import { normalizeAbortDrops } from "./abort-normalize.ts";
 import { createCodexImageFeaturesOwner } from "./image-features.ts";
 import { mountCodexSubtasks } from "./subtasks.ts";
+import { createCloudCompaction } from "./cloud-compaction.ts";
+let cloudWireHelpers;
+async function cloudWirePrefix(context, count, model) {
+	cloudWireHelpers ??= Promise.all([import("@earendil-works/pi-ai/utils/transcript"), import("@earendil-works/pi-ai/api/openai-responses-shared"), import("@earendil-works/pi-ai/api/constrained-sampling")]).catch(error => { cloudWireHelpers = undefined; throw error; });
+	const [transcript, responses, sampling] = await cloudWireHelpers;
+	const normalized = transcript.normalizeContext(context);
+	const prefix = { ...normalized, messages: normalized.messages.slice(0, count + (context.messages[0]?.role !== "system" && normalized.messages[0]?.role === "system" ? 1 : 0)) };
+	const converted = responses.convertResponsesMessages(model, prefix, new Set(["openai", "openai-codex", "opencode"]), {
+		includeSystemPrompt: false,
+		grammarToolInputProperties: sampling.createGrammarToolInputProperties(transcript.getDeclaredTools(normalized.messages), model.compat?.supportsOpenAIGrammarTools ?? false),
+		supportsMidConvoSystemMessages: model.compat?.supportsMidConvoSystemMessages ?? false,
+		supportsAdditionalTools: model.compat?.supportsAdditionalTools ?? false,
+		supportsToolSearch: model.compat?.supportsToolSearch ?? false,
+		toolOptions: { strict: null, supportsStrictMode: model.compat?.supportsStrictMode ?? true, supportsOpenAIGrammarTools: model.compat?.supportsOpenAIGrammarTools ?? false }
+	});
+	const last = prefix.messages.at(-1);
+	const pending = last?.role === "assistant" ? last.content.filter(block => block.type === "toolCall").length : 0;
+	// Prefix-only conversion synthesizes missing results; real results remain in the full wire tail.
+	if (pending) {
+		if (!converted.slice(-pending).every(item => ["function_call_output", "custom_tool_call_output"].includes(item.type) && item.output === "No result provided")) throw new Error("Cloud compaction cannot verify pending tool-call boundaries");
+		return converted.slice(0, -pending);
+	}
+	return converted;
+}
 import { clientRequestSchema } from "@deepseek-ai/dsh-client-connection";
 import * as dshCredentials from "@deepseek-ai/dsh-credentials";
 import { dshHomePath, resolveDshHome } from "@deepseek-ai/dsh-home-paths";
@@ -1701,7 +1725,7 @@ const FAST_SERVICE_TIER = "priority";
 * persistence, headers, transport, and model behavior remain owned by the
 * original provider.
 */
-function openaiCodexSubscriptionProvider({ resolveSpeedMode = () => void 0, resolveOutputVerbosity = () => OUTPUT_VERBOSITY_DEFAULT, resolveContextMode = () => void 0, resolveCustomContextWindow = () => void 0, catalog, runNetwork = (_area, operation) => operation() } = {}) {
+function openaiCodexSubscriptionProvider({ resolveSpeedMode = () => void 0, resolveOutputVerbosity = () => OUTPUT_VERBOSITY_DEFAULT, resolveContextMode = () => void 0, resolveCustomContextWindow = () => void 0, catalog, cloudCompaction, runNetwork = (_area, operation) => operation() } = {}) {
 	const provider = createOpenAICodexProvider();
 	const requestToken = Object.freeze({
 		name: "DSH-managed Codex OAuth request token",
@@ -1716,7 +1740,7 @@ function openaiCodexSubscriptionProvider({ resolveSpeedMode = () => void 0, reso
 	});
 	const modelMetadata = (model) => catalog?.metadata(model?.id);
 	const supportsVerbosity = (model) => modelMetadata(model)?.supportVerbosity ?? model?.id !== "gpt-5.3-codex-spark";
-	const withPreferences = (model, options = {}) => {
+	const withPreferences = (model, options = {}, context) => {
 		const metadata = modelMetadata(model);
 		const requestedVerbosity = resolveOutputVerbosity();
 		const textVerbosity = supportsVerbosity(model) ? requestedVerbosity === "default" ? metadata?.defaultVerbosity ?? "medium" : requestedVerbosity : void 0;
@@ -1736,7 +1760,7 @@ function openaiCodexSubscriptionProvider({ resolveSpeedMode = () => void 0, reso
 					...fast ? { service_tier: FAST_SERVICE_TIER } : {}
 				};
 				const next = await onPayload?.(preferred, requestModel);
-				return {
+				const finalPayload = {
 					...next ?? preferred,
 					...textVerbosity === void 0 ? {} : { text: {
 						...(next ?? preferred).text ?? {},
@@ -1744,6 +1768,7 @@ function openaiCodexSubscriptionProvider({ resolveSpeedMode = () => void 0, reso
 					} },
 					...fast ? { service_tier: FAST_SERVICE_TIER } : {}
 				};
+				return cloudCompaction ? await cloudCompaction.preparePayload(finalPayload, model.contextWindow, options.apiKey, context, model, cloudWirePrefix) : finalPayload;
 			}
 		};
 	};
@@ -1786,8 +1811,8 @@ function openaiCodexSubscriptionProvider({ resolveSpeedMode = () => void 0, reso
 			apiKey: requestToken
 		}),
 		getModels,
-		stream: (model, context, options) => networkIterable(() => normalizeAbortDrops(provider.stream(model, context, withPreferences(model, options)), options)),
-		streamSimple: (model, context, options) => networkIterable(() => normalizeAbortDrops(provider.streamSimple(model, context, withPreferences(model, options)), options))
+		stream: (model, context, options) => networkIterable(() => normalizeAbortDrops(provider.stream(model, context, withPreferences(model, cloudCompaction?.requestOptions(options) ?? options, context)), options)),
+		streamSimple: (model, context, options) => networkIterable(() => normalizeAbortDrops(provider.streamSimple(model, context, withPreferences(model, cloudCompaction?.requestOptions(options) ?? options, context)), options))
 	});
 }
 //#endregion
@@ -3929,6 +3954,11 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 			signal.throwIfAborted();
 			if (endpoint === "preferences/update") {
 				const patch = capabilityPatch(payload);
+				if (Object.hasOwn(payload ?? {}, "compactionMode")) {
+					if (!["dsh", "cloud"].includes(payload.compactionMode)) return publicError("invalid-input", "Invalid Codex compaction mode");
+					if (preferences.status().compactionWritable !== true) return publicError("read-only", "Codex compaction settings are read-only");
+					patch.compactionMode = payload.compactionMode;
+				}
 				for (const [field, rule] of Object.entries(PREFERENCE_FIELDS)) {
 					if (!Object.hasOwn(payload ?? {}, field)) continue;
 					if (!rule.choices.includes(payload[field])) return publicError("internal", rule.error);
@@ -4113,7 +4143,7 @@ function createSearchProviderSwitcher(loader) {
 		}
 	});
 }
-function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, imageFeaturesConfig, subtasksOwner } = {}) {
+function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, imageFeaturesConfig, subtasksOwner, compactionOwner } = {}) {
 	let settings;
 	const defaultSettings = {
 		imageModel: DEFAULT_IMAGE_MODEL,
@@ -4193,7 +4223,10 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 		fetch: (input, init) => network.fetch("catalog", input, init)
 	});
 	const contextPreferences = createContextPreferences({ owner: contextLengthOwner, settings, writable: ctx.settings?.writable ?? false, models: () => modelCatalog.getModels(baseProvider.getModels()), onChange: () => notifyCatalogChanged() });
+	const tokenAccount = token => { const payload = decodeJwtPayload(token); return payload?.["https://api.openai.com/auth"]?.chatgpt_account_id ?? payload?.["https://api.openai.com/auth"]?.account_id; };
+	const cloudCompaction = createCloudCompaction({ enabled: () => compactionOwner?.current() === "cloud", accountForToken: tokenAccount, accountScope: async () => { const resolved = await resolveAuth(); return tokenAccount(resolved?.auth?.apiKey); } });
 	const provider = openaiCodexSubscriptionProvider({
+		cloudCompaction,
 		resolveSpeedMode: () => speedModeOwner?.current() ?? settings.get()[SPEED_MODE_FIELD],
 		resolveOutputVerbosity: () => outputVerbosityOwner?.current() ?? normalizeOutputVerbosity(settings.get()[OUTPUT_VERBOSITY_FIELD]),
 		resolveContextMode: () => contextPreferences.current().mode,
@@ -4210,6 +4243,8 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 			[QUICK_QUOTA_MODE_FIELD]: normalizeQuickQuotaMode(settings.get()[QUICK_QUOTA_MODE_FIELD], settings.get()[LEGACY_QUICK_QUOTA_FIELD]),
 			[SEARCH_PROVIDER_FIELD]: settings.get()[SEARCH_PROVIDER_FIELD],
 			[SPEED_MODE_FIELD]: speedModeOwner?.current() ?? settings.get()[SPEED_MODE_FIELD],
+			compactionMode: compactionOwner?.current() ?? "dsh",
+			compactionWritable: compactionOwner?.writable ?? false,
 			speedModeWritable: speedModeOwner?.writable ?? ctx.settings?.writable ?? false,
 			[OUTPUT_VERBOSITY_FIELD]: outputVerbosityOwner?.current() ?? normalizeOutputVerbosity(settings.get()[OUTPUT_VERBOSITY_FIELD]),
 			outputVerbosityWritable: outputVerbosityOwner?.writable ?? ctx.settings?.writable ?? false,
@@ -4224,6 +4259,10 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 		}),
 		update: async (patch, signal) => {
 			const remaining = { ...patch };
+			if (Object.hasOwn(remaining, "compactionMode")) {
+				if (!compactionOwner) throw new Error("Cloud compaction preference is unavailable");
+				await compactionOwner.save(remaining.compactionMode, signal); delete remaining.compactionMode;
+			}
 			if (contextLengthOwner && [CUSTOM_CONTEXT_OVERRIDES_FIELD, CUSTOM_CONTEXT_WINDOW_FIELD, ...Object.values(CUSTOM_CONTEXT_MODEL_FIELDS)].some(field => Object.hasOwn(patch, field))) throw Object.assign(new Error("Use one global contextLengthK value for Codex context settings"), { code: "invalid-context-preference" });
 			if (Object.hasOwn(patch, CONTEXT_MODE_FIELD) || Object.hasOwn(patch, "contextLengthK")) {
 				await contextPreferences.update({ ...Object.hasOwn(patch, CONTEXT_MODE_FIELD) ? { contextMode: patch.contextMode } : {}, ...Object.hasOwn(patch, "contextLengthK") ? { contextLengthK: patch.contextLengthK } : {} }, signal);
@@ -4323,7 +4362,7 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 		auth: adapterAuth,
 		resolveAttachments: () => ctx.get?.("attachments")
 	});
-	const adapterRegistration = ctx.llm.registerAdapter([PROVIDER], adapter);
+	const adapterRegistration = ctx.llm.registerAdapter([PROVIDER], cloudCompaction.wrapAdapter(adapter));
 	// Re-publish the owned route atomically after its advertised models change.
 	// This notifies the official directory cache without fabricating model entries.
 	notifyCatalogChanged = () => adapterRegistration.replace?.([PROVIDER]);

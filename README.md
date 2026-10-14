@@ -71,6 +71,16 @@ The child uses the parent's workspace, DSH delegated permissions and recursion l
 
 The official native CLI execution path is not shipped because its public APIs cannot reliably isolate system/project MCP configuration. There is no silent fallback to it.
 
+## Codex cloud context compression (experimental)
+
+In **OpenAI Codex → Manage settings → Cloud context compression**, choose **DSH (default)** or **Cloud (experimental)**. Saving makes no model request. Cloud adds server-side inline compaction parameters to ordinary Codex conversation requests, not a separate `/responses/compact` call. Other providers, title generation and native DSH summary requests are unchanged.
+
+When the server emits compaction, its encrypted item and following output are kept in native durable replay metadata. Reuse requires matching account/model/session, native provenance and request boundaries. Only the wire request window is pruned; original chat history stays intact. Account/model changes, forks or altered tools/history invalidate the cache and rebuild requests from retained history. DSH manual `/compact` and automatic safety compaction keep their existing behavior.
+
+This is an experimental request parameter. Offline fixtures do not establish ChatGPT subscription support. Backend rejection or a mismatched native replay boundary is surfaced, not silently switched to another mode or given new retries. You can select **DSH (default)** to continue. Existing DSH recovery policy remains unchanged; this does not guarantee a fix for upstream request-buffer errors.
+
+Cloud compaction may consume subscription usage and lose contextual details; encrypted items are not readable summaries. Verification uses synthetic HTTP, never your live conversation. WebSocket and native review-model features are not enabled.
+
 ## Codex speed mode
 
 In **OpenAI Codex → Manage settings**, select **Standard** or **Fast**. It saves the Codex-profile preference for subsequent requests. The existing catalog capability determines which models can actually receive the Fast priority tier; other models keep standard behavior, and an empty advertised support list is shown in the panel. Fast does not change reasoning effort, model, account or other providers and may consume subscription quota faster. It does not unlock access.

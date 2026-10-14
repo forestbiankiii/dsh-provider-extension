@@ -28,7 +28,7 @@ SOFTWARE.
 
 ## dsh-codex-subscription image viewer design
 
-The floating image-viewer layout, numbered-note interaction, explicit composer handoff, and black/white erase-mask semantics are adapted from [WSL043/dsh-codex-subscription](https://github.com/WSL043/dsh-codex-subscription), pinned at `60d0f70facc3cbc5f02b5c1802d9f53c5be93b94`. This extension uses its own TypeScript components, native top-layer dialogs, DSH theme tokens and bounded drawing-document format. The full upstream agent drawing/runtime features are not included.
+The floating image-viewer layout, numbered-note interaction, explicit composer handoff, and black/white erase-mask semantics are adapted from [WSL043/dsh-codex-subscription](https://github.com/WSL043/dsh-codex-subscription), pinned at `60d0f70facc3cbc5f02b5c1802d9f53c5be93b94`. This extension uses its own TypeScript components, native top-layer dialogs, DSH theme tokens and bounded drawing-document format. The opt-in inline cloud checkpoint flow also follows the same pinned project's subscription-compaction design, with new native-wire boundary/provenance validation and indexed SSE capture. The full upstream agent drawing/runtime features are not included.
 
 MIT License
 

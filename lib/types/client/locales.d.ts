@@ -88,6 +88,11 @@ export declare const en: {
     readonly codexSpeedSaved: "Speed mode saved.";
     readonly codexSpeedHint: "Fast prioritizes supported models and may use quota faster. Reasoning effort stays unchanged.";
     readonly codexSpeedUnsupported: "No Fast-capable model in the current catalog; requests stay standard.";
+    readonly codexCompaction: "Cloud context compression";
+    readonly codexCompactionDsh: "DSH (default)";
+    readonly codexCompactionCloud: "Cloud (experimental)";
+    readonly codexCompactionSaved: "Cloud compression preference saved.";
+    readonly codexCompactionHint: "Cloud adds server-side inline compression to Codex responses; subscription usage may apply and details may be lost. No request is sent when saving. Original history, manual /compact and DSH safety compaction remain available. Backend support is unverified; errors are not silently switched to another mode.";
     readonly codexContext: "Context length";
     readonly codexContextStandard: "Standard";
     readonly codexContextExtended: "Extended";
