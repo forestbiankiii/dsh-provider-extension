@@ -2,6 +2,7 @@
 import type { CompactionMode } from '../codex/cloud-compaction.ts';
 import type { CodexVerbosityProps } from './CodexVerbositySettings.tsx';
 export declare function requestCodexCompaction(rpc: CodexVerbosityProps['rpc'], value?: CompactionMode, signal?: AbortSignal): Promise<{
+    note?: "codexConnectionCloudConflict";
     value: CompactionMode;
     writable: boolean;
 }>;

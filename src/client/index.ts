@@ -180,6 +180,7 @@ export function apply(ctx: ClientContext): void {
       codexImageFeatures: { rpc, subscribe: listener => ctx.remote.$on('settings/document-updated', () => listener()) },
       codexSubtasks: { rpc, subscribe: listener => ctx.remote.$on('settings/document-updated', () => listener()) },
       codexCompaction: { rpc, subscribe: listener => ctx.remote.$on('settings/document-updated', () => listener()) },
+      codexConnection: { rpc, subscribe: listener => ctx.remote.$on('settings/document-updated', () => listener()) },
       codexSpeed: { rpc, subscribe: listener => {
         const disposers = [ctx.remote.$on('settings/document-updated', () => listener()), ctx.remote.$on('llm/adapters-updated', () => listener())]
         return () => { disposers.forEach(dispose => dispose()) }

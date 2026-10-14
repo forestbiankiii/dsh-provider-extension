@@ -4,6 +4,13 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.22.0
+
+- Add a user-only Codex connection preference, default SSE, with experimental native WebSocket socket reuse. Send full context rather than enabling incremental/cached request semantics; models, accounts, reasoning, search and auxiliary title/summary requests are unchanged.
+- Use the existing proxy resolver and an explicitly declared `ws` dependency, with an async-scoped constructor leased for the complete request. Track owned, connecting and orphan sockets; preserve outside constructor behavior; close on owner disposal, account changes and plugin unload. Switching to SSE retires idle sockets without cancelling an accepted stream.
+- Block cloud compression/WebSocket combinations inside the serialized native config edit and at dispatch. Refuse actual SSE fallback for explicitly selected WebSocket; native SDK bounded connection recovery and existing DSH retry policies are unchanged.
+- Verify real installed Pi/DSH prepared dispatch, socket reuse, full input, synthetic handshake failure and cancellation using fake sockets only; no model service is contacted. Live proxy/subscription support remains user acceptance.
+
 ## 0.21.0
 
 - Add an experimental, user-only Codex cloud compression preference, defaulting to the unchanged DSH mode. Opted ordinary Codex requests send inline `context_management`; no standalone compact call, background probe, WebSocket change or native review feature is added.

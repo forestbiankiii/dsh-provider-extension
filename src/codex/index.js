@@ -3,6 +3,8 @@ import { normalizeAbortDrops } from "./abort-normalize.ts";
 import { createCodexImageFeaturesOwner } from "./image-features.ts";
 import { mountCodexSubtasks } from "./subtasks.ts";
 import { createCloudCompaction } from "./cloud-compaction.ts";
+import { createCodexConnection } from "./connection-mode.ts";
+import WebSocket from "ws";
 let cloudWireHelpers;
 async function cloudWirePrefix(context, count, model) {
 	cloudWireHelpers ??= Promise.all([import("@earendil-works/pi-ai/utils/transcript"), import("@earendil-works/pi-ai/api/openai-responses-shared"), import("@earendil-works/pi-ai/api/constrained-sampling")]).catch(error => { cloudWireHelpers = undefined; throw error; });
@@ -1725,7 +1727,7 @@ const FAST_SERVICE_TIER = "priority";
 * persistence, headers, transport, and model behavior remain owned by the
 * original provider.
 */
-function openaiCodexSubscriptionProvider({ resolveSpeedMode = () => void 0, resolveOutputVerbosity = () => OUTPUT_VERBOSITY_DEFAULT, resolveContextMode = () => void 0, resolveCustomContextWindow = () => void 0, catalog, cloudCompaction, runNetwork = (_area, operation) => operation() } = {}) {
+function openaiCodexSubscriptionProvider({ resolveSpeedMode = () => void 0, resolveOutputVerbosity = () => OUTPUT_VERBOSITY_DEFAULT, resolveContextMode = () => void 0, resolveCustomContextWindow = () => void 0, catalog, cloudCompaction, connection, runNetwork = (_area, operation) => operation() } = {}) {
 	const provider = createOpenAICodexProvider();
 	const requestToken = Object.freeze({
 		name: "DSH-managed Codex OAuth request token",
@@ -1811,8 +1813,14 @@ function openaiCodexSubscriptionProvider({ resolveSpeedMode = () => void 0, reso
 			apiKey: requestToken
 		}),
 		getModels,
-		stream: (model, context, options) => networkIterable(() => normalizeAbortDrops(provider.stream(model, context, withPreferences(model, cloudCompaction?.requestOptions(options) ?? options, context)), options)),
-		streamSimple: (model, context, options) => networkIterable(() => normalizeAbortDrops(provider.streamSimple(model, context, withPreferences(model, cloudCompaction?.requestOptions(options) ?? options, context)), options))
+		stream: (model, context, options) => networkIterable(() => (async function* () {
+			const prepared = connection ? await connection.prepare(options) : options;
+			yield* normalizeAbortDrops(provider.stream(model, context, withPreferences(model, cloudCompaction?.requestOptions(prepared) ?? prepared, context)), options);
+		})()),
+		streamSimple: (model, context, options) => networkIterable(() => (async function* () {
+			const prepared = connection ? await connection.prepare(options) : options;
+			yield* normalizeAbortDrops(provider.streamSimple(model, context, withPreferences(model, cloudCompaction?.requestOptions(prepared) ?? prepared, context)), options);
+		})())
 	});
 }
 //#endregion
@@ -3954,6 +3962,12 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 			signal.throwIfAborted();
 			if (endpoint === "preferences/update") {
 				const patch = capabilityPatch(payload);
+				if (Object.hasOwn(payload ?? {}, "connectionMode")) {
+					if (Object.hasOwn(payload, "compactionMode")) return publicError("invalid-input", "Change connection and cloud compression separately");
+					if (!["sse", "websocket"].includes(payload.connectionMode)) return publicError("invalid-input", "Invalid Codex connection mode");
+					if (preferences.status().connectionWritable !== true) return publicError("read-only", "Codex connection settings are read-only");
+					patch.connectionMode = payload.connectionMode;
+				}
 				if (Object.hasOwn(payload ?? {}, "compactionMode")) {
 					if (!["dsh", "cloud"].includes(payload.compactionMode)) return publicError("invalid-input", "Invalid Codex compaction mode");
 					if (preferences.status().compactionWritable !== true) return publicError("read-only", "Codex compaction settings are read-only");
@@ -3990,6 +4004,7 @@ function createSubscriptionRpcHandler({ authHandler, usageReader, accountVault, 
 			};
 		} catch (error) {
 			if (signal.aborted) throw error;
+			if (error?.code === "connection-mode-conflict") return publicError("connection-mode-conflict", error.message);
 			if (error?.code === "invalid-context-preference") return publicError("invalid-input", error.message);
 			return publicError("internal", "Could not update preferences");
 		}
@@ -4143,7 +4158,7 @@ function createSearchProviderSwitcher(loader) {
 		}
 	});
 }
-function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, imageFeaturesConfig, subtasksOwner, compactionOwner } = {}) {
+function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, imageFeaturesConfig, subtasksOwner, compactionOwner, connectionOwner } = {}) {
 	let settings;
 	const defaultSettings = {
 		imageModel: DEFAULT_IMAGE_MODEL,
@@ -4225,8 +4240,13 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 	const contextPreferences = createContextPreferences({ owner: contextLengthOwner, settings, writable: ctx.settings?.writable ?? false, models: () => modelCatalog.getModels(baseProvider.getModels()), onChange: () => notifyCatalogChanged() });
 	const tokenAccount = token => { const payload = decodeJwtPayload(token); return payload?.["https://api.openai.com/auth"]?.chatgpt_account_id ?? payload?.["https://api.openai.com/auth"]?.account_id; };
 	const cloudCompaction = createCloudCompaction({ enabled: () => compactionOwner?.current() === "cloud", accountForToken: tokenAccount, accountScope: async () => { const resolved = await resolveAuth(); return tokenAccount(resolved?.auth?.apiKey); } });
+	const connection = createCodexConnection({ mode: () => connectionOwner?.current() ?? "sse", cloudMode: () => compactionOwner?.current() ?? "dsh", accountForToken: tokenAccount, WebSocket, resolveProxy: async () => (await resolveCodexProxy({ target: new URL("https://chatgpt.com/") })).url, loadControls: () => import("@earendil-works/pi-ai/api/openai-codex-responses") });
+	ctx.effect(() => () => connection.dispose(), "codex-subscription: WebSocket owner lifecycle");
+	ctx.on("agent/disposed", ({ agent }) => { void connection.close(String(agent.id)).catch(() => ctx.logger?.warn?.("Could not release an owned Codex connection")); });
+	ctx.on("session/disposed", session => { void connection.close(String(session.id)).catch(() => ctx.logger?.warn?.("Could not release an owned Codex connection")); });
 	const provider = openaiCodexSubscriptionProvider({
 		cloudCompaction,
+		connection,
 		resolveSpeedMode: () => speedModeOwner?.current() ?? settings.get()[SPEED_MODE_FIELD],
 		resolveOutputVerbosity: () => outputVerbosityOwner?.current() ?? normalizeOutputVerbosity(settings.get()[OUTPUT_VERBOSITY_FIELD]),
 		resolveContextMode: () => contextPreferences.current().mode,
@@ -4243,6 +4263,8 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 			[QUICK_QUOTA_MODE_FIELD]: normalizeQuickQuotaMode(settings.get()[QUICK_QUOTA_MODE_FIELD], settings.get()[LEGACY_QUICK_QUOTA_FIELD]),
 			[SEARCH_PROVIDER_FIELD]: settings.get()[SEARCH_PROVIDER_FIELD],
 			[SPEED_MODE_FIELD]: speedModeOwner?.current() ?? settings.get()[SPEED_MODE_FIELD],
+			connectionMode: connectionOwner?.current() ?? "sse",
+			connectionWritable: connectionOwner?.writable ?? false,
 			compactionMode: compactionOwner?.current() ?? "dsh",
 			compactionWritable: compactionOwner?.writable ?? false,
 			speedModeWritable: speedModeOwner?.writable ?? ctx.settings?.writable ?? false,
@@ -4259,6 +4281,11 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 		}),
 		update: async (patch, signal) => {
 			const remaining = { ...patch };
+			if (Object.hasOwn(remaining, "connectionMode")) {
+				if (!connectionOwner) throw new Error("Codex connection settings are unavailable");
+				await connectionOwner.save(remaining.connectionMode, signal); delete remaining.connectionMode;
+				if (connectionOwner.current() === "sse") connection.retireIdle();
+			}
 			if (Object.hasOwn(remaining, "compactionMode")) {
 				if (!compactionOwner) throw new Error("Cloud compaction preference is unavailable");
 				await compactionOwner.save(remaining.compactionMode, signal); delete remaining.compactionMode;
@@ -4362,7 +4389,7 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 		auth: adapterAuth,
 		resolveAttachments: () => ctx.get?.("attachments")
 	});
-	const adapterRegistration = ctx.llm.registerAdapter([PROVIDER], cloudCompaction.wrapAdapter(adapter));
+	const adapterRegistration = ctx.llm.registerAdapter([PROVIDER], connection.wrapAdapter(cloudCompaction.wrapAdapter(adapter)));
 	// Re-publish the owned route atomically after its advertised models change.
 	// This notifies the official directory cache without fabricating model entries.
 	notifyCatalogChanged = () => adapterRegistration.replace?.([PROVIDER]);
@@ -4484,7 +4511,11 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 		resolveInheritedOriginal: (sessionId, assetId) => inheritedOriginalImageRef(ctx.get?.("sessions")?.get?.(sessionId), assetId)
 	});
 	const handler = async (endpoint, payload, signal) => {
-		if (!endpoint.startsWith("subtask/")) return subscriptionHandler(endpoint, payload, signal);
+		if (!endpoint.startsWith("subtask/")) {
+			const result = await subscriptionHandler(endpoint, payload, signal);
+			if (result.ok && ["account/select", "account/remove", "logout"].includes(endpoint)) await connection.close();
+			return result;
+		}
 		try {
 			signal?.throwIfAborted();
 			if (!subtasks) {

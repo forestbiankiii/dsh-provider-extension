@@ -88,6 +88,12 @@ export declare const en: {
     readonly codexSpeedSaved: "Speed mode saved.";
     readonly codexSpeedHint: "Fast prioritizes supported models and may use quota faster. Reasoning effort stays unchanged.";
     readonly codexSpeedUnsupported: "No Fast-capable model in the current catalog; requests stay standard.";
+    readonly codexConnection: "Codex connection";
+    readonly codexConnectionSse: "SSE (default)";
+    readonly codexConnectionWebsocket: "WebSocket (experimental)";
+    readonly codexConnectionSaved: "Codex connection preference saved.";
+    readonly codexConnectionHint: "Reuse a connection for ordinary Codex replies; full context is still sent and speed/usage savings are not guaranteed. Saving opens no socket. Uses the existing proxy. WebSocket failures do not silently fall back to SSE; select SSE explicitly if needed. Title/summary requests stay SSE.";
+    readonly codexConnectionCloudConflict: "WebSocket and cloud compression cannot be enabled together. Choose DSH compression before WebSocket, or SSE before cloud compression.";
     readonly codexCompaction: "Cloud context compression";
     readonly codexCompactionDsh: "DSH (default)";
     readonly codexCompactionCloud: "Cloud (experimental)";

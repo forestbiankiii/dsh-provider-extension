@@ -19,6 +19,7 @@ import { codexImageFeaturesSchema, type CodexImageFeaturesConfig } from './codex
 import type { ProviderBalanceReaders } from './usage/provider-balances.ts'
 import { codexSubtasksSchema, createCodexSubtasksOwner, type CodexSubtasksConfig } from './codex/subtasks.ts'
 import { compactionModeSchema, createCompactionModeOwner, type CompactionModeConfig } from './codex/cloud-compaction.ts'
+import { connectionModeSchema, createConnectionModeOwner, type ConnectionModeConfig } from './codex/connection-mode.ts'
 
 export const name = 'provider-extension'
 export const Config = Schema.object({
@@ -28,6 +29,7 @@ export const Config = Schema.object({
   codexImageFeatures: codexImageFeaturesSchema,
   codexSubtasks: codexSubtasksSchema,
   codexCompactionMode: compactionModeSchema,
+  codexConnectionMode: connectionModeSchema,
   claudeExecutable: Schema.string().default('claude').description('Official Claude Code executable; no shell command string.'),
   claudeStreamIdleTimeoutMs: Schema.natural().default(300000).description('Claude CLI output idle timeout in milliseconds.'),
   claudeUnsupportedFields: Schema.union(['error', 'ignore'] as const).default('error').description('Reject unsupported temperature/maxTokens/stop by default; ignore explicitly drops them.'),
@@ -44,7 +46,7 @@ export const inject = [
 ]
 
 /** Mount Host-side Antigravity and Codex services, LLM adapters, RPC routes, and tools. */
-export function apply(ctx: Context, config: ClaudeConfig & { codexOutputVerbosity?: OutputVerbosityConfig; codexContextLength?: ContextLengthConfig; codexSpeedMode?: SpeedModeConfig; codexImageFeatures?: CodexImageFeaturesConfig; codexSubtasks?: CodexSubtasksConfig; codexCompactionMode?: CompactionModeConfig } = {}): void {
+export function apply(ctx: Context, config: ClaudeConfig & { codexOutputVerbosity?: OutputVerbosityConfig; codexContextLength?: ContextLengthConfig; codexSpeedMode?: SpeedModeConfig; codexImageFeatures?: CodexImageFeaturesConfig; codexSubtasks?: CodexSubtasksConfig; codexCompactionMode?: CompactionModeConfig; codexConnectionMode?: ConnectionModeConfig } = {}): void {
   const balanceReaders: ProviderBalanceReaders = {}
   // One feature failing here used to abort the whole mount, which removed the
   // LLM adapters below (a request then failed with NO_ADAPTER), so contain it.
@@ -74,7 +76,7 @@ export function apply(ctx: Context, config: ClaudeConfig & { codexOutputVerbosit
 
   // 5. Mount ChatGPT / Codex subscription service, LLM adapter, account RPC, and tools
   try {
-    balanceReaders.codex = applyCodexSubscription(ctx, { compactionOwner: createCompactionModeOwner(ctx, config.codexCompactionMode), subtasksOwner: createCodexSubtasksOwner(ctx, config.codexSubtasks), outputVerbosityOwner: createOutputVerbosityOwner(ctx, config.codexOutputVerbosity), contextLengthOwner: createContextLengthOwner(ctx, config.codexContextLength), speedModeOwner: createSpeedModeOwner(ctx, config.codexSpeedMode), ...(config.codexImageFeatures === undefined ? {} : { imageFeaturesConfig: config.codexImageFeatures }) })
+    balanceReaders.codex = applyCodexSubscription(ctx, { connectionOwner: createConnectionModeOwner(ctx, config.codexConnectionMode), compactionOwner: createCompactionModeOwner(ctx, config.codexCompactionMode), subtasksOwner: createCodexSubtasksOwner(ctx, config.codexSubtasks), outputVerbosityOwner: createOutputVerbosityOwner(ctx, config.codexOutputVerbosity), contextLengthOwner: createContextLengthOwner(ctx, config.codexContextLength), speedModeOwner: createSpeedModeOwner(ctx, config.codexSpeedMode), ...(config.codexImageFeatures === undefined ? {} : { imageFeaturesConfig: config.codexImageFeatures }) })
   } catch (error) {
     ctx.logger?.warn(`Failed to mount Codex subscription: ${String(error)}`)
   }

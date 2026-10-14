@@ -6,7 +6,7 @@ const region=(name:string)=>source.split(`//#region src/${name}.js\n`)[1]!.split
 const start=source.indexOf('\tconst preferences = {',source.indexOf('function apply(ctx,')),preferencesSource=source.slice(start,source.indexOf('\n\tconst authModels =',start))
 const backend=new Function('ctx','compactionOwner',`${['image-models','image-features','capability-settings','settings-contract','preference-fields','subscription-rpc'].map(region).join('\n')}
 const settings={get:()=>({searchMode:'disabled',searchProvider:'dsh',speedMode:'standard'}),update:()=>{throw Error('Unexpected legacy settings write')}};
-const speedModeOwner=undefined,outputVerbosityOwner=undefined,contextLengthOwner=undefined;
+const speedModeOwner=undefined,outputVerbosityOwner=undefined,contextLengthOwner=undefined,connectionOwner=undefined;
 const imageFeaturesOwner={current:()=>({imageGeneration:true,imageEditing:true}),writable:false};
 const modelCatalog={status:()=>({}),metadata:()=>({})},provider={getModels:()=>[]},contextPreferences={status:()=>({}),current:()=>({}),update:()=>{throw Error('Unexpected context write')}};
 ${preferencesSource}

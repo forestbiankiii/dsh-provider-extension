@@ -66,6 +66,7 @@ await build({
     '@earendil-works/*',
     'https-proxy-agent',
     'agent-base',
+    'ws',
   ],
   logLevel: 'info',
 })

@@ -8,6 +8,7 @@ import { type SpeedModeConfig } from './codex/speed-mode.ts';
 import { type CodexImageFeaturesConfig } from './codex/image-features.ts';
 import { type CodexSubtasksConfig } from './codex/subtasks.ts';
 import { type CompactionModeConfig } from './codex/cloud-compaction.ts';
+import { type ConnectionModeConfig } from './codex/connection-mode.ts';
 export declare const name = "provider-extension";
 export declare const Config: Schema<Schemastery.ObjectS<{
     codexOutputVerbosity: Schema<"default" | "low" | "medium" | "high", "default" | "low" | "medium" | "high">;
@@ -29,7 +30,8 @@ export declare const Config: Schema<Schemastery.ObjectS<{
         imageEditing: Schema<boolean, boolean>;
     }>>;
     codexSubtasks: Schema<"disabled" | "enabled", "disabled" | "enabled">;
-    codexCompactionMode: Schema<"dsh" | "cloud", "dsh" | "cloud">;
+    codexCompactionMode: Schema<"cloud" | "dsh", "cloud" | "dsh">;
+    codexConnectionMode: Schema<"sse" | "websocket", "sse" | "websocket">;
     claudeExecutable: Schema<string, string>;
     claudeStreamIdleTimeoutMs: Schema<number, number>;
     claudeUnsupportedFields: Schema<"error" | "ignore", "error" | "ignore">;
@@ -53,7 +55,8 @@ export declare const Config: Schema<Schemastery.ObjectS<{
         imageEditing: Schema<boolean, boolean>;
     }>>;
     codexSubtasks: Schema<"disabled" | "enabled", "disabled" | "enabled">;
-    codexCompactionMode: Schema<"dsh" | "cloud", "dsh" | "cloud">;
+    codexCompactionMode: Schema<"cloud" | "dsh", "cloud" | "dsh">;
+    codexConnectionMode: Schema<"sse" | "websocket", "sse" | "websocket">;
     claudeExecutable: Schema<string, string>;
     claudeStreamIdleTimeoutMs: Schema<number, number>;
     claudeUnsupportedFields: Schema<"error" | "ignore", "error" | "ignore">;
@@ -67,6 +70,7 @@ export declare function apply(ctx: Context, config?: ClaudeConfig & {
     codexImageFeatures?: CodexImageFeaturesConfig;
     codexSubtasks?: CodexSubtasksConfig;
     codexCompactionMode?: CompactionModeConfig;
+    codexConnectionMode?: ConnectionModeConfig;
 }): void;
 export * from './antigravity/index.ts';
 export { AntigravitySearchProvider, ANTIGRAVITY_SEARCH_PROVIDER_ID } from './antigravity/search.ts';

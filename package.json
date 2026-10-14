@@ -1,6 +1,6 @@
 {
   "name": "dsh-provider-extension",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "description": "An unofficial DSH Desktop provider extension: provider/account/model controls, subscription quota and profile-wide usage statistics",
   "license": "MIT",
   "author": "forestbiankiii",
@@ -59,7 +59,8 @@
   },
   "dependencies": {
     "@cortexkit/antigravity-auth-core": "2.2.0",
-    "https-proxy-agent": "^7.0.6"
+    "https-proxy-agent": "^7.0.6",
+    "ws": "^8.21.3"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.2",

@@ -8,7 +8,7 @@ export function volatileEnum<T extends string>(choices: readonly T[], fallback: 
   ;(field.meta as typeof field.meta & { volatile: boolean }).volatile = true
   return field
 }
-export function createEnumOwner<T extends string>(ctx: Context, config: EnumConfig<T> | undefined, key: string, choices: readonly T[], fallback: T, label: string) {
+export function createEnumOwner<T extends string>(ctx: Context, config: EnumConfig<T> | undefined, key: string, choices: readonly T[], fallback: T, label: string, validate?: (previous: Record<string, unknown>, value: T) => void) {
   const entry = (ctx.fiber as unknown as { entry?: { options: { config?: Record<string, unknown> } } } | undefined)?.entry
   const editor = ctx.get('configEditor') as { edit(entry: unknown, change: (current: Record<string, unknown>) => Record<string, unknown>): Promise<void> } | undefined
   const current = (): T => {
@@ -28,7 +28,7 @@ export function createEnumOwner<T extends string>(ctx: Context, config: EnumConf
       if (saving) throw Error(`A ${label} update is already in progress`)
       signal?.throwIfAborted(); saving = true
       try {
-        await editor!.edit(entry, previous => ({ ...previous, [key]: value }))
+        await editor!.edit(entry, previous => { validate?.(previous, value); return { ...previous, [key]: value } })
         if (current() !== value) throw Error(`DSH did not accept the ${label} update`)
       } finally { saving = false }
     },

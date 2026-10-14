@@ -72,6 +72,12 @@ describe('published artifact contract', () => {
     expect(client).toContain('codexCompactionCloud');expect(client).toContain('codexCompactionDsh')
     expect(host).not.toContain('codex_cloud_compact');expect(host).not.toContain('/responses/compact')
   })
+  it('ships opt-in native WebSocket reuse with explicit fallback and compression guards',()=>{
+    const host=readFileSync(new URL('../lib/index.js',import.meta.url),'utf8')
+    expect(host).toContain('codexConnectionMode');expect(host).toContain('automatic SSE fallback is disabled');expect(host).toContain('connection-mode-conflict')
+    expect(host).toContain('closeOpenAICodexWebSocketSessions');expect(host).toContain('import WebSocket from "ws"')
+    expect(client).toContain('codexConnectionSse');expect(client).toContain('codexConnectionWebsocket');expect(client).toContain('codexConnectionCloudConflict')
+  })
   it('ships the confirmed Standard/Fast preference and its deferred shared-operation tool', () => {
     const host = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
     expect(host).toContain('codexSpeedMode')

@@ -7,10 +7,10 @@ export async function requestCodexCompaction(rpc:CodexVerbosityProps['rpc'],valu
   if(value!==undefined&&!choices.includes(value))throw new Error('Invalid Codex compaction mode')
   const response=await rpc.call('/api',value===undefined?'codex-subscription/preferences/status':'codex-subscription/preferences/update',value===undefined?{}:{compactionMode:value},signal)
   if(!response.ok)throw new Error(response.error.message)
-  const result=response.value as {compactionMode?:unknown;compactionWritable?:unknown}
+  const result=response.value as {compactionMode?:unknown;compactionWritable?:unknown;connectionMode?:unknown}
   if(!result||!choices.includes(result.compactionMode as CompactionMode)||typeof result.compactionWritable!=='boolean')throw new Error('Invalid Codex compaction preference response')
   if(value!==undefined&&result.compactionMode!==value)throw new Error('DSH did not accept the Codex compaction preference')
-  return {value:result.compactionMode as CompactionMode,writable:result.compactionWritable}
+  return {value:result.compactionMode as CompactionMode,writable:result.compactionWritable,...(result.connectionMode==='websocket'?{note:'codexConnectionCloudConflict' as const}:{})}
 }
 const load=async(rpc:CodexVerbosityProps['rpc'],value?:string,signal?:AbortSignal):Promise<CodexSelectView>=>requestCodexCompaction(rpc,value as CompactionMode|undefined,signal)
 export function CodexCompactionSettings(props:CodexVerbosityProps){return <CodexSelectSetting {...props} choices={choices} labels={['codexCompactionDsh','codexCompactionCloud']} title="codexCompaction" hint="codexCompactionHint" savedLabel="codexCompactionSaved" load={load}/>}

@@ -2,7 +2,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import { type EnumConfig } from './enum-preference.ts';
 export type CompactionMode = 'dsh' | 'cloud';
 export type CompactionModeConfig = EnumConfig<CompactionMode>;
-export declare const compactionModeSchema: import("@deepseek-ai/schemastery").default<"dsh" | "cloud", "dsh" | "cloud">;
+export declare const compactionModeSchema: import("@deepseek-ai/schemastery").default<"cloud" | "dsh", "cloud" | "dsh">;
 export declare const createCompactionModeOwner: (ctx: Context, config?: CompactionModeConfig) => {
     current: () => CompactionMode;
     writable: boolean;

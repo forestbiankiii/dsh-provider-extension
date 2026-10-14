@@ -79,7 +79,17 @@ When the server emits compaction, its encrypted item and following output are ke
 
 This is an experimental request parameter. Offline fixtures do not establish ChatGPT subscription support. Backend rejection or a mismatched native replay boundary is surfaced, not silently switched to another mode or given new retries. You can select **DSH (default)** to continue. Existing DSH recovery policy remains unchanged; this does not guarantee a fix for upstream request-buffer errors.
 
-Cloud compaction may consume subscription usage and lose contextual details; encrypted items are not readable summaries. Verification uses synthetic HTTP, never your live conversation. WebSocket and native review-model features are not enabled.
+Cloud compaction may consume subscription usage and lose contextual details; encrypted items are not readable summaries. Verification uses synthetic HTTP, never your live conversation. Cloud mode is mutually exclusive with WebSocket; native review-model features are not enabled.
+
+## Codex WebSocket connection (experimental)
+
+Choose **OpenAI Codex → Manage settings → Codex connection → SSE (default)** or **WebSocket (experimental)**. Saving changes only the preference; it does not open a socket or start a model request. Only ordinary Codex conversation replies use the optional transport. Title/native-summary requests stay SSE; other providers and search routing are unchanged.
+
+This uses the native SDK protocol and connection reuse while still sending full context. It does not enable `previous_response_id` incremental caching or guarantee faster/cheaper inference. Sockets are isolated by plugin instance, session, actual account and resolved proxy, using existing environment/system proxy selection. Failure does not actually fall back to SSE or change account/model; explicitly select SSE if needed. Existing bounded SDK connection recovery and DSH error policy remain; no retry setting is added.
+
+WebSocket and cloud compression are mutually exclusive. Select **DSH (default)** compression before enabling WebSocket; select SSE before enabling cloud compression. Both native config writes and request admission validate the exclusion instead of silently disabling another preference.
+
+Switching to SSE retires idle sockets and lets accepted WebSocket streams finish before release. Cancellation, session teardown, account changes/removal, sign-out and plugin unload clean up owned connections; account changes/unload may interrupt an active request. Offline validation uses fake sockets and never contacts the model service. Actual subscription/proxy support remains user acceptance.
 
 ## Codex speed mode
 

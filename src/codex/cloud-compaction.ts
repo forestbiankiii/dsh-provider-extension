@@ -6,7 +6,7 @@ import { createEnumOwner, volatileEnum, type EnumConfig } from './enum-preferenc
 export type CompactionMode='dsh'|'cloud'
 export type CompactionModeConfig=EnumConfig<CompactionMode>
 export const compactionModeSchema=volatileEnum(['dsh','cloud'] as const,'dsh','Experimental inline Codex cloud compaction; DSH history/manual compaction remain available. Subscription usage may apply.')
-export const createCompactionModeOwner=(ctx:Context,config?:CompactionModeConfig)=>createEnumOwner(ctx,config,'codexCompactionMode',['dsh','cloud'] as const,'dsh','Codex cloud compaction')
+export const createCompactionModeOwner=(ctx:Context,config?:CompactionModeConfig)=>createEnumOwner(ctx,config,'codexCompactionMode',['dsh','cloud'] as const,'dsh','Codex cloud compaction',(previous,value)=>{if(value==='cloud'&&previous.codexConnectionMode==='websocket')throw Object.assign(new Error('Cloud compaction requires SSE; choose SSE before enabling cloud mode'),{code:'connection-mode-conflict'})})
 export const CLOUD_CHECKPOINT='dpeCodexCloudCompactionV1'
 const MAX_BYTES=2*1024*1024,MAX_AGE_MS=7*24*60*60*1000
 const clone=<T>(v:T):T=>JSON.parse(JSON.stringify(v))
