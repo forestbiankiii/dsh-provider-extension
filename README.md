@@ -53,6 +53,8 @@ Click a thumbnail to open a large modal viewer. The floating toolbar provides zo
 
 With **Image editing** and annotations enabled, **Continue editing** prepares the clean source, a numbered PNG location reference and coordinate/note prompt in the current Codex composer. Erase prepares a same-size black/white region mask instead. Nothing modifies the saved original or submits automatically. Existing images/reference chips are not overwritten, and a draft revision change during preparation cancels the handoff. Review the draft and press Send; editing may use subscription quota.
 
+An image you paste, upload, or send from the sketch board's **Attach to composer** is already a usable edit reference: the assistant passes the image's `sha256` id to the edit tool, and DSH reads the byte size, format and dimensions from the current session. You do not need to upload it again or supply a workspace path. Only images you selected in this session are accepted; `read_image` stays for genuine workspace files.
+
 ## Codex sketch board
 
 Open **Sketch board** using the pen icon in the Codex composer's left tool row (hover for its label), or in the large-image toolbar. Draw with pen/pencil/highlighter, brush/object erasers, lines, arrows, rectangles, ellipses, editable curves and text. Select objects to move, scale and recolor them. Layers support add/duplicate/delete/reorder/show/hide/lock; brush erasure affects only its own layer. Ctrl/Cmd+Z undoes, Shift+Ctrl/Cmd+Z redoes, and Space+drag pans after the canvas has focus.

@@ -72,6 +72,14 @@ describe('published artifact contract', () => {
     expect(client).toContain('codexCompactionCloud');expect(client).toContain('codexCompactionDsh')
     expect(host).not.toContain('codex_cloud_compact');expect(host).not.toContain('/responses/compact')
   })
+  it('ships session-image references that need only the sha256 attachment id',()=>{
+    const host=readFileSync(new URL('../lib/index.js',import.meta.url),'utf8')
+    expect(host).toContain('is not an image in the current session')
+    expect(host).toContain('the host resolves the stored pixels')
+    expect(host).toContain('Optional stored byte size. Not required for a session-authorized attachmentId.')
+    const referenceSection=host.slice(host.indexOf('referenceImages:{'),host.indexOf('referenceImages:{')+2000)
+    expect(referenceSection).not.toContain('required:!0,description:"Copy the complete reference')
+  })
   it('ships opt-in native WebSocket reuse with explicit fallback and compression guards',()=>{
     const host=readFileSync(new URL('../lib/index.js',import.meta.url),'utf8')
     expect(host).toContain('codexConnectionMode');expect(host).toContain('automatic SSE fallback is disabled');expect(host).toContain('connection-mode-conflict')

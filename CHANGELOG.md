@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.22.1
+
+- Make `codex_image_generate` accept an image the user already pasted, uploaded or drew as a session reference. `referenceImages` entries now require only the full `sha256` `attachmentId`; the host resolves stored media type, byte size and dimensions from the session instead of demanding values the model cannot see. A supplied mismatch can no longer override stored metadata.
+- Stop directing the assistant to `read_image` or a workspace path for an attached image. `read_image` remains for real workspace files, and the fail-closed message now says the id is not an image in this session. Only images the user selected are still accepted.
+- Report a clearer reason when an id is absent, and cover session, nested tool-result, bare-digest, contradictory-metadata, missing-session and file-path cases in tests. No image request is made by these tests.
+
 ## 0.22.0
 
 - Add a user-only Codex connection preference, default SSE, with experimental native WebSocket socket reuse. Send full context rather than enabling incremental/cached request semantics; models, accounts, reasoning, search and auxiliary title/summary requests are unchanged.
