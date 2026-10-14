@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.22.2
+
+- Authorize an attached image from durable session history rather than only the live request surface. When a summary or image offload has replaced the visible span, the picture the user pasted is still reachable by its `sha256` id instead of being rejected as "not an image in the current session".
+- Fall back to `deriveMessages()` on hosts whose session object lacks the event-history accessors, and return no references for a missing session.
+
 ## 0.22.1
 
 - Make `codex_image_generate` accept an image the user already pasted, uploaded or drew as a session reference. `referenceImages` entries now require only the full `sha256` `attachmentId`; the host resolves stored media type, byte size and dimensions from the session instead of demanding values the model cannot see. A supplied mismatch can no longer override stored metadata.

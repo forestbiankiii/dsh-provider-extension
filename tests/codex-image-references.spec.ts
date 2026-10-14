@@ -4,9 +4,10 @@ import { describe, expect, it, vi } from 'vitest'
 // Exercise the real image-edit reference resolution without the bundled OAuth runtime.
 const source = readFileSync(new URL('../src/codex/index.js', import.meta.url), 'utf8')
 const region = source.split('//#region src/codex-images.js\n')[1]!.split('//#endregion')[0]!
-const { editImages, sessionImageReferences } = new Function(`${region}\nreturn { editImages, sessionImageReferences };`)() as {
+const { editImages, sessionImageReferences, sessionImageMessages } = new Function(`${region}\nreturn { editImages, sessionImageReferences, sessionImageMessages };`)() as {
   editImages(values: unknown[], attachments: any, signal: AbortSignal, messages: unknown[] | undefined): Promise<{ image_url: string }[]>
   sessionImageReferences(messages: unknown[]): Map<string, any>
+  sessionImageMessages(session: unknown): unknown[]
 }
 const digest = (seed: string) => seed.repeat(64).slice(0, 64)
 const attachmentId = (seed: string) => `sha256:${digest(seed)}`
@@ -52,6 +53,26 @@ describe('Session image references for Codex edits', () => {
     expect(sessionImageReferences(nested).has(attachmentId('a'))).toBe(true)
     await expect(editImages([{ attachmentId: '/tmp/sketch.png' }], f.attachments, new AbortController().signal, sessionMessages)).rejects.toThrow('attachmentId is a file path or filename')
     await expect(editImages([{ attachmentId: 'sketch.png' }], f.attachments, new AbortController().signal, sessionMessages)).rejects.toThrow('attachmentId is a file path or filename')
+  })
+  it('authorizes an attached image from durable history even when the surface no longer shows it', async () => {
+    const f = fixture()
+    const imageEvent = { type: 'user/message', seq: 1, data: { role: 'user', content: [{ type: 'image', attachment: stored }] } }
+    const noise = { type: 'turn/start', seq: 0, data: { turn: 1 } }
+    const summaryEvent = { type: 'user/message', seq: 2, data: { role: 'user', content: [{ type: 'text', text: 'summary' }] } }
+    const session = {
+      deriveMessages: () => [summaryEvent.data],
+      snapshotEvents: () => [noise, imageEvent, summaryEvent],
+      deriveEventMessage: (event: { type: string; data: unknown }) => (event.type === 'user/message' ? event.data : null),
+    }
+    expect(sessionImageMessages(session)).toHaveLength(2)
+    // A deriveMessages-only host would have lost the picture during compaction/offload.
+    expect(sessionImageReferences(session.deriveMessages()).size).toBe(0)
+    await editImages([{ attachmentId: attachmentId('a') }], f.attachments, new AbortController().signal, sessionImageMessages(session))
+    expect(f.readImage).toHaveBeenCalledOnce()
+  })
+  it('returns no messages for a missing session or a host without the session store', () => {
+    expect(sessionImageMessages(undefined)).toEqual([])
+    expect(sessionImageMessages({ deriveMessages: () => [{ role: 'user', content: [] }] })).toEqual([{ role: 'user', content: [] }])
   })
   it('keeps the complete-reference path working when the host supplies no session messages', async () => {
     const f = fixture()

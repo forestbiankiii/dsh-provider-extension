@@ -53,7 +53,7 @@ Click a thumbnail to open a large modal viewer. The floating toolbar provides zo
 
 With **Image editing** and annotations enabled, **Continue editing** prepares the clean source, a numbered PNG location reference and coordinate/note prompt in the current Codex composer. Erase prepares a same-size black/white region mask instead. Nothing modifies the saved original or submits automatically. Existing images/reference chips are not overwritten, and a draft revision change during preparation cancels the handoff. Review the draft and press Send; editing may use subscription quota.
 
-An image you paste, upload, or send from the sketch board's **Attach to composer** is already a usable edit reference: the assistant passes the image's `sha256` id to the edit tool, and DSH reads the byte size, format and dimensions from the current session. You do not need to upload it again or supply a workspace path. Only images you selected in this session are accepted; `read_image` stays for genuine workspace files.
+An image you paste, upload, or send from the sketch board's **Attach to composer** is already a usable edit reference: the assistant passes the image's `sha256` id to the edit tool, and DSH reads the byte size, format and dimensions from the current session. You do not need to upload it again or supply a workspace path. References come from the complete session history, so an image sent earlier still works after summarization or image offloading. Only images you selected in this session are accepted; `read_image` stays for genuine workspace files.
 
 ## Codex sketch board
 

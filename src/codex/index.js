@@ -2331,6 +2331,20 @@ function referenceOf(value, attachments) {
 		attachmentId
 	});
 }
+function sessionImageMessages(session) {
+	if (!session) return [];
+	// Summary/offload can hide a picture from the request surface without removing its authorized history.
+	if (typeof session.snapshotEvents === "function" && typeof session.deriveEventMessage === "function") {
+		const messages = [];
+		for (const event of session.snapshotEvents()) {
+			if (!["user/message", "assistant/message", "tool/result"].includes(event.type)) continue;
+			const message = session.deriveEventMessage(event);
+			if (message) messages.push(message);
+		}
+		return messages;
+	}
+	return session.deriveMessages?.() ?? [];
+}
 function sessionImageReferences(messages) {
 	const references = /* @__PURE__ */ new Map();
 	const visit = (content) => {
@@ -4351,7 +4365,7 @@ function apply(ctx, { outputVerbosityOwner, contextLengthOwner, speedModeOwner, 
 		getAuth: resolveAuth,
 		readCredential: (options) => store.read(PROVIDER, options),
 		attachments: ctx.attachments,
-		getSessionMessages: (sessionId) => ctx.get?.("sessions")?.get?.(sessionId)?.deriveMessages?.() ?? [],
+		getSessionMessages: (sessionId) => sessionImageMessages(ctx.get?.("sessions")?.get?.(sessionId)),
 		originalImages,
 		fetch: (input, init) => network.fetch("image", input, init)
 	})), () => ({ ...settings.get(), ...imageFeaturesOwner.current() }), listener => {
