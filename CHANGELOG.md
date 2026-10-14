@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This project was named `dsh-model-panel` until 0.4.0; earlier entries keep the names in use at the time.
 
+## 0.22.3
+
+- Resolve selected Codex image references against the full in-memory Session event log via non-deprecated `eventAt`/`deriveEventMessage`, not only the currently visible surface. Pasted/uploaded/sketch attachments remain usable after summary compaction or image offload; missing sessions remain fail-closed and older host objects fall back to `deriveMessages`.
+- Add a regression that constructs the actual `codex_image_generate` tool definition and asserts only the selected SHA attachment id is required while host-stored image metadata remains authoritative.
+
 ## 0.22.2
 
 - Authorize an attached image from durable session history rather than only the live request surface. When a summary or image offload has replaced the visible span, the picture the user pasted is still reachable by its `sha256` id instead of being rejected as "not an image in the current session".

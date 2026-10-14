@@ -2334,10 +2334,11 @@ function referenceOf(value, attachments) {
 function sessionImageMessages(session) {
 	if (!session) return [];
 	// Summary/offload can hide a picture from the request surface without removing its authorized history.
-	if (typeof session.snapshotEvents === "function" && typeof session.deriveEventMessage === "function") {
+	if (typeof session.eventAt === "function" && typeof session.deriveEventMessage === "function" && Number.isSafeInteger(session.seq)) {
 		const messages = [];
-		for (const event of session.snapshotEvents()) {
-			if (!["user/message", "assistant/message", "tool/result"].includes(event.type)) continue;
+		for (let seq = 0; seq < session.seq; seq++) {
+			const event = session.eventAt(seq);
+			if (!event || !["user/message", "assistant/message", "tool/result"].includes(event.type)) continue;
 			const message = session.deriveEventMessage(event);
 			if (message) messages.push(message);
 		}

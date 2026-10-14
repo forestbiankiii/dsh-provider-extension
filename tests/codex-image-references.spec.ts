@@ -4,10 +4,11 @@ import { describe, expect, it, vi } from 'vitest'
 // Exercise the real image-edit reference resolution without the bundled OAuth runtime.
 const source = readFileSync(new URL('../src/codex/index.js', import.meta.url), 'utf8')
 const region = source.split('//#region src/codex-images.js\n')[1]!.split('//#endregion')[0]!
-const { editImages, sessionImageReferences, sessionImageMessages } = new Function(`${region}\nreturn { editImages, sessionImageReferences, sessionImageMessages };`)() as {
+const { editImages, sessionImageReferences, sessionImageMessages, createTool } = new Function('defineTool','IMAGE_MODELS', `${region}\nreturn { editImages, sessionImageReferences, sessionImageMessages, createTool: options => createCodexImageTool(options) };`)((definition: unknown) => definition, {'gpt-image-2':['auto','low','medium','high'],'gpt-image-2.5-flare':['auto','low','medium','high','xhigh','max'],'gpt-image-2.5-sunburst':['auto','low','medium','high','xhigh','max']}) as {
   editImages(values: unknown[], attachments: any, signal: AbortSignal, messages: unknown[] | undefined): Promise<{ image_url: string }[]>
   sessionImageReferences(messages: unknown[]): Map<string, any>
   sessionImageMessages(session: unknown): unknown[]
+  createTool(options?: Record<string, unknown>): { parameters: any }
 }
 const digest = (seed: string) => seed.repeat(64).slice(0, 64)
 const attachmentId = (seed: string) => `sha256:${digest(seed)}`
@@ -24,6 +25,13 @@ function fixture() {
   }
 }
 describe('Session image references for Codex edits', () => {
+  it('publishes only attachmentId as required for a user-selected reference', () => {
+    const tool = createTool({})
+    const item = tool.parameters.referenceImages.items
+    expect(item.properties.attachmentId.required).toBe(true)
+    for (const key of ['mediaType','bytes','width','height','name','originalDimensions']) expect(item.properties[key]?.required).not.toBe(true)
+    expect(tool.parameters.referenceImages.description).toContain('canonical metadata is resolved by the host')
+  })
   it('accepts a bare session sha256 id without the model restating stored metadata', async () => {
     const f = fixture()
     const images = await editImages([{ attachmentId: attachmentId('a') }], f.attachments, new AbortController().signal, sessionMessages)
@@ -59,9 +67,11 @@ describe('Session image references for Codex edits', () => {
     const imageEvent = { type: 'user/message', seq: 1, data: { role: 'user', content: [{ type: 'image', attachment: stored }] } }
     const noise = { type: 'turn/start', seq: 0, data: { turn: 1 } }
     const summaryEvent = { type: 'user/message', seq: 2, data: { role: 'user', content: [{ type: 'text', text: 'summary' }] } }
+    const events = [noise, imageEvent, summaryEvent]
     const session = {
+      seq: events.length,
       deriveMessages: () => [summaryEvent.data],
-      snapshotEvents: () => [noise, imageEvent, summaryEvent],
+      eventAt: (seq: number) => events[seq],
       deriveEventMessage: (event: { type: string; data: unknown }) => (event.type === 'user/message' ? event.data : null),
     }
     expect(sessionImageMessages(session)).toHaveLength(2)
